@@ -11,6 +11,7 @@ import {
 	draftResearchFromRunResult,
 	outreachRevisionRequest,
 	type RegenerateOutreachDraftInput,
+	recipientFromOutreachRevision,
 	type SaveOutreachDraftInput,
 	type SendOutreachDraftInput,
 } from "@crm/validation/outreach-draft";
@@ -61,6 +62,7 @@ export class OutreachDraftsService {
 				agentId: true,
 				agent: { select: { currentVersionId: true } },
 				result: true,
+				input: true,
 				summary: true,
 				outreachDrafts: {
 					where: { userId },
@@ -87,7 +89,9 @@ export class OutreachDraftsService {
 			pointers: input.pointers,
 			previousSubject: current?.subject ?? generated.subject,
 			previousBody: current?.body ?? generated.body,
-			recipientEmail: current?.recipientEmail ?? null,
+			recipientEmail:
+				current?.recipientEmail ??
+				recipientFromOutreachRevision(original.input),
 			researchSummary: original.summary,
 			...draftResearchFromRunResult(original.result),
 		});
@@ -217,6 +221,7 @@ export class OutreachDraftsService {
 			select: {
 				id: true,
 				result: true,
+				input: true,
 				summary: true,
 				createdAt: true,
 				agent: { select: { id: true, name: true } },
@@ -238,7 +243,8 @@ export class OutreachDraftsService {
 				runId: run.id,
 				agentId: run.agent.id,
 				agentName: run.agent.name,
-				recipientEmail: edit?.recipientEmail ?? null,
+				recipientEmail:
+					edit?.recipientEmail ?? recipientFromOutreachRevision(run.input),
 				subject: edit?.subject ?? fields.subject,
 				body: edit?.body ?? fields.body,
 				senderEmail: edit?.senderEmail ?? null,

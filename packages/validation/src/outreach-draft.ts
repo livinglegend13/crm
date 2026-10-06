@@ -69,6 +69,12 @@ export const outreachRevisionRequest = z.object({
 	researchUnknowns: z.string().nullable(),
 });
 
+export function recipientFromOutreachRevision(value: unknown) {
+	const kind = z.object({ kind: z.literal("outreach-revision") });
+	if (!kind.safeParse(value).success) return null;
+	return outreachRevisionRequest.parse(value).recipientEmail;
+}
+
 export const outreachSendersOutput = z.object({
 	addresses: z.array(z.email()),
 	replyAlertsEnabled: z.boolean(),
