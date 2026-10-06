@@ -1,9 +1,9 @@
-import { Inject } from "@nestjs/common";
 import {
 	inboxThread,
 	inboxThreadInput,
 	inboxThreadList,
 } from "@crm/validation/inbox";
+import { Inject } from "@nestjs/common";
 import { Ctx, Input, Query, Router, UseMiddlewares } from "nestjs-trpc";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
