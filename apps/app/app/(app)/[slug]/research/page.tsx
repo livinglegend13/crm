@@ -40,7 +40,10 @@ async function ResearchContent({
 	);
 	const rows = await Promise.all(
 		agents.map(async (agent) => {
-			const runs = await client.agents.history.query({ id: agent.id, limit: 10 });
+			const runs = await client.agents.history.query({
+				id: agent.id,
+				limit: 10,
+			});
 			return {
 				agent,
 				runs: await Promise.all(
@@ -95,7 +98,8 @@ async function ResearchContent({
 											(run.researchNote?.match(/https:\/\/[^\s)]+/g) ?? []).map(
 												(url) => url.replace(/[.,;]+$/, ""),
 											),
-										];
+										),
+									];
 									const entries = Object.entries(run.result ?? {}).filter(
 										([key, value]) =>
 											!/ActivityId/i.test(key) && typeof value === "string",
@@ -138,11 +142,18 @@ async function ResearchContent({
 											)}
 											{sourceUrls.length > 0 ? (
 												<div className="mt-5">
-													<h3 className="font-medium text-sm">Sources in the research note</h3>
+													<h3 className="font-medium text-sm">
+														Sources in the research note
+													</h3>
 													<ul className="mt-2 flex flex-col gap-1 text-sm">
 														{sourceUrls.map((url) => (
 															<li key={url}>
-																<a href={url} target="_blank" rel="noopener noreferrer" className="break-all text-primary hover:underline">
+																<a
+																	href={url}
+																	target="_blank"
+																	rel="noopener noreferrer"
+																	className="break-all text-primary hover:underline"
+																>
 																	{url}
 																</a>
 															</li>
@@ -157,8 +168,12 @@ async function ResearchContent({
 											)}
 											{run.researchNote ? (
 												<details className="mt-5 rounded-lg border p-4">
-													<summary className="cursor-pointer font-medium text-sm">Full research note</summary>
-													<p className="mt-4 whitespace-pre-wrap wrap-break-word text-sm">{run.researchNote}</p>
+													<summary className="cursor-pointer font-medium text-sm">
+														Full research note
+													</summary>
+													<p className="mt-4 whitespace-pre-wrap wrap-break-word text-sm">
+														{run.researchNote}
+													</p>
 												</details>
 											) : null}
 										</div>
