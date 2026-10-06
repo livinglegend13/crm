@@ -161,6 +161,7 @@ export class ConversationsService {
 		const contains = search
 			? { contains: search, mode: "insensitive" as const }
 			: undefined;
+		const nameParts = search.split(/\s+/).filter(Boolean);
 
 		const [companies, contacts, deals, slackAccount] = await Promise.all([
 			this.db.company.findMany({
@@ -176,6 +177,14 @@ export class ConversationsService {
 								{ firstName: contains },
 								{ lastName: contains },
 								{ email: contains },
+								{
+									AND: nameParts.map((part) => ({
+										OR: [
+											{ firstName: { contains: part, mode: "insensitive" } },
+											{ lastName: { contains: part, mode: "insensitive" } },
+										],
+									})),
+								},
 							],
 						}
 					: undefined,

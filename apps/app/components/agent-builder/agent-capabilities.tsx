@@ -335,7 +335,7 @@ function ResourcePicker({ onPick }: { onPick: (resource: Resource) => void }) {
 					type="button"
 				>
 					<Icon className="size-3" icon={Add} motion="none" />
-					Add a record type
+					Add a record
 				</button>
 			</PopoverTrigger>
 
@@ -369,7 +369,12 @@ function ResourcePicker({ onPick }: { onPick: (resource: Resource) => void }) {
 							) : null}
 						</button>
 					))}
-					{(results.data ?? []).length === 0 ? (
+					{results.isFetching ? (
+						<p className="px-3 py-2 text-muted-foreground text-sm">
+							Searching…
+						</p>
+					) : null}
+					{!results.isFetching && (results.data ?? []).length === 0 ? (
 						<p className="px-3 py-2 text-muted-foreground text-sm">
 							Nothing matches.
 						</p>
