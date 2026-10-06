@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { type Db, Prisma } from "@crm/db";
 import type { AgentRunStatus } from "@crm/db/enums";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
+import { agentRunResult } from "@crm/validation/agent-run-result";
 import {
 	BadRequestException,
 	ConflictException,
@@ -47,6 +48,7 @@ export class AgentRunsService {
 				status: true,
 				triggerType: true,
 				summary: true,
+				result: true,
 				modelId: true,
 				inputTokens: true,
 				outputTokens: true,
@@ -95,6 +97,7 @@ export class AgentRunsService {
 
 		return rows.map(({ _count, ...run }) => ({
 			...run,
+			result: run.result === null ? null : agentRunResult.parse(run.result),
 			totalEvents: _count.events,
 			eventsTruncated: _count.events > run.events.length,
 			canCancel:

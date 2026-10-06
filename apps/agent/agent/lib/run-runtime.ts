@@ -7,6 +7,7 @@ import {
 	type AgentManifestResource,
 	parseAgentManifest,
 } from "@crm/validation/agent-manifest";
+import { agentRunResult } from "@crm/validation/agent-run-result";
 import { z } from "zod";
 import { readCompanyHistory, readDealHistory } from "./accounts";
 import { AGENT_ACTION_EXECUTORS, isAgentActionType } from "./agent-actions";
@@ -31,11 +32,9 @@ const json = z.json();
 
 type Json = z.infer<typeof json>;
 
-const runResult = z.record(z.string(), json);
+export type RunResult = z.infer<typeof agentRunResult>;
 
-export type RunResult = z.infer<typeof runResult>;
-
-const storedRunResult = runResult.catch({});
+const storedRunResult = agentRunResult.catch({});
 
 export type SlackRunDestination = {
 	kind: "channel" | "user";

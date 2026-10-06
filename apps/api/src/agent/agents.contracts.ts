@@ -1,4 +1,5 @@
 import { schemas } from "@crm/validation";
+import { agentRunResult } from "@crm/validation/agent-run-result";
 import { z } from "zod";
 
 export const agentManifest = schemas.agents.capabilities.loose();
@@ -279,6 +280,7 @@ const agentRunSummaryOutput = z.object({
 	status: agentRunStatus,
 	triggerType: agentTriggerType,
 	summary: z.string().nullable(),
+	result: agentRunResult.nullable(),
 	modelId: z.string().nullable(),
 	inputTokens: z.number().nullable(),
 	outputTokens: z.number().nullable(),

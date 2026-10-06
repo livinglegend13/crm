@@ -2,6 +2,7 @@ import type { ZodType, z } from "zod";
 import * as activityMeta from "./activity-meta";
 import * as agentEvents from "./agent-events";
 import * as agentManifest from "./agent-manifest";
+import * as agentRunResult from "./agent-run-result";
 import * as agents from "./agents";
 import * as builderQuestion from "./builder-question";
 import * as eveStream from "./eve-stream";
@@ -12,6 +13,7 @@ export const schemas = {
 	activityMeta,
 	agentEvents,
 	agentManifest,
+	agentRunResult,
 	agents,
 	builderQuestion,
 	eveStream,
@@ -31,6 +33,7 @@ export type {
 	AgentTriggerConfig,
 	SlackDestination,
 } from "./agent-manifest";
+export type { AgentRunResult } from "./agent-run-result";
 export type {
 	Handoff,
 	HandoffChannel,

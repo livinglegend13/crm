@@ -259,6 +259,26 @@ function ExpandedRun({ run }: { run: RunRow }) {
 				<RunMeta label="Version" value={String(run.version.number)} last />
 			</div>
 
+			{run.result && Object.keys(run.result).length > 0 ? (
+				<section className="border-b px-4 py-4 sm:px-5">
+					<h3 className="font-semibold text-sm">Result</h3>
+					<dl className="mt-3 flex flex-col gap-4">
+						{Object.entries(run.result).map(([label, value]) => (
+							<div className="min-w-0" key={label}>
+								<dt className="font-medium text-muted-foreground text-xs">
+									{label}
+								</dt>
+								<dd className="mt-1 whitespace-pre-wrap wrap-break-word text-sm">
+									{typeof value === "string"
+										? value
+										: JSON.stringify(value, null, 2)}
+								</dd>
+							</div>
+						))}
+					</dl>
+				</section>
+			) : null}
+
 			<div>
 				{timeline.map((entry) =>
 					entry.kind === "event" ? (
