@@ -841,12 +841,19 @@ model OutreachDraft {
   recipientEmail String?
   subject        String
   body           String
+  status         OutreachDraftStatus @default(DRAFT)
+  approvedAt     DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@unique([runId, userId])
   @@index([userId, updatedAt])
   @@map("outreachDraft")
+}
+
+enum OutreachDraftStatus {
+  DRAFT
+  APPROVED
 }
 
 model AgentRunEvent {

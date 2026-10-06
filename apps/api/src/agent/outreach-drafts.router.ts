@@ -1,4 +1,6 @@
 import {
+	type ApproveOutreachDraftInput,
+	approveOutreachDraftInput,
 	outreachDraft,
 	outreachDraftList,
 	type SaveOutreachDraftInput,
@@ -44,5 +46,17 @@ export class OutreachDraftsRouter {
 		@Input() input: SaveOutreachDraftInput,
 	) {
 		return this.drafts.save(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: approveOutreachDraftInput,
+		output: outreachDraft,
+		meta: restMeta("POST", "/outreach-drafts/{runId}/approve", ["Outreach"]),
+	})
+	async approve(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: ApproveOutreachDraftInput,
+	) {
+		return this.drafts.approve(ctx.user.id, input);
 	}
 }

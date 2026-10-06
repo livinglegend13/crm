@@ -13,7 +13,7 @@ import {
 import { DraftWorkspace } from "@/components/sales/draft-workspace";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 
-export const metadata: Metadata = { title: "Outreach drafts" };
+export const metadata: Metadata = { title: "Filo outreach" };
 
 export default function OutreachPage({
 	searchParams,
@@ -40,13 +40,22 @@ async function OutreachContent({
 		<PageShell>
 			<PageShellHeader>
 				<PageShellHeading>
-					<PageShellTitle>Outreach drafts</PageShellTitle>
+					<PageShellTitle>Filo outreach</PageShellTitle>
 					<PageShellDescription>
-						Edit and save drafts for approval. The CRM does not send email.
+						Review research, edit emails, and approve each draft. Outlook
+						handles sending.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>
 			<PageShellContent>
+				<section className="mb-6 rounded-lg border bg-card p-5 text-sm">
+					<h2 className="font-medium">Filo Storage · India</h2>
+					<p className="mt-2 text-muted-foreground">
+						Terraeagle distributes Filo Storage. Qualification needs evidence of
+						at least 1 PB average stored capacity across a defined 12-month
+						period. An unknown capacity stays unqualified.
+					</p>
+				</section>
 				<DraftWorkspace initialDrafts={drafts} selectedRunId={draft} />
 			</PageShellContent>
 		</PageShell>

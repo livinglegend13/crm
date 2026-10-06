@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
 import { Input } from "@crm/ui/components/input";
 import { Label } from "@crm/ui/components/label";
@@ -57,7 +58,8 @@ export function DraftWorkspace({
 							{draft.subject}
 						</span>
 						<span className="mt-1 block text-muted-foreground text-xs">
-							{draft.recipientEmail || "Recipient needed"}
+							{draft.recipientEmail || "Recipient needed"} ·{" "}
+							{draft.status === "APPROVED" ? "Approved" : "Needs approval"}
 						</span>
 					</button>
 				))}
@@ -87,6 +89,17 @@ function DraftEditor({ draft }: { draft: Draft }) {
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const approve = useMutation(
+		trpc.outreachDrafts.approve.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries({
+					queryKey: trpc.outreachDrafts.list.pathKey(),
+				});
+				toast.success("Draft approved. No email was sent.");
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
 	const changed =
 		recipientEmail !== (draft.recipientEmail ?? "") ||
 		subject !== draft.subject ||
@@ -101,7 +114,12 @@ function DraftEditor({ draft }: { draft: Draft }) {
 			className="flex min-w-0 flex-col gap-5 rounded-lg border bg-card p-5"
 		>
 			<div>
-				<h2 className="font-medium text-base">Edit draft</h2>
+				<div className="flex items-center gap-2">
+					<h2 className="font-medium text-base">Review email</h2>
+					<Badge variant="outline">
+						{draft.status === "APPROVED" ? "Approved" : "Needs approval"}
+					</Badge>
+				</div>
 				<p className="mt-1 text-muted-foreground text-xs">
 					{draft.agentName} · Created{" "}
 					{new Date(draft.createdAt).toLocaleString("en-IN")}
@@ -142,6 +160,43 @@ function DraftEditor({ draft }: { draft: Draft }) {
 				<Button type="submit" disabled={!changed || save.isPending}>
 					{save.isPending ? "Saving…" : "Save draft"}
 				</Button>
+				<Button
+					type="button"
+					variant="outline"
+					disabled={
+						changed ||
+						draft.status === "APPROVED" ||
+						approve.isPending ||
+						!draft.updatedAt
+					}
+					onClick={() => {
+						if (draft.updatedAt)
+							approve.mutate({
+								runId: draft.runId,
+								expectedUpdatedAt: draft.updatedAt,
+							});
+					}}
+				>
+					{approve.isPending ? "Approving…" : "Approve draft"}
+				</Button>
+				{draft.status === "APPROVED" && !changed ? (
+					<Button
+						type="button"
+						variant="outline"
+						onClick={async () => {
+							try {
+								await navigator.clipboard.writeText(
+									`To: ${draft.recipientEmail}\nSubject: ${draft.subject}\n\n${draft.body}`,
+								);
+								toast.success("Approved email copied for Outlook.");
+							} catch {
+								toast.error("Could not copy the email.");
+							}
+						}}
+					>
+						Copy for Outlook
+					</Button>
+				) : null}
 				<Link
 					href={workspaceUrl(`/agents/${draft.agentId}`)}
 					className="text-primary text-sm hover:underline"
@@ -150,8 +205,29 @@ function DraftEditor({ draft }: { draft: Draft }) {
 				</Link>
 			</div>
 			<p className="text-muted-foreground text-xs">
-				Saving keeps this draft in the CRM. No email is sent.
+				Save your edits before approval. Editing an approved email removes its
+				approval. You send approved emails in Outlook.
 			</p>
+			<details className="rounded-lg border p-4">
+				<summary className="cursor-pointer font-medium text-sm">
+					Research and source record
+				</summary>
+				<div className="mt-4 space-y-4 text-sm">
+					{[
+						["Sources", draft.researchSources],
+						["Facts", draft.researchFacts],
+						["Unknowns", draft.researchUnknowns],
+						["Run summary", draft.researchSummary],
+					].map(([label, value]) => (
+						<div key={label}>
+							<h3 className="font-medium">{label}</h3>
+							<p className="mt-1 whitespace-pre-wrap text-muted-foreground">
+								{value || "The agent did not provide this information."}
+							</p>
+						</div>
+					))}
+				</div>
+			</details>
 		</form>
 	);
 }

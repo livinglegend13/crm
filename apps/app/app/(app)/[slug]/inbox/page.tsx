@@ -84,7 +84,10 @@ async function InboxContent({
 										{draft.subject}
 									</span>
 									<span className="mt-1 block text-muted-foreground text-xs">
-										{draft.recipientEmail || "Recipient needed"} · Edit draft
+										{draft.recipientEmail || "Recipient needed"} ·{" "}
+										{draft.status === "APPROVED"
+											? "Approved"
+											: "Needs approval"}
 									</span>
 								</Link>
 							))}
