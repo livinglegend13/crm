@@ -3,7 +3,10 @@
 import Building from "@carbon/icons-react/es/Building";
 import Close from "@carbon/icons-react/es/Close";
 import Dashboard from "@carbon/icons-react/es/Dashboard";
+import Email from "@carbon/icons-react/es/Email";
 import Partnership from "@carbon/icons-react/es/Partnership";
+import Search from "@carbon/icons-react/es/Search";
+import Send from "@carbon/icons-react/es/Send";
 import Settings from "@carbon/icons-react/es/Settings";
 import UserMultiple from "@carbon/icons-react/es/UserMultiple";
 import { Button } from "@crm/ui/components/button";
@@ -16,11 +19,6 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@crm/ui/components/sheet";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "@crm/ui/components/tooltip";
 import { cn } from "@crm/ui/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -47,8 +45,11 @@ const ITEMS: RailItem[] = [
 		icon: Bot,
 		iconClassName: "size-5",
 		match: "prefix",
-		related: ["/agents"],
 	},
+	{ title: "Agents", href: "/agents", icon: Bot, match: "prefix" },
+	{ title: "Research", href: "/research", icon: Search, match: "prefix" },
+	{ title: "Outreach", href: "/outreach", icon: Send, match: "prefix" },
+	{ title: "Inbox", href: "/inbox", icon: Email, match: "prefix" },
 	{ title: "Companies", href: "/companies", icon: Building, match: "prefix" },
 	{
 		title: "Contacts",
@@ -78,33 +79,28 @@ function RailLink({
 	onPrefetch: () => void;
 }) {
 	return (
-		<Tooltip>
-			<TooltipTrigger asChild>
-				<Button
-					asChild
-					variant="ghost"
-					size="icon"
-					className={cn(
-						"text-muted-foreground",
-						active &&
-							"bg-muted text-foreground hover:bg-muted hover:text-foreground",
-					)}
-				>
-					<Link
-						href={item.href}
-						prefetch
-						onMouseEnter={onPrefetch}
-						onFocus={onPrefetch}
-						aria-current={active ? "page" : undefined}
-						transitionTypes={["nav-lateral"]}
-					>
-						<Icon icon={item.icon} className={item.iconClassName} />
-						<span className="sr-only">{item.title}</span>
-					</Link>
-				</Button>
-			</TooltipTrigger>
-			<TooltipContent side="right">{item.title}</TooltipContent>
-		</Tooltip>
+		<Button
+			asChild
+			variant="ghost"
+			className={cn(
+				"w-full justify-center gap-3 text-muted-foreground lg:justify-start",
+				active &&
+					"bg-muted text-foreground hover:bg-muted hover:text-foreground",
+			)}
+		>
+			<Link
+				href={item.href}
+				prefetch
+				onMouseEnter={onPrefetch}
+				onFocus={onPrefetch}
+				aria-current={active ? "page" : undefined}
+				transitionTypes={["nav-lateral"]}
+			>
+				<Icon icon={item.icon} className={item.iconClassName} />
+				<span className="hidden lg:inline">{item.title}</span>
+				<span className="sr-only lg:hidden">{item.title}</span>
+			</Link>
+		</Button>
 	);
 }
 
@@ -189,18 +185,17 @@ export function AppIconRailFallback() {
 		<nav
 			aria-label="Primary"
 			aria-busy="true"
-			className="hidden w-14 shrink-0 flex-col items-center gap-1 border-r py-3 md:flex [view-transition-name:app-rail]"
+			className="hidden w-14 shrink-0 flex-col gap-1 border-r p-2 md:flex lg:w-40 [view-transition-name:app-rail]"
 		>
 			{ITEMS.map((item) => (
 				<Button
 					key={item.href}
 					variant="ghost"
-					size="icon"
+					className="w-full justify-center gap-3 lg:justify-start"
 					disabled
-					className="text-muted-foreground"
 				>
 					<Icon icon={item.icon} className={item.iconClassName} />
-					<span className="sr-only">{item.title}</span>
+					<span className="hidden lg:inline">{item.title}</span>
 				</Button>
 			))}
 		</nav>
@@ -231,7 +226,7 @@ export function AppIconRail() {
 		<>
 			<nav
 				aria-label="Primary"
-				className="hidden w-14 shrink-0 flex-col items-center gap-1 border-r py-3 md:flex [view-transition-name:app-rail]"
+				className="hidden w-14 shrink-0 flex-col gap-1 border-r p-2 md:flex lg:w-40 [view-transition-name:app-rail]"
 			>
 				{items.map((item) => (
 					<RailLink

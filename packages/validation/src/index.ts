@@ -7,6 +7,7 @@ import * as agents from "./agents";
 import * as builderQuestion from "./builder-question";
 import * as eveStream from "./eve-stream";
 import * as eveTool from "./eve-tool";
+import * as inbox from "./inbox";
 import * as slack from "./slack";
 
 export const schemas = {
@@ -18,6 +19,7 @@ export const schemas = {
 	builderQuestion,
 	eveStream,
 	eveTool,
+	inbox,
 	slack,
 } as const;
 

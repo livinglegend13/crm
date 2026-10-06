@@ -121,10 +121,12 @@ export async function safeFetch(
 		method = "GET",
 		timeoutMs = DEFAULT_TIMEOUT_MS,
 		headers,
+		httpsOnly = false,
 	}: {
 		method?: "GET" | "HEAD";
 		timeoutMs?: number;
 		headers?: Record<string, string>;
+		httpsOnly?: boolean;
 	} = {},
 ): Promise<{ response: Response; url: URL } | null> {
 	let target: URL;
@@ -135,6 +137,7 @@ export async function safeFetch(
 	}
 
 	for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+		if (httpsOnly && target.protocol !== "https:") return null;
 		if (target.protocol !== "https:" && target.protocol !== "http:")
 			return null;
 		if (!(await resolvesToPublicHost(target.hostname, timeoutMs))) return null;
