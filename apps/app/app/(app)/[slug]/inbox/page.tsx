@@ -7,10 +7,10 @@ import {
 	PageShell,
 	PageShellContent,
 	PageShellDescription,
+	PageShellFallback,
 	PageShellHeader,
 	PageShellHeading,
 	PageShellTitle,
-	PageShellFallback,
 } from "@/components/page-shell";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 
