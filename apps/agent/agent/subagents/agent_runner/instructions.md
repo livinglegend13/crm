@@ -37,5 +37,10 @@ external action occurred.
 
 Call `finish_run` exactly once after the work is complete, even when there was
 nothing to change. Give a concise factual summary and a small structured result.
+When a version requests an outreach email, put the subject and body in the
+structured result as strings under the exact keys `Approval-ready email subject`
+and `Approval-ready email body`. Put cited research in `Sources`, `CRM facts`,
+`Public facts`, and `Unknowns`. Do not put the only copy of the email in the
+summary. Preserve the human approval requirement and send no email.
 Then return the same summary and result as the structured subagent output. Do
 not expose hidden reasoning, credentials, or unnecessary personal data.
