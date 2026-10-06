@@ -6,7 +6,7 @@ import {
 } from "@crm/db";
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
-import type { SyncSource } from "./mailbox.constants";
+import type { MailboxSyncSource } from "./mailbox.constants";
 
 export const SYNC_LEASE_MS = 300_000;
 
@@ -16,7 +16,10 @@ export class SyncStateService {
 
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
-	async get(userId: string, source: SyncSource): Promise<MailboxSync | null> {
+	async get(
+		userId: string,
+		source: MailboxSyncSource,
+	): Promise<MailboxSync | null> {
 		return this.db.mailboxSync.findUnique({
 			where: { userId_source: { userId, source } },
 		});
@@ -24,7 +27,7 @@ export class SyncStateService {
 
 	async listForUser(
 		userId: string,
-		sources?: readonly SyncSource[],
+		sources?: readonly MailboxSyncSource[],
 	): Promise<MailboxSync[]> {
 		const where: Prisma.MailboxSyncWhereInput = { userId };
 		if (sources) where.source = { in: [...sources] };
@@ -60,7 +63,7 @@ export class SyncStateService {
 
 	async ensure(
 		userId: string,
-		source: SyncSource,
+		source: MailboxSyncSource,
 		options: { autoCreate: boolean },
 	): Promise<MailboxSync> {
 		return this.db.mailboxSync.upsert({
@@ -124,7 +127,7 @@ export class SyncStateService {
 
 	async rewindForBackfill(
 		userId: string,
-		source: SyncSource,
+		source: MailboxSyncSource,
 		from: Date,
 	): Promise<MailboxSync | null> {
 		const row = await this.get(userId, source);
@@ -177,7 +180,7 @@ export class SyncStateService {
 
 	async setAutoCreate(
 		userId: string,
-		source: SyncSource,
+		source: MailboxSyncSource,
 		enabled: boolean,
 	): Promise<void> {
 		await this.db.mailboxSync.updateMany({
@@ -186,7 +189,7 @@ export class SyncStateService {
 		});
 	}
 
-	async remove(userId: string, source?: SyncSource): Promise<void> {
+	async remove(userId: string, source?: MailboxSyncSource): Promise<void> {
 		const where: Prisma.MailboxSyncWhereInput = { userId };
 		if (source) where.source = source;
 

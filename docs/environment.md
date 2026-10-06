@@ -43,6 +43,12 @@ the three that is genuinely optional on its own — set it to your tenant's GUID
 refuse other tenants at Microsoft instead of at `ALLOWED_SIGN_IN`. There is **no
 Microsoft equivalent of `hd`**: `tenantId` is the whole of it.
 
+**`OUTREACH_SENDER_ADDRESSES`** is an optional comma-separated list of Microsoft
+365 sender mailboxes. The Outreach page offers only these addresses. The signed-in
+user needs delegated `Mail.Send.Shared` and Exchange Send As rights to send.
+Shared inbox sync also needs delegated `Mail.Read.Shared` and Exchange Full Access
+rights. A missing list removes the sender capability.
+
 **Neither pair is required, but an install wants one of them or an SSO provider** —
 with none, the sign-in page says so by name rather than rendering nothing.
 

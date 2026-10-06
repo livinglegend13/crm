@@ -20,12 +20,13 @@ export {
 
 export const SYNC_SOURCES = ["calendar", "gmail", "outlook"] as const;
 export type SyncSource = (typeof SYNC_SOURCES)[number];
+export type MailboxSyncSource = SyncSource | `outlook:${string}`;
 
 export const GOOGLE_SYNC_SOURCES = ["calendar", "gmail"] as const;
 export const MICROSOFT_SYNC_SOURCES = ["outlook"] as const;
 
 export type GoogleSyncSource = (typeof GOOGLE_SYNC_SOURCES)[number];
-export type MicrosoftSyncSource = (typeof MICROSOFT_SYNC_SOURCES)[number];
+export type MicrosoftSyncSource = "outlook" | `outlook:${string}`;
 
 export function isGoogleSyncSource(source: string): source is GoogleSyncSource {
 	return (GOOGLE_SYNC_SOURCES as readonly string[]).includes(source);
@@ -34,17 +35,17 @@ export function isGoogleSyncSource(source: string): source is GoogleSyncSource {
 export function isMicrosoftSyncSource(
 	source: string,
 ): source is MicrosoftSyncSource {
-	return (MICROSOFT_SYNC_SOURCES as readonly string[]).includes(source);
+	return source === "outlook" || source.startsWith("outlook:");
 }
 
 export const SCOPE_FOR_SOURCE = {
 	calendar: CALENDAR_SCOPE,
 	gmail: GMAIL_SCOPE,
 	outlook: OUTLOOK_MAIL_SCOPE,
-} satisfies Record<SyncSource, string>;
+} satisfies Record<(typeof SYNC_SOURCES)[number], string>;
 
 export const PROVIDER_FOR_SOURCE = {
 	calendar: GOOGLE_PROVIDER_ID,
 	gmail: GOOGLE_PROVIDER_ID,
 	outlook: MICROSOFT_PROVIDER_ID,
-} satisfies Record<SyncSource, MailboxProviderId>;
+} satisfies Record<(typeof SYNC_SOURCES)[number], MailboxProviderId>;

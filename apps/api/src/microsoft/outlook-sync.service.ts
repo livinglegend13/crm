@@ -24,6 +24,7 @@ import {
 	type GraphFolder,
 	type GraphMessage,
 } from "./graph.client";
+import { senderFromSource } from "./sender-mailboxes";
 
 const MAX_MESSAGES_PER_TICK = 120;
 const PAGE_SIZE = 50;
@@ -85,16 +86,22 @@ export class OutlookSyncService {
 
 		await this.state.markRunning(row.id);
 
-		const me = await this.graph.me(token.accessToken);
-		if (me.outcome !== "ok") {
-			return this.handleFailure(row, me);
+		const sharedMailbox = senderFromSource(row.source);
+		if (row.source.startsWith("outlook:") && !sharedMailbox) {
+			await this.state.remove(row.userId, row.source as `outlook:${string}`);
+			return {
+				source: "outlook",
+				userId: row.userId,
+				status: "skipped",
+				reason: "Sender mailbox is no longer configured.",
+			};
 		}
-
-		const mailbox = (
-			me.data.mail ??
-			me.data.userPrincipalName ??
-			""
-		).toLowerCase();
+		let mailbox = sharedMailbox ?? "";
+		if (!sharedMailbox) {
+			const me = await this.graph.me(token.accessToken);
+			if (me.outcome !== "ok") return this.handleFailure(row, me);
+			mailbox = (me.data.mail ?? me.data.userPrincipalName ?? "").toLowerCase();
+		}
 
 		if (!mailbox) {
 			await this.state.markFailed(
@@ -113,7 +120,13 @@ export class OutlookSyncService {
 			return this.start(row, initializedAt);
 		}
 
-		return this.incremental(row, token.accessToken, mailbox, row.cursor);
+		return this.incremental(
+			row,
+			token.accessToken,
+			mailbox,
+			row.cursor,
+			Boolean(sharedMailbox),
+		);
 	}
 
 	private async start(
@@ -138,6 +151,7 @@ export class OutlookSyncService {
 		accessToken: string,
 		mailbox: string,
 		cursor: string,
+		shared: boolean,
 	): Promise<OutlookSyncOutcome> {
 		const from = new Date(cursor);
 		if (Number.isNaN(from.getTime())) {
@@ -150,17 +164,24 @@ export class OutlookSyncService {
 			};
 		}
 
-		const folders = await this.excludedFolderIds(accessToken);
+		const folders = await this.excludedFolderIds(
+			accessToken,
+			shared ? mailbox : undefined,
+		);
 		if (folders.outcome !== "ok") {
 			return this.handleFailure(row, folders.failure);
 		}
 
 		const excluded = folders.ids;
 
-		let page = await this.graph.listMessages(accessToken, {
-			after: new Date(from.getTime() - OVERLAP_MS),
-			top: PAGE_SIZE,
-		});
+		let page = await this.graph.listMessages(
+			accessToken,
+			{
+				after: new Date(from.getTime() - OVERLAP_MS),
+				top: PAGE_SIZE,
+			},
+			shared ? mailbox : undefined,
+		);
 
 		let context: MatchContext | null = null;
 		let written = 0;
@@ -233,11 +254,12 @@ export class OutlookSyncService {
 
 	private async excludedFolderIds(
 		accessToken: string,
+		mailbox?: string,
 	): Promise<ExcludedFolders> {
 		const ids = new Set<string>();
 
 		for (const name of EXCLUDED_FOLDERS) {
-			const folder = await this.graph.folder(accessToken, name);
+			const folder = await this.graph.folder(accessToken, name, mailbox);
 
 			if (folder.outcome === "ok") {
 				if (folder.data.id) ids.add(folder.data.id);

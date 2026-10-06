@@ -6,6 +6,12 @@ import {
 
 const BASE = "https://graph.microsoft.com/v1.0/me";
 
+function mailboxBase(mailbox?: string): string {
+	return mailbox
+		? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailbox)}`
+		: BASE;
+}
+
 const MESSAGE_FIELDS = [
 	"id",
 	"internetMessageId",
@@ -64,6 +70,42 @@ export type GraphFolder = {
 export class GraphClient {
 	constructor(private readonly api: MailboxApiClient) {}
 
+	async sendMail(
+		accessToken: string,
+		message: {
+			from: string;
+			to: string;
+			subject: string;
+			body: string;
+		},
+	): Promise<"accepted" | "rejected" | "unknown"> {
+		try {
+			const response = await fetch(`${BASE}/sendMail`, {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					message: {
+						subject: message.subject,
+						body: { contentType: "Text", content: message.body },
+						from: { emailAddress: { address: message.from } },
+						toRecipients: [{ emailAddress: { address: message.to } }],
+					},
+					saveToSentItems: true,
+				}),
+				signal: AbortSignal.timeout(30_000),
+			});
+			if (response.status === 202) return "accepted";
+			if ([400, 401, 403, 404, 422].includes(response.status))
+				return "rejected";
+			return "unknown";
+		} catch {
+			return "unknown";
+		}
+	}
+
 	async me(accessToken: string): Promise<MailboxResult<GraphUser>> {
 		return this.api.get<GraphUser>(BASE, accessToken, {
 			$select: "mail,userPrincipalName",
@@ -73,9 +115,10 @@ export class GraphClient {
 	async folder(
 		accessToken: string,
 		wellKnownName: string,
+		mailbox?: string,
 	): Promise<MailboxResult<GraphFolder>> {
 		return this.api.get<GraphFolder>(
-			`${BASE}/mailFolders/${wellKnownName}`,
+			`${mailboxBase(mailbox)}/mailFolders/${wellKnownName}`,
 			accessToken,
 			{ $select: "id" },
 		);
@@ -84,13 +127,18 @@ export class GraphClient {
 	async listMessages(
 		accessToken: string,
 		options: { after: Date; top: number },
+		mailbox?: string,
 	): Promise<MailboxResult<MessagePage>> {
-		return this.api.get<MessagePage>(`${BASE}/messages`, accessToken, {
-			$select: MESSAGE_FIELDS,
-			$filter: `receivedDateTime gt ${options.after.toISOString()} and isDraft eq false`,
-			$orderby: "receivedDateTime asc",
-			$top: options.top,
-		});
+		return this.api.get<MessagePage>(
+			`${mailboxBase(mailbox)}/messages`,
+			accessToken,
+			{
+				$select: MESSAGE_FIELDS,
+				$filter: `receivedDateTime gt ${options.after.toISOString()} and isDraft eq false`,
+				$orderby: "receivedDateTime asc",
+				$top: options.top,
+			},
+		);
 	}
 
 	async nextPage(

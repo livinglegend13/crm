@@ -7,8 +7,6 @@ import { AgentRunsService } from "./agent-runs.service";
 import { AgentTriggerService } from "./agent-trigger.service";
 import { AgentsRouter } from "./agents.router";
 import { DispatchHeartbeatService } from "./dispatch-heartbeat.service";
-import { OutreachDraftsRouter } from "./outreach-drafts.router";
-import { OutreachDraftsService } from "./outreach-drafts.service";
 import { ResearchKeyService } from "./research-key.service";
 
 @Module({
@@ -21,8 +19,6 @@ import { ResearchKeyService } from "./research-key.service";
 		AgentTriggerService,
 		AgentsRouter,
 		DispatchHeartbeatService,
-		OutreachDraftsRouter,
-		OutreachDraftsService,
 		ResearchKeyService,
 	],
 	exports: [

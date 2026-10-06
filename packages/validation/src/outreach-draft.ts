@@ -8,8 +8,12 @@ export const outreachDraft = z.object({
 	recipientEmail: z.string().nullable(),
 	subject: z.string(),
 	body: z.string(),
-	status: z.enum(["DRAFT", "APPROVED"]),
+	senderEmail: z.string().nullable(),
+	status: z.enum(["DRAFT", "APPROVED", "SENDING", "SENT", "SEND_UNKNOWN"]),
 	approvedAt: z.string().nullable(),
+	sendStartedAt: z.string().nullable(),
+	sentAt: z.string().nullable(),
+	sendError: z.string().nullable(),
 	researchSummary: z.string().nullable(),
 	researchSources: z.string().nullable(),
 	researchFacts: z.string().nullable(),
@@ -25,6 +29,7 @@ export const saveOutreachDraftInput = z.object({
 	recipientEmail: z.union([z.email(), z.literal("")]),
 	subject: z.string().trim().min(1).max(300),
 	body: z.string().trim().min(1).max(20_000),
+	senderEmail: z.email().nullable(),
 });
 
 export const approveOutreachDraftInput = z.object({
@@ -32,11 +37,35 @@ export const approveOutreachDraftInput = z.object({
 	expectedUpdatedAt: z.iso.datetime(),
 });
 
+export const sendOutreachDraftInput = approveOutreachDraftInput;
+
+export const outreachSendersOutput = z.object({
+	addresses: z.array(z.email()),
+	connected: z.boolean(),
+	readConnected: z.boolean(),
+	mailboxes: z.array(
+		z.object({
+			address: z.email(),
+			status: z.string().nullable(),
+			lastSyncedAt: z.string().nullable(),
+			lastError: z.string().nullable(),
+		}),
+	),
+	reason: z.string().nullable(),
+});
+
+export const sendOutreachDraftOutput = z.object({
+	status: z.enum(["APPROVED", "SENT", "SEND_UNKNOWN"]),
+	sentAt: z.string().nullable(),
+	error: z.string().nullable(),
+});
+
 export type OutreachDraft = z.infer<typeof outreachDraft>;
 export type SaveOutreachDraftInput = z.infer<typeof saveOutreachDraftInput>;
 export type ApproveOutreachDraftInput = z.infer<
 	typeof approveOutreachDraftInput
 >;
+export type SendOutreachDraftInput = z.infer<typeof sendOutreachDraftInput>;
 
 export function draftFieldsFromRunResult(value: unknown) {
 	const result = agentRunResult.parse(value);

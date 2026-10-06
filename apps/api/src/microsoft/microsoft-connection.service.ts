@@ -1,4 +1,8 @@
-import { isMicrosoftConfigured, signsInWithMicrosoft } from "@crm/auth";
+import {
+	isMicrosoftConfigured,
+	OUTLOOK_READ_SHARED_SCOPE,
+	signsInWithMicrosoft,
+} from "@crm/auth";
 import type { Db, Prisma } from "@crm/db";
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { ActivityStampService } from "../crm/activity-stamp.service";
@@ -17,6 +21,7 @@ import type {
 	PurgeSyncedDataOutput,
 	RevokeAccessOutput,
 } from "./microsoft.contracts";
+import { outreachSenders, sharedOutlookSource } from "./sender-mailboxes";
 
 const PURGE_TIMEOUT_MS = 60_000;
 
@@ -73,7 +78,7 @@ export class MicrosoftConnectionService {
 	async onConnected(userId: string): Promise<void> {
 		const [granted, existing] = await Promise.all([
 			this.tokens.grantedScopes(userId, MICROSOFT_PROVIDER_ID),
-			this.state.listForUser(userId, MICROSOFT_SYNC_SOURCES),
+			this.state.listForUser(userId),
 		]);
 
 		const known = new Set(existing.map((row) => row.source));
@@ -87,6 +92,20 @@ export class MicrosoftConnectionService {
 			await this.state.ensure(userId, source, { autoCreate: false });
 
 			added.push(source);
+		}
+
+		if (granted.has(OUTLOOK_READ_SHARED_SCOPE)) {
+			for (const address of outreachSenders()) {
+				const source = sharedOutlookSource(address);
+				if (known.has(source)) continue;
+				await this.state.ensure(userId, source, { autoCreate: false });
+				added.push(source);
+			}
+		} else {
+			for (const row of existing) {
+				if (!row.source.startsWith("outlook:")) continue;
+				await this.state.remove(userId, row.source as `outlook:${string}`);
+			}
 		}
 
 		if (added.length > 0) {
@@ -150,8 +169,11 @@ export class MicrosoftConnectionService {
 	}
 
 	async revoke(userId: string): Promise<RevokeAccessOutput> {
-		for (const source of MICROSOFT_SYNC_SOURCES) {
-			await this.state.remove(userId, source);
+		const rows = await this.state.listForUser(userId);
+		for (const row of rows) {
+			if (row.source === "outlook" || row.source.startsWith("outlook:")) {
+				await this.state.remove(userId, row.source as MicrosoftSyncSource);
+			}
 		}
 
 		const revoked = await this.tokens.revoke(userId, MICROSOFT_PROVIDER_ID);

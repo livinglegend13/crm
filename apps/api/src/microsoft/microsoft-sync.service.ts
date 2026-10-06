@@ -1,9 +1,6 @@
 import { ConflictException, Injectable } from "@nestjs/common";
 import { SyncStateService } from "../mailbox/sync-state.service";
-import {
-	MICROSOFT_SYNC_SOURCES,
-	type MicrosoftSyncSource,
-} from "./microsoft.constants";
+import type { MicrosoftSyncSource } from "./microsoft.constants";
 import { MICROSOFT_SYNC } from "./microsoft-sync-config";
 import { OutlookSyncService } from "./outlook-sync.service";
 
@@ -22,8 +19,11 @@ export class MicrosoftSyncService {
 	}
 
 	async runForUser(userId: string): Promise<void> {
-		for (const source of MICROSOFT_SYNC_SOURCES) {
-			await this.runOne(userId, source);
+		const rows = await this.state.listForUser(userId);
+		for (const row of rows) {
+			if (row.source === "outlook" || row.source.startsWith("outlook:")) {
+				await this.outlook.sync(row);
+			}
 		}
 	}
 

@@ -70,6 +70,10 @@ export class EnvironmentVariables {
 
 	@IsOptional()
 	@IsString()
+	OUTREACH_SENDER_ADDRESSES?: string;
+
+	@IsOptional()
+	@IsString()
 	SLACK_CLIENT_ID?: string;
 
 	@IsOptional()

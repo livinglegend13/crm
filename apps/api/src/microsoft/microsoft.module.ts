@@ -16,6 +16,6 @@ import { OutlookSyncService } from "./outlook-sync.service";
 		MicrosoftConnectionService,
 		MicrosoftRouter,
 	],
-	exports: [MicrosoftSyncService, MicrosoftConnectionService],
+	exports: [GraphClient, MicrosoftSyncService, MicrosoftConnectionService],
 })
 export class MicrosoftModule {}

@@ -3,8 +3,12 @@ import {
 	approveOutreachDraftInput,
 	outreachDraft,
 	outreachDraftList,
+	outreachSendersOutput,
 	type SaveOutreachDraftInput,
+	type SendOutreachDraftInput,
 	saveOutreachDraftInput,
+	sendOutreachDraftInput,
+	sendOutreachDraftOutput,
 } from "@crm/validation/outreach-draft";
 import { Inject } from "@nestjs/common";
 import {
@@ -36,6 +40,14 @@ export class OutreachDraftsRouter {
 		return this.drafts.list(ctx.user.id);
 	}
 
+	@Query({
+		output: outreachSendersOutput,
+		meta: restMeta("GET", "/outreach-senders", ["Outreach"]),
+	})
+	async senders(@Ctx() ctx: AuthedTrpcContext) {
+		return this.drafts.senders(ctx.user.id);
+	}
+
 	@Mutation({
 		input: saveOutreachDraftInput,
 		output: outreachDraft,
@@ -58,5 +70,17 @@ export class OutreachDraftsRouter {
 		@Input() input: ApproveOutreachDraftInput,
 	) {
 		return this.drafts.approve(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: sendOutreachDraftInput,
+		output: sendOutreachDraftOutput,
+		meta: restMeta("POST", "/outreach-drafts/{runId}/send", ["Outreach"]),
+	})
+	async send(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: SendOutreachDraftInput,
+	) {
+		return this.drafts.send(ctx.user.id, input);
 	}
 }

@@ -843,6 +843,10 @@ model OutreachDraft {
   body           String
   status         OutreachDraftStatus @default(DRAFT)
   approvedAt     DateTime?
+  senderEmail    String?
+  sendStartedAt  DateTime?
+  sentAt         DateTime?
+  sendError      String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -854,6 +858,9 @@ model OutreachDraft {
 enum OutreachDraftStatus {
   DRAFT
   APPROVED
+  SENDING
+  SENT
+  SEND_UNKNOWN
 }
 
 model AgentRunEvent {

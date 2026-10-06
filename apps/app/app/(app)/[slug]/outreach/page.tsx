@@ -42,8 +42,8 @@ async function OutreachContent({
 				<PageShellHeading>
 					<PageShellTitle>Filo outreach</PageShellTitle>
 					<PageShellDescription>
-						Review research, edit emails, and approve each draft. Outlook
-						handles sending.
+						Review research, edit emails, approve each draft, and send from a
+						connected Microsoft 365 sender.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>

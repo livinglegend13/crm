@@ -2,7 +2,7 @@
 
 import Warning from "@carbon/icons-react/es/Warning";
 import { authClient } from "@crm/auth/client";
-import { MICROSOFT_SYNC_SCOPES } from "@crm/auth/scopes";
+import { MICROSOFT_REQUESTED_SCOPES } from "@crm/auth/scopes";
 import { Alert, AlertDescription, AlertTitle } from "@crm/ui/components/alert";
 import {
 	AlertDialog,
@@ -49,6 +49,16 @@ const CONNECT_ERRORS = new Map([
 	],
 ]);
 
+async function linkMicrosoft(slug: string) {
+	const origin = window.location.origin;
+	return authClient.linkSocial({
+		provider: "microsoft",
+		scopes: [...MICROSOFT_REQUESTED_SCOPES],
+		callbackURL: `${origin}/${slug}/settings/connections/microsoft`,
+		errorCallbackURL: `${origin}/${slug}/settings/connections/microsoft?provider=microsoft`,
+	});
+}
+
 function MicrosoftUnavailable() {
 	return (
 		<Card>
@@ -85,14 +95,7 @@ function ConnectMicrosoft({
 	async function handleConnect() {
 		setPending(true);
 
-		const origin = window.location.origin;
-
-		const { error } = await authClient.linkSocial({
-			provider: "microsoft",
-			scopes: [...MICROSOFT_SYNC_SCOPES],
-			callbackURL: `${origin}/${slug}/settings/connections/microsoft`,
-			errorCallbackURL: `${origin}/${slug}/settings/connections/microsoft?provider=microsoft`,
-		});
+		const { error } = await linkMicrosoft(slug);
 
 		if (error) fail(error.message);
 	}
@@ -107,8 +110,7 @@ function ConnectMicrosoft({
 					</div>
 				</CardTitle>
 				<CardDescription>
-					Read-only Outlook mail. Only conversations with companies in the CRM
-					are stored.
+					Connect Outlook mail and approved outreach sending.
 				</CardDescription>
 
 				<CardAction>
@@ -155,6 +157,8 @@ export function MicrosoftConnection({
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
+	const [reconnectPending, setReconnectPending] = useState(false);
+	const senders = useQuery(trpc.outreachDrafts.senders.queryOptions());
 
 	const status = useQuery({
 		...trpc.microsoft.status.queryOptions(),
@@ -229,6 +233,9 @@ export function MicrosoftConnection({
 		.at(-1);
 
 	const healthy = failing.length === 0 && hasRefreshToken;
+	const needsOutreachGrant =
+		(senders.data?.addresses.length ?? 0) > 0 &&
+		(!senders.data?.connected || !senders.data?.readConnected);
 
 	return (
 		<Card>
@@ -260,6 +267,43 @@ export function MicrosoftConnection({
 			</CardHeader>
 
 			<CardContent>
+				{needsOutreachGrant ? (
+					<div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-4">
+						<p className="text-muted-foreground text-sm">
+							Grant shared mailbox reading and sending for approved outreach.
+						</p>
+						<Button
+							type="button"
+							disabled={reconnectPending}
+							onClick={() => {
+								setReconnectPending(true);
+								linkMicrosoft(slug)
+									.then(({ error }) => {
+										if (error) toast.error(error.message);
+									})
+									.catch(() => toast.error("Could not reach Microsoft."))
+									.finally(() => setReconnectPending(false));
+							}}
+						>
+							{reconnectPending ? "Connecting…" : "Grant outreach access"}
+						</Button>
+					</div>
+				) : null}
+				{senders.data?.mailboxes.length ? (
+					<div className="rounded-md border p-4">
+						<h3 className="font-medium text-sm">Outreach mailboxes</h3>
+						<div className="mt-3 grid gap-2 sm:grid-cols-2">
+							{senders.data.mailboxes.map((mailbox) => (
+								<p
+									key={mailbox.address}
+									className="text-muted-foreground text-xs"
+								>
+									{mailbox.address} · {mailbox.status ?? "Waiting for consent"}
+								</p>
+							))}
+						</div>
+					</div>
+				) : null}
 				<div className="flex items-center justify-between gap-6">
 					<p className="max-w-lg text-muted-foreground text-sm">
 						Inbox currently watches new mail. Import up to 30 days of older

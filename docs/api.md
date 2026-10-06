@@ -165,6 +165,19 @@ Two rules follow for the serverless build:
 
 ## Two mail providers, one pipeline
 
+Approved outreach uses the signed-in user's delegated Microsoft token. The
+sender address must appear in `OUTREACH_SENDER_ADDRESSES`. Graph sends only after
+the user clicks Send on an approved draft. The draft changes to `SENDING` before
+the Graph call, so concurrent clicks cannot duplicate a message. An unknown
+Graph outcome stays blocked until a person checks Sent Items. Exchange Send As
+rights limit which configured addresses can send.
+
+Configured sender inboxes use `outlook:<address>` sync sources. Each source
+reads Graph `/users/{address}/messages` with delegated `Mail.Read.Shared` and
+Exchange Full Access rights. The existing thread writer stores those messages,
+and the Inbox shows them to the signed-in user. The CRM never stores mailbox
+passwords.
+
 `apps/api/src/mailbox` is everything neither Google nor Microsoft owns:
 `MailboxApiClient` (bearer GET, and the one place a status code becomes an outcome),
 `SyncStateService` (the `MailboxSync` row), `MailboxTokenService`,

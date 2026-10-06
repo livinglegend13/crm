@@ -15,7 +15,7 @@ const t = initTRPC.create();
 const publicProcedure = t.procedure;
 import { timelineInput, timelineOutput, timelineCountsInput, timelineCountsOutput, myTasksInput, myTasksOutput, activityCreateInput, activityCreateOutput, completeInput, completeOutput } from "../activities/activities.contracts";
 import { agentListOutput, agentReviseInput, agentReviseOutput, agentIdInput, agentFilesOutput, agentSaveFileInput, agentSaveFileOutput, agentByIdOutput, agentHistoryInput, agentHistoryOutput, agentActivityOutput, agentUpdateInput, agentUpdateOutput, agentDeployInput, agentDeployOutput, agentPauseOutput, agentResumeOutput, agentArchiveOutput, agentRestoreOutput, agentRemoveOutput, agentRunNowInput, agentRunNowOutput, agentRetryRunInput, agentRetryRunOutput, agentCancelRunInput, agentCancelRunOutput } from "../agent/agents.contracts";
-import { outreachDraftList, saveOutreachDraftInput, outreachDraft, approveOutreachDraftInput } from "@crm/validation/outreach-draft";
+import { outreachDraftList, outreachSendersOutput, saveOutreachDraftInput, outreachDraft, approveOutreachDraftInput, sendOutreachDraftInput, sendOutreachDraftOutput } from "@crm/validation/outreach-draft";
 import { apiKeyListInput, apiKeyListOutput, createApiKeyInput, createApiKeyOutput, revokeApiKeyInput, revokeApiKeyOutput } from "../api-keys/api-keys.contracts";
 import { companyListInput, companyListOutput, companyIdInput, companyDetailOutput, companyOptionsInput, companyOptionOutput, companyCreateInput, companySummaryOutput, companyUpdateArgs, companyArchiveResultOutput, companyBulkOwnerInput, companyBulkResultOutput, companyBulkInput, companyEnrichOutput, companyResearchOutput, setPrimaryContactInput, companySetPrimaryContactOutput } from "../companies/companies.contracts";
 import { contactListInput, contactListOutput, contactIdInput, contactByIdOutput, contactCreateInput, contactBasicOutput, contactUpdateArgs, contactNameOutput, contactEnrichOutput, contactBulkOwnerInput, bulkResultOutput, contactBulkCompanyInput, contactBulkInput, factDecisionInput, decideFactOutput } from "../contacts/contacts.contracts";
@@ -132,6 +132,9 @@ const appRouter = t.router({
     list: publicProcedure
       .output(outreachDraftList)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    senders: publicProcedure
+      .output(outreachSendersOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     save: publicProcedure
       .input(saveOutreachDraftInput)
       .output(outreachDraft)
@@ -139,6 +142,10 @@ const appRouter = t.router({
     approve: publicProcedure
       .input(approveOutreachDraftInput)
       .output(outreachDraft)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    send: publicProcedure
+      .input(sendOutreachDraftInput)
+      .output(sendOutreachDraftOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
   apiKeys: t.router({

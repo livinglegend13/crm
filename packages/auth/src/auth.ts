@@ -14,7 +14,7 @@ import { ensureWorkspaceMembership } from "./organization";
 import {
 	GOOGLE_PROVIDER_ID,
 	MICROSOFT_PROVIDER_ID,
-	MICROSOFT_SYNC_SCOPES,
+	MICROSOFT_REQUESTED_SCOPES,
 	SLACK_PROVIDER_ID,
 	SYNC_SCOPES,
 } from "./scopes";
@@ -57,7 +57,7 @@ if (env.microsoft) {
 		clientSecret: env.microsoft.clientSecret,
 		tenantId: env.microsoft.tenantId,
 
-		scope: [...MICROSOFT_SYNC_SCOPES],
+		scope: [...MICROSOFT_REQUESTED_SCOPES],
 
 		prompt: "select_account",
 

@@ -15,9 +15,16 @@ export const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 export const CALENDAR_SCOPE =
 	"https://www.googleapis.com/auth/calendar.readonly";
 export const OUTLOOK_MAIL_SCOPE = "Mail.Read";
+export const OUTLOOK_SEND_SHARED_SCOPE = "Mail.Send.Shared";
+export const OUTLOOK_READ_SHARED_SCOPE = "Mail.Read.Shared";
 
 export const SYNC_SCOPES = [GMAIL_SCOPE, CALENDAR_SCOPE] as const;
 export const MICROSOFT_SYNC_SCOPES = [OUTLOOK_MAIL_SCOPE] as const;
+export const MICROSOFT_REQUESTED_SCOPES = [
+	...MICROSOFT_SYNC_SCOPES,
+	OUTLOOK_SEND_SHARED_SCOPE,
+	OUTLOOK_READ_SHARED_SCOPE,
+] as const;
 
 export const SYNC_SCOPES_FOR = {
 	[GOOGLE_PROVIDER_ID]: SYNC_SCOPES,
