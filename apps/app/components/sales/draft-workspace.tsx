@@ -232,11 +232,12 @@ function DraftEditor({
 			onError: (error) => toast.error(error.message),
 		}),
 	);
-	const changed =
+	const contentChanged =
 		recipientEmail !== (draft.recipientEmail ?? "") ||
 		subject !== draft.subject ||
-		body !== draft.body ||
-		effectiveSenderEmail !== (draft.senderEmail ?? "");
+		body !== draft.body;
+	const changed =
+		contentChanged || effectiveSenderEmail !== (draft.senderEmail ?? "");
 	const locked = ["SENDING", "SENT", "SEND_UNKNOWN"].includes(draft.status);
 
 	return (
@@ -428,7 +429,7 @@ function DraftEditor({
 					type="button"
 					variant="outline"
 					disabled={
-						changed || pointers.trim().length < 3 || regenerate.isPending
+						contentChanged || pointers.trim().length < 3 || regenerate.isPending
 					}
 					onClick={() =>
 						regenerate.mutate({
@@ -440,7 +441,7 @@ function DraftEditor({
 				>
 					{regenerate.isPending ? "Queueing revision…" : "Regenerate draft"}
 				</Button>
-				{changed ? (
+				{contentChanged ? (
 					<p className="mt-2 text-muted-foreground text-xs">
 						Save current edits before requesting a revision.
 					</p>
