@@ -104,6 +104,9 @@ async function ResearchContent({
 										([key, value]) =>
 											!/ActivityId/i.test(key) && typeof value === "string",
 									);
+									const usesOldMetric = /annual storage|PB\/year/i.test(
+										run.researchNote ?? "",
+									);
 									const companyAction = run.actions.find(
 										(action) =>
 											action.targetType === "company" && action.targetId,
@@ -124,6 +127,13 @@ async function ResearchContent({
 													</Link>
 												) : null}
 											</div>
+											{usesOldMetric ? (
+												<p className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+													This historical note uses an older storage metric.
+													Confirm 1 PB average stored capacity over 12 months
+													before qualification.
+												</p>
+											) : null}
 											{entries.length > 0 ? (
 												<dl className="mt-4 grid gap-4">
 													{entries.map(([key, value]) => (
