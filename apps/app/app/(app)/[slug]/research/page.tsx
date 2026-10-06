@@ -51,8 +51,8 @@ async function ResearchContent({
 				<PageShellHeading>
 					<PageShellTitle>Research</PageShellTitle>
 					<PageShellDescription>
-						Review qualification runs and their evidence before changing a
-						company’s Filo fit.
+						Review saved evidence before changing a company’s Filo fit. The
+						qualification gate uses 1 PB average stored capacity over 12 months.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>
@@ -69,17 +69,58 @@ async function ResearchContent({
 								<p className="mt-1 text-muted-foreground text-sm">
 									{runs.length} recent runs
 								</p>
-								{runs.map((run) => (
-									<div key={run.id} className="mt-4 border-t pt-4">
-										<p className="text-sm">
-											{run.summary || "No summary saved"}
-										</p>
-										<span className="mt-2 block text-muted-foreground text-xs">
-											{run.status.toLowerCase()} ·{" "}
-											{new Date(run.createdAt).toLocaleString("en-IN")}
-										</span>
-									</div>
-								))}
+								{runs.map((run) => {
+									const entries = Object.entries(run.result ?? {}).filter(
+										([key, value]) =>
+											!/ActivityId/i.test(key) && typeof value === "string",
+									);
+									const companyAction = run.actions.find(
+										(action) =>
+											action.targetType === "company" && action.targetId,
+									);
+									return (
+										<div key={run.id} className="mt-4 border-t pt-4">
+											<div className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
+												<span>{run.status.toLowerCase()}</span>
+												<time>
+													{new Date(run.createdAt).toLocaleString("en-IN")}
+												</time>
+												{companyAction?.targetId ? (
+													<Link
+														href={`/${slug}/companies?record=company:${companyAction.targetId}`}
+														className="text-primary hover:underline"
+													>
+														{companyAction.targetLabel || "Open company"}
+													</Link>
+												) : null}
+											</div>
+											{entries.length > 0 ? (
+												<dl className="mt-4 grid gap-4">
+													{entries.map(([key, value]) => (
+														<div key={key}>
+															<dt className="font-medium text-sm">{key}</dt>
+															<dd className="mt-1 whitespace-pre-wrap wrap-break-word text-sm">
+																{value as string}
+															</dd>
+														</div>
+													))}
+												</dl>
+											) : (
+												<p className="mt-4 whitespace-pre-wrap wrap-break-word text-sm">
+													{run.summary || "No research result saved."}
+												</p>
+											)}
+											{!Object.keys(run.result ?? {}).some((key) =>
+												/source/i.test(key),
+											) ? (
+												<p className="mt-4 text-muted-foreground text-sm">
+													This run saved no source links. Storage capacity
+													remains unverified.
+												</p>
+											) : null}
+										</div>
+									);
+								})}
 								<Link
 									href={`/${slug}/agents/${agent.id}`}
 									className="mt-4 inline-block text-primary text-xs hover:underline"

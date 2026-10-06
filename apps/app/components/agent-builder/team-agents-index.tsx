@@ -22,6 +22,17 @@ export function TeamAgentsIndex({ initialAgents }: { initialAgents: Agents }) {
 
 	return (
 		<>
+			<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+				<p className="text-muted-foreground text-sm">
+					{rows.length} team agents
+				</p>
+				<Link
+					href={workspaceUrl("/chat")}
+					className="text-primary text-sm hover:underline"
+				>
+					Create an agent
+				</Link>
+			</div>
 			{rows.length ? (
 				<div className="overflow-hidden rounded-lg border bg-card">
 					{rows.map((agent) => (
@@ -51,7 +62,10 @@ export function TeamAgentsIndex({ initialAgents }: { initialAgents: Agents }) {
 								</span>
 							</span>
 							<span className="hidden shrink-0 font-mono text-muted-foreground text-xs sm:inline">
-								{agent.runCount} runs
+								{agent.triggers.some((trigger) => trigger.type === "SCHEDULE")
+									? "Scheduled"
+									: "Manual"}{" "}
+								· {agent.runCount} runs · Configure
 							</span>
 							<Icon
 								icon={ArrowRight}

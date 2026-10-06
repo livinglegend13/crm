@@ -22,7 +22,8 @@ export default function AgentsPage() {
 				<PageShellHeading>
 					<PageShellTitle>Team agents</PageShellTitle>
 					<PageShellDescription>
-						Durable automations created from private agent-builder chats.
+						Open an agent to configure its access, actions, and code. Create
+						more agents from Chat.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>

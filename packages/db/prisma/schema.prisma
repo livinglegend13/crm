@@ -37,6 +37,7 @@ model User {
   createdAgentVersions    AgentVersion[]                @relation("AgentVersionCreator")
   createdAgentTriggers    AgentTrigger[]                @relation("AgentTriggerCreator")
   initiatedAgentRuns      AgentRun[]                    @relation("AgentRunInitiator")
+  outreachDrafts          OutreachDraft[]              @relation("OutreachDraftEditor")
   agentAuditEvents        AgentAuditEvent[]             @relation("AgentAuditActor")
   conversationShares      AgentConversationShare[]      @relation("ConversationShareCreator")
   conversationSubmissions AgentConversationSubmission[] @relation("ConversationSubmissionAuthor")
@@ -821,6 +822,7 @@ model AgentRun {
 
   events  AgentRunEvent[]
   actions AgentAction[]
+  outreachDrafts OutreachDraft[]
 
   @@unique([id, agentId])
   @@index([agentId, createdAt])
@@ -828,6 +830,23 @@ model AgentRun {
   @@index([status, createdAt])
   @@index([triggerId, createdAt])
   @@map("agentRun")
+}
+
+model OutreachDraft {
+  id             String   @id @default(cuid())
+  runId          String
+  run            AgentRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  userId         String
+  user           User     @relation("OutreachDraftEditor", fields: [userId], references: [id], onDelete: Restrict)
+  recipientEmail String?
+  subject        String
+  body           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([runId, userId])
+  @@index([userId, updatedAt])
+  @@map("outreachDraft")
 }
 
 model AgentRunEvent {

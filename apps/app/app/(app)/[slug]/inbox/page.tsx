@@ -43,7 +43,10 @@ async function InboxContent({
 		searchParams,
 	]);
 	const client = getServerTrpcClient();
-	const threads = await client.inbox.list.query();
+	const [threads, drafts] = await Promise.all([
+		client.inbox.list.query(),
+		client.outreachDrafts.list.query(),
+	]);
 	const selectedId = requested ?? threads[0]?.id;
 	if (requested && !threads.some((thread) => thread.id === requested))
 		notFound();
@@ -63,6 +66,32 @@ async function InboxContent({
 				</PageShellHeading>
 			</PageShellHeader>
 			<PageShellContent className="min-h-0">
+				<section className="mb-6">
+					<h2 className="font-medium text-base">Drafts ({drafts.length})</h2>
+					{drafts.length === 0 ? (
+						<p className="mt-2 text-muted-foreground text-sm">
+							No outreach drafts exist yet.
+						</p>
+					) : (
+						<div className="mt-3 grid gap-3 md:grid-cols-2">
+							{drafts.map((draft) => (
+								<Link
+									key={draft.runId}
+									href={`/${slug}/outreach?draft=${encodeURIComponent(draft.runId)}`}
+									className="rounded-lg border bg-card p-4 outline-none hover:bg-muted/50 focus-visible:bg-muted/50"
+								>
+									<span className="block truncate font-medium text-sm">
+										{draft.subject}
+									</span>
+									<span className="mt-1 block text-muted-foreground text-xs">
+										{draft.recipientEmail || "Recipient needed"} · Edit draft
+									</span>
+								</Link>
+							))}
+						</div>
+					)}
+				</section>
+				<h2 className="mb-3 font-medium text-base">Mailbox conversations</h2>
 				{threads.length === 0 ? (
 					<div className="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed px-6 text-center">
 						<h2 className="font-medium text-sm">No CRM conversations yet</h2>
