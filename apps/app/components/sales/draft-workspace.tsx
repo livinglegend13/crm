@@ -35,6 +35,7 @@ export function DraftWorkspace({
 	const drafts = useQuery({
 		...trpc.outreachDrafts.list.queryOptions(),
 		initialData: initialDrafts,
+		refetchInterval: 10_000,
 	});
 	const rows = drafts.data ?? initialDrafts;
 	const senders = useQuery(trpc.outreachDrafts.senders.queryOptions());
@@ -94,6 +95,7 @@ export function DraftWorkspace({
 						draft={selected}
 						senders={senders.data?.addresses ?? []}
 						canSend={senders.data?.connected ?? false}
+						recommendedSender={senders.data?.recommendedSender ?? null}
 						senderReason={senders.data?.reason ?? null}
 					/>
 				) : null}
@@ -114,6 +116,14 @@ function MailboxConnections({ status }: { status: Senders | undefined }) {
 							? `${status.mailboxes.length} configured · Sending ${status.connected ? "connected" : "not connected"} · Inbox ${status.readConnected ? "connected" : "not connected"}`
 							: "Checking Microsoft 365 access…"}
 					</p>
+					{status ? (
+						<p className="mt-1 text-muted-foreground text-xs">
+							Reply alerts:{" "}
+							{status.replyAlertsEnabled ? "On" : "Paused for DKIM"} ·{" "}
+							{status.pendingReplyAlerts} pending · {status.unknownReplyAlerts}{" "}
+							need review
+						</p>
+					) : null}
 				</div>
 				<Link
 					href={workspaceUrl("/settings/connections/microsoft")}
@@ -133,6 +143,11 @@ function MailboxConnections({ status }: { status: Senders | undefined }) {
 									? ` · ${new Date(mailbox.lastSyncedAt).toLocaleString("en-IN")}`
 									: ""}
 							</p>
+							<p className="mt-1 text-muted-foreground text-xs">
+								{mailbox.sentLast24Hours}/{status.rotation.maxPerMailboxPerDay}{" "}
+								sends in 24 hours ·{" "}
+								{mailbox.available ? "Available" : "Cooling down"}
+							</p>
 							{mailbox.lastError ? (
 								<p className="mt-1 text-destructive text-xs">
 									{mailbox.lastError}
@@ -151,11 +166,13 @@ function DraftEditor({
 	senders,
 	canSend,
 	senderReason,
+	recommendedSender,
 }: {
 	draft: Draft;
 	senders: string[];
 	canSend: boolean;
 	senderReason: string | null;
+	recommendedSender: string | null;
 }) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
@@ -166,6 +183,8 @@ function DraftEditor({
 	const [subject, setSubject] = useState(draft.subject);
 	const [body, setBody] = useState(draft.body);
 	const [senderEmail, setSenderEmail] = useState(draft.senderEmail ?? "");
+	const effectiveSenderEmail = senderEmail || recommendedSender || "";
+	const [pointers, setPointers] = useState("");
 	const save = useMutation(
 		trpc.outreachDrafts.save.mutationOptions({
 			onSuccess: async () => {
@@ -202,11 +221,22 @@ function DraftEditor({
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const regenerate = useMutation(
+		trpc.outreachDrafts.regenerate.mutationOptions({
+			onSuccess: () => {
+				setPointers("");
+				toast.success(
+					"Revision queued. The new draft appears here after the agent finishes.",
+				);
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
 	const changed =
 		recipientEmail !== (draft.recipientEmail ?? "") ||
 		subject !== draft.subject ||
 		body !== draft.body ||
-		senderEmail !== (draft.senderEmail ?? "");
+		effectiveSenderEmail !== (draft.senderEmail ?? "");
 	const locked = ["SENDING", "SENT", "SEND_UNKNOWN"].includes(draft.status);
 
 	return (
@@ -218,7 +248,7 @@ function DraftEditor({
 					recipientEmail,
 					subject,
 					body,
-					senderEmail: senderEmail || null,
+					senderEmail: effectiveSenderEmail || null,
 				});
 			}}
 			className="flex min-w-0 flex-col gap-5 rounded-lg border bg-card p-5"
@@ -246,7 +276,7 @@ function DraftEditor({
 			<div className="flex flex-col gap-2">
 				<Label htmlFor="draft-sender">Sender mailbox</Label>
 				<Select
-					value={senderEmail}
+					value={effectiveSenderEmail}
 					onValueChange={setSenderEmail}
 					disabled={locked}
 				>
@@ -263,6 +293,12 @@ function DraftEditor({
 				</Select>
 				{senderReason ? (
 					<p className="text-muted-foreground text-xs">{senderReason}</p>
+				) : null}
+				{recommendedSender ? (
+					<p className="text-muted-foreground text-xs">
+						Suggested by rotation: {recommendedSender}. Each mailbox has 10
+						sends per 24 hours and a 15-minute gap.
+					</p>
 				) : null}
 			</div>
 			<div className="flex flex-col gap-2">
@@ -373,7 +409,44 @@ function DraftEditor({
 					{draft.sendError}
 				</p>
 			) : null}
-			<details className="rounded-lg border p-4">
+			<section className="rounded-lg border p-4">
+				<h3 className="font-medium text-sm">Regenerate with pointers</h3>
+				<p className="mt-1 text-muted-foreground text-xs">
+					The agent creates a separate draft. This draft stays unchanged.
+				</p>
+				<Textarea
+					aria-label="Revision pointers"
+					className="mt-3"
+					value={pointers}
+					onChange={(event) => setPointers(event.target.value)}
+					placeholder="For example: shorten the introduction and focus on verified storage costs."
+					maxLength={3000}
+					rows={4}
+				/>
+				<Button
+					className="mt-3"
+					type="button"
+					variant="outline"
+					disabled={
+						changed || pointers.trim().length < 3 || regenerate.isPending
+					}
+					onClick={() =>
+						regenerate.mutate({
+							runId: draft.runId,
+							pointers,
+							clientRequestId: crypto.randomUUID(),
+						})
+					}
+				>
+					{regenerate.isPending ? "Queueing revision…" : "Regenerate draft"}
+				</Button>
+				{changed ? (
+					<p className="mt-2 text-muted-foreground text-xs">
+						Save current edits before requesting a revision.
+					</p>
+				) : null}
+			</section>
+			<details className="rounded-lg border p-4" open>
 				<summary className="cursor-pointer font-medium text-sm">
 					Research and source record
 				</summary>

@@ -45,6 +45,7 @@ import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { AgentCapabilities } from "./agent-capabilities";
 import { AgentCode } from "./agent-code";
+import { AgentRuns } from "./agent-history";
 import { AgentRunsDrawer } from "./agent-runs-drawer";
 
 type AgentDetail = RouterOutputs["agents"]["byId"];
@@ -343,6 +344,30 @@ export function TeamAgentDetail({
 						) : (
 							<p className="mt-3 text-muted-foreground text-sm">
 								This agent has no runs yet. Select Run now to start it.
+							</p>
+						)}
+					</section>
+					<section className="mb-6">
+						<h2 className="mb-3 font-medium text-base">Run output</h2>
+						{runs.data?.length ? (
+							<AgentRuns
+								cancelling={cancelRun.isPending}
+								onCancel={(runId) => cancelRun.mutate({ id: agentId, runId })}
+								onRetry={(runId) =>
+									retryRun.mutate({
+										id: agentId,
+										runId,
+										clientRequestId: crypto.randomUUID(),
+									})
+								}
+								retryingRunId={
+									retryRun.isPending ? retryRun.variables?.runId : undefined
+								}
+								runs={runs.data.slice(0, 3)}
+							/>
+						) : (
+							<p className="text-muted-foreground text-sm">
+								Run this agent to see its output here.
 							</p>
 						)}
 					</section>

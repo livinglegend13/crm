@@ -6,12 +6,14 @@ import { MicrosoftRouter } from "./microsoft.router";
 import { MicrosoftConnectionService } from "./microsoft-connection.service";
 import { MicrosoftSyncService } from "./microsoft-sync.service";
 import { OutlookSyncService } from "./outlook-sync.service";
+import { OutreachRepliesService } from "./outreach-replies.service";
 
 @Module({
 	imports: [TrpcModule, MailboxModule],
 	providers: [
 		GraphClient,
 		OutlookSyncService,
+		OutreachRepliesService,
 		MicrosoftSyncService,
 		MicrosoftConnectionService,
 		MicrosoftRouter,

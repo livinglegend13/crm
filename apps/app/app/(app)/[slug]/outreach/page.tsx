@@ -35,7 +35,10 @@ async function OutreachContent({
 	await connection();
 	const { draft } = await searchParams;
 	const client = getServerTrpcClient();
-	const drafts = await client.outreachDrafts.list.query();
+	const [drafts, stats] = await Promise.all([
+		client.outreachDrafts.list.query(),
+		client.outreachDrafts.stats.query(),
+	]);
 	return (
 		<PageShell>
 			<PageShellHeader>
@@ -48,6 +51,24 @@ async function OutreachContent({
 				</PageShellHeading>
 			</PageShellHeader>
 			<PageShellContent>
+				<section
+					aria-label="Recent outreach activity"
+					className="mb-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-6"
+				>
+					{[
+						["Recent drafts", stats.drafts],
+						["Recent approved", stats.approved],
+						["Recent sent", stats.sent],
+						["Replies", stats.replies],
+						["Agent runs", stats.agentRuns],
+						["Failed runs", stats.failedRuns],
+					].map(([label, value]) => (
+						<div key={label} className="rounded-lg border bg-card p-4">
+							<p className="text-muted-foreground text-xs">{label}</p>
+							<p className="mt-2 font-semibold text-2xl">{value}</p>
+						</div>
+					))}
+				</section>
 				<section className="mb-6 rounded-lg border bg-card p-5 text-sm">
 					<h2 className="font-medium">Filo Storage · India</h2>
 					<p className="mt-2 text-muted-foreground">

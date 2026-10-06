@@ -156,6 +156,14 @@ const agentListItemOutput = z.object({
 		}),
 	),
 	runCount: z.number(),
+	latestRun: z
+		.object({
+			id: z.string(),
+			status: agentRunStatus,
+			summary: z.string().nullable(),
+			createdAt: z.string(),
+		})
+		.nullable(),
 });
 
 export const agentListOutput = z.array(agentListItemOutput);

@@ -57,6 +57,15 @@ export function TeamAgentsIndex({ initialAgents }: { initialAgents: Agents }) {
 								<span className="mt-1 block wrap-break-word text-muted-foreground text-xs sm:mt-0 sm:truncate">
 									{agent.description ?? "No description"}
 								</span>
+								<span className="mt-2 block wrap-break-word text-xs">
+									Latest output:{" "}
+									{agent.latestRun?.summary ??
+										(agent.latestRun
+											? agent.latestRun.status
+													.toLowerCase()
+													.replaceAll("_", " ")
+											: "No runs yet")}
+								</span>
 								<span className="mt-2 block font-mono text-muted-foreground text-xs sm:hidden">
 									{agent.runCount} runs
 								</span>

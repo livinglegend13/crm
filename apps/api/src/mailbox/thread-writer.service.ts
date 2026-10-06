@@ -58,7 +58,7 @@ export class ThreadWriterService {
 
 	async store(
 		row: MailboxSync,
-		options: { mailbox: string; origin: SyncSource },
+		options: { mailbox: string; origin: SyncSource; knownOutreach?: boolean },
 		parsed: IncomingMessage,
 		context: MatchContext,
 	): Promise<boolean> {
@@ -113,7 +113,7 @@ export class ThreadWriterService {
 			companyId = match.companyId;
 			contactId = match.contactId;
 
-			if (!companyId && !contactId) {
+			if (!companyId && !contactId && !options.knownOutreach) {
 				return false;
 			}
 		}

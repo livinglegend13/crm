@@ -158,9 +158,12 @@ export function AgentCode({
 			<section className="flex flex-col gap-3.5">
 				<div className="flex items-end justify-between gap-4">
 					<div>
-						<h2 className="font-semibold text-lg tracking-tight">Code</h2>
+						<h2 className="font-semibold text-lg tracking-tight">
+							Agent prompt and configuration
+						</h2>
 						<p className="text-muted-foreground text-sm">
-							What the agent actually runs.
+							Select an instructions file, then choose Edit to change the agent
+							prompt.
 						</p>
 					</div>
 

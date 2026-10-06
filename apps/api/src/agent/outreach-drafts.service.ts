@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
 	MICROSOFT_PROVIDER_ID,
 	OUTLOOK_READ_SHARED_SCOPE,
@@ -8,6 +9,8 @@ import {
 	type ApproveOutreachDraftInput,
 	draftFieldsFromRunResult,
 	draftResearchFromRunResult,
+	outreachRevisionRequest,
+	type RegenerateOutreachDraftInput,
 	type SaveOutreachDraftInput,
 	type SendOutreachDraftInput,
 } from "@crm/validation/outreach-draft";
@@ -28,6 +31,9 @@ import {
 	sharedOutlookSource,
 } from "../microsoft/sender-mailboxes";
 import { AgentAccessService } from "./agent-access.service";
+import { AgentTriggerService } from "./agent-trigger.service";
+import { senderAvailability } from "./outreach-rotation";
+import { OUTREACH_ROTATION } from "./outreach-rotation.config";
 
 @Injectable()
 export class OutreachDraftsService {
@@ -38,30 +44,153 @@ export class OutreachDraftsService {
 		private readonly state: SyncStateService,
 		private readonly graph: GraphClient,
 		private readonly microsoft: MicrosoftConnectionService,
+		private readonly trigger: AgentTriggerService,
 	) {}
+
+	async regenerate(userId: string, input: RegenerateOutreachDraftInput) {
+		await this.access.assertMember(userId);
+		const original = await this.db.agentRun.findFirst({
+			where: {
+				id: input.runId,
+				initiatedById: userId,
+				status: "SUCCEEDED",
+				agent: { status: "LIVE" },
+			},
+			select: {
+				id: true,
+				agentId: true,
+				agent: { select: { currentVersionId: true } },
+				result: true,
+				summary: true,
+				outreachDrafts: {
+					where: { userId },
+					take: 1,
+					select: { subject: true, body: true, recipientEmail: true },
+				},
+			},
+		});
+		if (!original?.result) {
+			throw new NotFoundException("This outreach draft is unavailable.");
+		}
+		const generated = draftFieldsFromRunResult(original.result);
+		if (!generated) {
+			throw new BadRequestException("This run has no email to regenerate.");
+		}
+		if (!original.agent.currentVersionId) {
+			throw new ConflictException("This agent has no deployed version.");
+		}
+		const currentVersionId = original.agent.currentVersionId;
+		const current = original.outreachDrafts[0];
+		const revision = outreachRevisionRequest.parse({
+			kind: "outreach-revision",
+			sourceRunId: original.id,
+			pointers: input.pointers,
+			previousSubject: current?.subject ?? generated.subject,
+			previousBody: current?.body ?? generated.body,
+			recipientEmail: current?.recipientEmail ?? null,
+			researchSummary: original.summary,
+			...draftResearchFromRunResult(original.result),
+		});
+		const run = await this.db.$transaction(async (tx) => {
+			const existing = await tx.agentRun.findUnique({
+				where: { idempotencyKey: input.clientRequestId },
+				select: { id: true, agentId: true, initiatedById: true },
+			});
+			if (existing) {
+				if (
+					existing.agentId !== original.agentId ||
+					existing.initiatedById !== userId
+				) {
+					throw new ConflictException(
+						"This request ID belongs to another run.",
+					);
+				}
+				return existing;
+			}
+			const active = await tx.agentRun.findFirst({
+				where: {
+					agentId: original.agentId,
+					status: { in: ["QUEUED", "RUNNING", "WAITING_FOR_APPROVAL"] },
+				},
+				select: { id: true },
+			});
+			if (active)
+				throw new ConflictException("This agent already has an active run.");
+			return tx.agentRun.create({
+				data: {
+					agentId: original.agentId,
+					versionId: currentVersionId,
+					initiatedById: userId,
+					triggerType: "MANUAL",
+					idempotencyKey: input.clientRequestId,
+					correlationId: randomUUID(),
+					input: revision,
+					events: { create: { sequence: 0, type: "run.queued", data: {} } },
+				},
+				select: { id: true, agentId: true, initiatedById: true },
+			});
+		});
+		this.trigger.deployedAgentRunQueued();
+		return { runId: run.id };
+	}
 
 	async senders(userId: string) {
 		await this.access.assertMember(userId);
 		await this.microsoft.onConnected(userId);
 		const addresses = outreachSenders();
-		const [scopes, refresh, rows] = await Promise.all([
-			this.tokens.grantedScopes(userId, MICROSOFT_PROVIDER_ID),
-			this.tokens.hasRefreshToken(userId, MICROSOFT_PROVIDER_ID),
-			this.state.listForUser(userId),
-		]);
+		const [scopes, refresh, rows, pendingReplyAlerts, unknownReplyAlerts] =
+			await Promise.all([
+				this.tokens.grantedScopes(userId, MICROSOFT_PROVIDER_ID),
+				this.tokens.hasRefreshToken(userId, MICROSOFT_PROVIDER_ID),
+				this.state.listForUser(userId),
+				this.db.outreachReplyAlert.count({
+					where: { userId, status: "PENDING" },
+				}),
+				this.db.outreachReplyAlert.count({
+					where: { userId, status: "UNKNOWN" },
+				}),
+			]);
 		const bySource = new Map(rows.map((row) => [row.source, row]));
+		const usage = await this.db.outreachDraft.groupBy({
+			by: ["senderEmail"],
+			where: {
+				senderEmail: { in: addresses },
+				status: { in: ["SENDING", "SENT", "SEND_UNKNOWN"] },
+				sendStartedAt: { gte: new Date(Date.now() - OUTREACH_ROTATION.dayMs) },
+			},
+			_count: { _all: true },
+			_max: { sendStartedAt: true },
+		});
+		const byAddress = new Map(usage.map((row) => [row.senderEmail, row]));
+		const rotationRows = addresses.map((address) => ({
+			address,
+			count: byAddress.get(address)?._count._all ?? 0,
+			lastStartedAt: byAddress.get(address)?._max.sendStartedAt ?? null,
+		}));
+		const rotation = senderAvailability(rotationRows, new Date());
 		const connected =
 			addresses.length > 0 && scopes.has(OUTLOOK_SEND_SHARED_SCOPE) && refresh;
 		const readConnected =
 			addresses.length > 0 && scopes.has(OUTLOOK_READ_SHARED_SCOPE) && refresh;
 		return {
 			addresses,
+			replyAlertsEnabled: process.env.OUTREACH_REPLY_ALERTS_ENABLED === "true",
+			pendingReplyAlerts,
+			unknownReplyAlerts,
+			recommendedSender: rotation.recommended,
+			rotation: {
+				maxPerMailboxPerDay: OUTREACH_ROTATION.maxPerMailboxPerDay,
+				minimumGapMinutes: OUTREACH_ROTATION.minimumGapMs / 60_000,
+			},
 			connected,
 			readConnected,
 			mailboxes: addresses.map((address) => {
 				const row = bySource.get(sharedOutlookSource(address));
+				const used = rotationRows.find((entry) => entry.address === address);
 				return {
 					address,
+					sentLast24Hours: used?.count ?? 0,
+					available: rotation.available.has(address),
 					status: row?.status ?? null,
 					lastSyncedAt: row?.lastSyncedAt?.toISOString() ?? null,
 					lastError: row?.lastError ?? null,
@@ -124,6 +253,26 @@ export class OutreachDraftsService {
 				updatedAt: edit?.updatedAt.toISOString() ?? null,
 			};
 		});
+	}
+
+	async stats(userId: string) {
+		await this.access.assertMember(userId);
+		const [drafts, replies, agentRuns, failedRuns] = await Promise.all([
+			this.list(userId),
+			this.db.outreachReplyAlert.count({ where: { userId } }),
+			this.db.agentRun.count({ where: { initiatedById: userId } }),
+			this.db.agentRun.count({
+				where: { initiatedById: userId, status: "FAILED" },
+			}),
+		]);
+		return {
+			drafts: drafts.filter((draft) => draft.status === "DRAFT").length,
+			approved: drafts.filter((draft) => draft.status === "APPROVED").length,
+			sent: drafts.filter((draft) => draft.status === "SENT").length,
+			replies,
+			agentRuns,
+			failedRuns,
+		};
 	}
 
 	async save(userId: string, input: SaveOutreachDraftInput) {
@@ -333,6 +482,7 @@ export class OutreachDraftsService {
 		) {
 			throw new BadRequestException("Sender or recipient is unavailable.");
 		}
+		const senderAddress = draft.senderEmail;
 		const scopes = await this.tokens.grantedScopes(
 			userId,
 			MICROSOFT_PROVIDER_ID,
@@ -346,13 +496,41 @@ export class OutreachDraftsService {
 		if (token.outcome !== "ok") {
 			throw new BadRequestException("Reconnect Microsoft 365 before sending.");
 		}
-		const claimed = await this.db.outreachDraft.updateMany({
-			where: {
-				id: draft.id,
-				status: "APPROVED",
-				updatedAt: draft.updatedAt,
-			},
-			data: { status: "SENDING", sendStartedAt: new Date(), sendError: null },
+		const claimed = await this.db.$transaction(async (tx) => {
+			await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${senderAddress}))`;
+			const now = new Date();
+			const usage = await tx.outreachDraft.groupBy({
+				by: ["senderEmail"],
+				where: {
+					senderEmail: senderAddress,
+					status: { in: ["SENDING", "SENT", "SEND_UNKNOWN"] },
+					sendStartedAt: {
+						gte: new Date(now.getTime() - OUTREACH_ROTATION.dayMs),
+					},
+				},
+				_count: { _all: true },
+				_max: { sendStartedAt: true },
+			});
+			const used = usage[0];
+			const availability = senderAvailability(
+				[
+					{
+						address: senderAddress,
+						count: used?._count._all ?? 0,
+						lastStartedAt: used?._max.sendStartedAt ?? null,
+					},
+				],
+				now,
+			);
+			if (!availability.available.has(senderAddress)) {
+				throw new ConflictException(
+					"This sender reached its daily limit or 15-minute gap. Choose another sender.",
+				);
+			}
+			return tx.outreachDraft.updateMany({
+				where: { id: draft.id, status: "APPROVED", updatedAt: draft.updatedAt },
+				data: { status: "SENDING", sendStartedAt: now, sendError: null },
+			});
 		});
 		if (claimed.count !== 1) {
 			throw new ConflictException("Another send started. Reload this draft.");

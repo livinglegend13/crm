@@ -24,6 +24,7 @@ import {
 	type GraphFolder,
 	type GraphMessage,
 } from "./graph.client";
+import { OutreachRepliesService } from "./outreach-replies.service";
 import { senderFromSource } from "./sender-mailboxes";
 
 const MAX_MESSAGES_PER_TICK = 120;
@@ -58,6 +59,7 @@ export class OutlookSyncService {
 		private readonly tokens: MailboxTokenService,
 		private readonly state: SyncStateService,
 		private readonly threads: ThreadWriterService,
+		private readonly replies: OutreachRepliesService,
 	) {}
 
 	async sync(row: MailboxSync): Promise<OutlookSyncOutcome> {
@@ -208,16 +210,20 @@ export class OutlookSyncService {
 
 				const parsed = this.parse(message);
 				if (!parsed) continue;
+				const outreach = shared
+					? await this.replies.match(mailbox, parsed)
+					: null;
 
 				context ??= await this.threads.context();
 
 				const stored = await this.threads.store(
 					row,
-					{ mailbox, origin: "outlook" },
+					{ mailbox, origin: "outlook", knownOutreach: outreach !== null },
 					parsed,
 					context,
 				);
 				if (stored) written += 1;
+				if (outreach) await this.replies.record(mailbox, parsed, outreach);
 			}
 
 			const nextLink = page.data["@odata.nextLink"];
@@ -234,6 +240,8 @@ export class OutlookSyncService {
 			cursor: furthest.toISOString(),
 			status: GoogleSyncStatus.RUNNING,
 		});
+		if (shared)
+			await this.replies.deliverPending(row.userId, mailbox, accessToken);
 
 		if (written > 0) {
 			this.logger.log({

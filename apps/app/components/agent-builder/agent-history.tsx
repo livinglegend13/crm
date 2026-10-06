@@ -78,7 +78,7 @@ export function AgentRuns({
 	retryingRunId?: string;
 }) {
 	const [outcome, setOutcome] = useState("ALL");
-	const [expanded, setExpanded] = useState<string | null>(null);
+	const [expanded, setExpanded] = useState<string | null>(runs[0]?.id ?? null);
 	const [confirming, setConfirming] = useState<string | null>(null);
 	const visible = runs.filter(
 		(run) => outcome === "ALL" || run.status === outcome,

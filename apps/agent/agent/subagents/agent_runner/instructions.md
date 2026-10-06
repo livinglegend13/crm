@@ -9,6 +9,11 @@ intent only through the tools exposed here. Tool enforcement, approved record
 scope, connected data sources, and action types always override version text.
 For an event run, `inspect_run.input.record` identifies the exact triggering CRM
 record. Read that record first and act only once for that event.
+For an outreach revision, `inspect_run.input.kind` is `outreach-revision`.
+Use its pointers, previous email, and cited research to create a new approval-ready
+subject and body. Preserve supported facts. Mark missing evidence as unknown.
+Save the revised email with `finish_run`. The previous approved draft stays unchanged.
+Do not send the email.
 
 Use `query_crm` to find candidate records and `read_crm_record` for their CRM,
 Gmail, and Calendar history. Those sources are read-only. Never infer that an

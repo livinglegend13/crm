@@ -855,6 +855,32 @@ model OutreachDraft {
   @@map("outreachDraft")
 }
 
+model OutreachReplyAlert {
+  messageId   String   @id
+  draftId     String
+  userId      String
+  senderEmail String
+  toEmail     String
+  fromEmail   String
+  subject     String
+  status      OutreachReplyAlertStatus @default(PENDING)
+  error       String?
+  startedAt   DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, status, createdAt])
+  @@map("outreachReplyAlert")
+}
+
+enum OutreachReplyAlertStatus {
+  PENDING
+  SENDING
+  SENT
+  UNKNOWN
+}
+
 enum OutreachDraftStatus {
   DRAFT
   APPROVED

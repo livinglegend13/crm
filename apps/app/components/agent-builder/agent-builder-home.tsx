@@ -11,9 +11,11 @@ import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { AgentComposer, type BuilderComposerPrompt } from "./agent-composer";
 
 const SUGGESTIONS = [
-	"Brief every deal owner before a renewal call",
-	"Flag deals with no activity for 14 days",
-	"Hand new customers from Sales to Onboarding",
+	"Research a prospect and cite every source",
+	"Qualify companies against an ideal customer profile",
+	"Draft a personalized outreach email for human approval",
+	"Classify replies and prepare follow-up drafts",
+	"Report prospecting and outreach results",
 ];
 
 export function AgentBuilderHome({ name }: { name: string }) {
@@ -70,7 +72,7 @@ export function AgentBuilderHome({ name }: { name: string }) {
 
 				<div className="pt-1">
 					<p className="flex h-7 items-center text-muted-foreground text-xs">
-						Suggested agents
+						Suggested agent types
 					</p>
 					{SUGGESTIONS.map((suggestion) => (
 						<button

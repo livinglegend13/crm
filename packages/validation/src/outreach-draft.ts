@@ -24,6 +24,15 @@ export const outreachDraft = z.object({
 
 export const outreachDraftList = z.array(outreachDraft);
 
+export const outreachStats = z.object({
+	drafts: z.number().int(),
+	approved: z.number().int(),
+	sent: z.number().int(),
+	replies: z.number().int(),
+	agentRuns: z.number().int(),
+	failedRuns: z.number().int(),
+});
+
 export const saveOutreachDraftInput = z.object({
 	runId: z.string().min(1),
 	recipientEmail: z.union([z.email(), z.literal("")]),
@@ -39,13 +48,44 @@ export const approveOutreachDraftInput = z.object({
 
 export const sendOutreachDraftInput = approveOutreachDraftInput;
 
+export const regenerateOutreachDraftInput = z.object({
+	runId: z.string().min(1),
+	pointers: z.string().trim().min(3).max(3000),
+	clientRequestId: z.uuid(),
+});
+
+export const regenerateOutreachDraftOutput = z.object({ runId: z.string() });
+
+export const outreachRevisionRequest = z.object({
+	kind: z.literal("outreach-revision"),
+	sourceRunId: z.string(),
+	pointers: z.string(),
+	previousSubject: z.string(),
+	previousBody: z.string(),
+	recipientEmail: z.string().nullable(),
+	researchSummary: z.string().nullable(),
+	researchSources: z.string().nullable(),
+	researchFacts: z.string().nullable(),
+	researchUnknowns: z.string().nullable(),
+});
+
 export const outreachSendersOutput = z.object({
 	addresses: z.array(z.email()),
+	replyAlertsEnabled: z.boolean(),
+	pendingReplyAlerts: z.number().int(),
+	unknownReplyAlerts: z.number().int(),
+	recommendedSender: z.email().nullable(),
+	rotation: z.object({
+		maxPerMailboxPerDay: z.number().int(),
+		minimumGapMinutes: z.number().int(),
+	}),
 	connected: z.boolean(),
 	readConnected: z.boolean(),
 	mailboxes: z.array(
 		z.object({
 			address: z.email(),
+			sentLast24Hours: z.number().int(),
+			available: z.boolean(),
 			status: z.string().nullable(),
 			lastSyncedAt: z.string().nullable(),
 			lastError: z.string().nullable(),
@@ -66,6 +106,9 @@ export type ApproveOutreachDraftInput = z.infer<
 	typeof approveOutreachDraftInput
 >;
 export type SendOutreachDraftInput = z.infer<typeof sendOutreachDraftInput>;
+export type RegenerateOutreachDraftInput = z.infer<
+	typeof regenerateOutreachDraftInput
+>;
 
 export function draftFieldsFromRunResult(value: unknown) {
 	const result = agentRunResult.parse(value);

@@ -4,6 +4,10 @@ import {
 	outreachDraft,
 	outreachDraftList,
 	outreachSendersOutput,
+	outreachStats,
+	type RegenerateOutreachDraftInput,
+	regenerateOutreachDraftInput,
+	regenerateOutreachDraftOutput,
 	type SaveOutreachDraftInput,
 	type SendOutreachDraftInput,
 	saveOutreachDraftInput,
@@ -38,6 +42,14 @@ export class OutreachDraftsRouter {
 	})
 	async list(@Ctx() ctx: AuthedTrpcContext) {
 		return this.drafts.list(ctx.user.id);
+	}
+
+	@Query({
+		output: outreachStats,
+		meta: restMeta("GET", "/outreach-stats", ["Outreach"]),
+	})
+	async stats(@Ctx() ctx: AuthedTrpcContext) {
+		return this.drafts.stats(ctx.user.id);
 	}
 
 	@Query({
@@ -82,5 +94,17 @@ export class OutreachDraftsRouter {
 		@Input() input: SendOutreachDraftInput,
 	) {
 		return this.drafts.send(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: regenerateOutreachDraftInput,
+		output: regenerateOutreachDraftOutput,
+		meta: restMeta("POST", "/outreach-drafts/{runId}/regenerate", ["Outreach"]),
+	})
+	async regenerate(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: RegenerateOutreachDraftInput,
+	) {
+		return this.drafts.regenerate(ctx.user.id, input);
 	}
 }

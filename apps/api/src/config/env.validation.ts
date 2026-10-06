@@ -74,6 +74,10 @@ export class EnvironmentVariables {
 
 	@IsOptional()
 	@IsString()
+	OUTREACH_REPLY_ALERTS_ENABLED?: string;
+
+	@IsOptional()
+	@IsString()
 	SLACK_CLIENT_ID?: string;
 
 	@IsOptional()
