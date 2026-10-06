@@ -201,6 +201,7 @@ export function TeamAgentDetail({
 		enabledTriggers.length === 1 ? enabledTriggers[0]?.nextRunAt : null;
 	const triggerSummary =
 		enabledTriggers.map((trigger) => trigger.name).join(" · ") || "Manual only";
+	const latestRun = (runs.data ?? initialRuns)[0];
 
 	return (
 		<PageShell className="min-h-0" contained>
@@ -310,6 +311,41 @@ export function TeamAgentDetail({
 
 			<PageShellContent className="min-h-0">
 				<div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pb-1">
+					<section className="mb-6 rounded-lg border bg-card p-5">
+						<div className="flex flex-wrap items-center justify-between gap-3">
+							<h2 className="font-medium text-base">Latest run</h2>
+							<Button
+								onClick={() => setRunsOpen(true)}
+								variant="outline"
+								size="sm"
+							>
+								View all runs
+							</Button>
+						</div>
+						{latestRun ? (
+							<div className="mt-3">
+								<p className="text-muted-foreground text-sm">
+									{latestRun.status.toLowerCase().replaceAll("_", " ")} ·{" "}
+									{formatDate(latestRun.createdAt)}
+								</p>
+								{latestRun.summary ? (
+									<p className="mt-4 whitespace-pre-wrap wrap-break-word text-sm">
+										{latestRun.summary}
+									</p>
+								) : (
+									<p className="mt-4 text-muted-foreground text-sm">
+										{latestRun.status === "SUCCEEDED"
+											? "This run saved no summary. Open its details to review the result."
+											: "The agent has not saved an output for this run yet."}
+									</p>
+								)}
+							</div>
+						) : (
+							<p className="mt-3 text-muted-foreground text-sm">
+								This agent has no runs yet. Select Run now to start it.
+							</p>
+						)}
+					</section>
 					<AgentOverview agent={data} />
 				</div>
 			</PageShellContent>
