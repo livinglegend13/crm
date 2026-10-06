@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
+import { Suspense } from "react";
 import {
 	PageShell,
 	PageShellContent,
@@ -8,18 +10,34 @@ import {
 	PageShellHeader,
 	PageShellHeading,
 	PageShellTitle,
+	PageShellFallback,
 } from "@/components/page-shell";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "Inbox" };
 
-export default async function InboxPage({
+export default function InboxPage({
 	params,
 	searchParams,
 }: {
 	params: Promise<{ slug: string }>;
 	searchParams: Promise<{ thread?: string }>;
 }) {
+	return (
+		<Suspense fallback={<PageShellFallback />}>
+			<InboxContent params={params} searchParams={searchParams} />
+		</Suspense>
+	);
+}
+
+async function InboxContent({
+	params,
+	searchParams,
+}: {
+	params: Promise<{ slug: string }>;
+	searchParams: Promise<{ thread?: string }>;
+}) {
+	await connection();
 	const [{ slug }, { thread: requested }] = await Promise.all([
 		params,
 		searchParams,

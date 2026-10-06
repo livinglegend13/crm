@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { connection } from "next/server";
+import { Suspense } from "react";
 import {
 	PageShell,
 	PageShellContent,
@@ -7,16 +9,30 @@ import {
 	PageShellHeader,
 	PageShellHeading,
 	PageShellTitle,
+	PageShellFallback,
 } from "@/components/page-shell";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "Outreach drafts" };
 
-export default async function OutreachPage({
+export default function OutreachPage({
 	params,
 }: {
 	params: Promise<{ slug: string }>;
 }) {
+	return (
+		<Suspense fallback={<PageShellFallback />}>
+			<OutreachContent params={params} />
+		</Suspense>
+	);
+}
+
+async function OutreachContent({
+	params,
+}: {
+	params: Promise<{ slug: string }>;
+}) {
+	await connection();
 	const { slug } = await params;
 	const client = getServerTrpcClient();
 	const agents = (await client.agents.list.query()).filter((agent) =>
