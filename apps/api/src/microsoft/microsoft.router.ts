@@ -1,4 +1,4 @@
-import { Inject } from "@nestjs/common";
+import { BadRequestException, Inject } from "@nestjs/common";
 import {
 	Ctx,
 	Input,
@@ -60,6 +60,26 @@ export class MicrosoftRouter {
 	})
 	async syncNow(@Ctx() ctx: AuthedTrpcContext) {
 		await this.sync.runForUser(ctx.user.id);
+		return this.connection.status(ctx.user.id);
+	}
+
+	@Mutation({
+		output: microsoftConnectionStatusOutput,
+		meta: restMeta("POST", "/microsoft/backfill-recent-mail", ["Microsoft"]),
+	})
+	async backfillRecentMail(@Ctx() ctx: AuthedTrpcContext) {
+		const status = await this.connection.status(ctx.user.id);
+		if (
+			!status.hasRefreshToken ||
+			!status.sources.some(
+				(source) => source.source === "outlook" && source.connected,
+			)
+		) {
+			throw new BadRequestException(
+				"Connect Microsoft email before importing recent mail.",
+			);
+		}
+		await this.sync.backfillRecentMail(ctx.user.id);
 		return this.connection.status(ctx.user.id);
 	}
 

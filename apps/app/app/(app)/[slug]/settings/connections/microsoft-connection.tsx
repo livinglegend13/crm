@@ -197,6 +197,17 @@ export function MicrosoftConnection({
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const backfill = useMutation(
+		trpc.microsoft.backfillRecentMail.mutationOptions({
+			onSuccess: async () => {
+				await cache.microsoft();
+				toast.success(
+					"Recent mail import started. Linked conversations will appear in Inbox.",
+				);
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
 
 	if (!status.data) return null;
 
@@ -249,6 +260,20 @@ export function MicrosoftConnection({
 			</CardHeader>
 
 			<CardContent>
+				<div className="flex items-center justify-between gap-6">
+					<p className="max-w-lg text-muted-foreground text-sm">
+						Inbox currently watches new mail. Import up to 30 days of older
+						messages to find conversations linked to CRM contacts.
+					</p>
+					<Button
+						type="button"
+						variant="outline"
+						disabled={backfill.isPending || !hasRefreshToken}
+						onClick={() => backfill.mutate()}
+					>
+						{backfill.isPending ? "Importing…" : "Import recent mail"}
+					</Button>
+				</div>
 				{!hasRefreshToken ? (
 					<Alert variant="destructive">
 						<Icon icon={Warning} />

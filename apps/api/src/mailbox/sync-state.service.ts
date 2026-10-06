@@ -122,6 +122,27 @@ export class SyncStateService {
 		});
 	}
 
+	async rewindForBackfill(
+		userId: string,
+		source: SyncSource,
+		from: Date,
+	): Promise<MailboxSync | null> {
+		const row = await this.get(userId, source);
+		if (!row) return null;
+		const now = new Date();
+		const claimed = await this.db.mailboxSync.updateMany({
+			where: { id: row.id, updatedAt: row.updatedAt, ...dueWhere(now) },
+			data: {
+				cursor: from.toISOString(),
+				status: GoogleSyncStatus.IDLE,
+				retryAfter: new Date(now.getTime() + SYNC_LEASE_MS),
+				lastError: null,
+			},
+		});
+		if (claimed.count !== 1) return null;
+		return this.db.mailboxSync.findUnique({ where: { id: row.id } });
+	}
+
 	async markNeedsReconnect(id: string, reason: string): Promise<void> {
 		await this.db.mailboxSync.update({
 			where: { id },
