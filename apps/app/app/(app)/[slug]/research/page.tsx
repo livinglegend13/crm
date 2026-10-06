@@ -39,10 +39,30 @@ async function ResearchContent({
 		/research|qualif/i.test(agent.name),
 	);
 	const rows = await Promise.all(
-		agents.map(async (agent) => ({
-			agent,
-			runs: await client.agents.history.query({ id: agent.id, limit: 10 }),
-		})),
+		agents.map(async (agent) => {
+			const runs = await client.agents.history.query({ id: agent.id, limit: 10 });
+			return {
+				agent,
+				runs: await Promise.all(
+					runs.map(async (run) => {
+						const noteId = run.result?.noteActivityId;
+						const companyId = run.actions.find(
+							(action) => action.targetType === "company" && action.targetId,
+						)?.targetId;
+						const timeline =
+							typeof noteId === "string" && companyId
+								? await client.activities.timeline.query({
+										companyId,
+										filter: "notes",
+										limit: 100,
+									})
+								: null;
+						const note = timeline?.entries.find((entry) => entry.id === noteId);
+						return { ...run, researchNote: note?.body ?? null };
+					}),
+				),
+			};
+		}),
 	);
 
 	return (
@@ -70,6 +90,12 @@ async function ResearchContent({
 									{runs.length} recent runs
 								</p>
 								{runs.map((run) => {
+									const sourceUrls = [
+										...new Set(
+											(run.researchNote?.match(/https:\/\/[^\s)]+/g) ?? []).map(
+												(url) => url.replace(/[.,;]+$/, ""),
+											),
+										];
 									const entries = Object.entries(run.result ?? {}).filter(
 										([key, value]) =>
 											!/ActivityId/i.test(key) && typeof value === "string",
@@ -110,13 +136,30 @@ async function ResearchContent({
 													{run.summary || "No research result saved."}
 												</p>
 											)}
-											{!Object.keys(run.result ?? {}).some((key) =>
-												/source/i.test(key),
-											) ? (
+											{sourceUrls.length > 0 ? (
+												<div className="mt-5">
+													<h3 className="font-medium text-sm">Sources in the research note</h3>
+													<ul className="mt-2 flex flex-col gap-1 text-sm">
+														{sourceUrls.map((url) => (
+															<li key={url}>
+																<a href={url} target="_blank" rel="noopener noreferrer" className="break-all text-primary hover:underline">
+																	{url}
+																</a>
+															</li>
+														))}
+													</ul>
+												</div>
+											) : (
 												<p className="mt-4 text-muted-foreground text-sm">
 													This run saved no source links. Storage capacity
 													remains unverified.
 												</p>
+											)}
+											{run.researchNote ? (
+												<details className="mt-5 rounded-lg border p-4">
+													<summary className="cursor-pointer font-medium text-sm">Full research note</summary>
+													<p className="mt-4 whitespace-pre-wrap wrap-break-word text-sm">{run.researchNote}</p>
+												</details>
 											) : null}
 										</div>
 									);
