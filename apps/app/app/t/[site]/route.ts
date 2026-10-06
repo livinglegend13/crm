@@ -1,11 +1,11 @@
 import { CONFIG_MAX_AGE_SECONDS, isSiteId } from "@crm/db/tracking";
-import { API_URL } from "@/lib/env";
+import { API_URL, APP_URL } from "@/lib/env";
 import { trackerSource } from "@/lib/tracking/tracker";
 
 const EMPTY = "/* no tracking site is configured */\n";
 
 export async function GET(
-	request: Request,
+	_request: Request,
 	{ params }: { params: Promise<{ site: string }> },
 ): Promise<Response> {
 	const { site } = await params;
@@ -29,10 +29,9 @@ export async function GET(
 
 	if (!payload?.config) return empty();
 
-	const origin = new URL(request.url).origin;
 	const source = trackerSource(
 		payload.config as Parameters<typeof trackerSource>[0],
-		`${origin}/api/t/e`,
+		`${APP_URL}/api/t/e`,
 	);
 
 	const headers = new Headers({

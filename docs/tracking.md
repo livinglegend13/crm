@@ -21,6 +21,10 @@ and free forever; the config does change, so the file that carries it is the one
 with the short life. Baking the config in also means a page view costs one request,
 not a request and then a config fetch before anything can be recorded.
 
+The compiled tracker posts to `<APP_URL>/api/t/e`. The app's `/api` proxy forwards
+the request to the API. Use the configured public URL, not the route request URL:
+a reverse proxy can make that URL `https://localhost:3000`.
+
 - **The site id has two carriers, and a tag manager is the reason.** Google Tag
   Manager's Custom HTML injector rebuilds the script element and keeps only the
   URL — `data-site`, `async` and `defer` are all dropped on the way in. An
