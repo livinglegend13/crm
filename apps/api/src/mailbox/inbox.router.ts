@@ -1,13 +1,14 @@
 import { Inject } from "@nestjs/common";
-import { inboxThread, inboxThreadList } from "@crm/validation/inbox";
+import {
+	inboxThread,
+	inboxThreadInput,
+	inboxThreadList,
+} from "@crm/validation/inbox";
 import { Ctx, Input, Query, Router, UseMiddlewares } from "nestjs-trpc";
-import { z } from "zod";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import { restMeta } from "../trpc/openapi";
 import { InboxService } from "./inbox.service";
-
-const threadInput = z.object({ id: z.string().min(1) });
 
 @Router({ alias: "inbox" })
 @UseMiddlewares(AuthMiddleware)
@@ -23,7 +24,7 @@ export class InboxRouter {
 	}
 
 	@Query({
-		input: threadInput,
+		input: inboxThreadInput,
 		output: inboxThread,
 		meta: restMeta("GET", "/inbox/threads/{id}", ["Inbox"]),
 	})

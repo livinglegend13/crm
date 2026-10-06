@@ -24,6 +24,8 @@ export const inboxThreadSummary = z.object({
 
 export const inboxThreadList = z.array(inboxThreadSummary);
 
+export const inboxThreadInput = z.object({ id: z.string().min(1) });
+
 export const inboxThread = inboxThreadSummary.extend({
 	messages: z.array(inboxMessage),
 });
