@@ -1,4 +1,8 @@
-import { MICROSOFT_PROVIDER_ID, OUTLOOK_SEND_SHARED_SCOPE } from "@crm/auth";
+import {
+	MICROSOFT_PROVIDER_ID,
+	OUTLOOK_SEND_SHARED_SCOPE,
+	WORKSPACE_ID,
+} from "@crm/auth";
 import type { Db } from "@crm/db";
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
@@ -76,6 +80,10 @@ export class OutreachRepliesService {
 			MICROSOFT_PROVIDER_ID,
 		);
 		if (!scopes.has(OUTLOOK_SEND_SHARED_SCOPE)) return;
+		const organization = await this.db.organization.findUnique({
+			where: { id: WORKSPACE_ID },
+			select: { slug: true },
+		});
 		const pending = await this.db.outreachReplyAlert.findMany({
 			where: { userId, senderEmail: mailbox, status: "PENDING" },
 			orderBy: { createdAt: "asc" },
@@ -88,7 +96,10 @@ export class OutreachRepliesService {
 			});
 			if (claimed.count !== 1) continue;
 			const appUrl = process.env.APP_URL?.split(",")[0]?.trim();
-			const inboxUrl = appUrl ? `${appUrl.replace(/\/$/, "")}/inbox` : "";
+			const inboxUrl =
+				appUrl && organization
+					? `${appUrl.replace(/\/$/, "")}/${encodeURIComponent(organization.slug)}/inbox`
+					: "";
 			const outcome = await this.graph.sendMail(accessToken, {
 				from: mailbox,
 				to: alert.toEmail,
