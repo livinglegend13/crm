@@ -65,10 +65,10 @@ async function InboxContent({
 			<PageShellContent className="min-h-0">
 				{threads.length === 0 ? (
 					<div className="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed px-6 text-center">
-						<h2 className="font-medium text-sm">No synced conversations</h2>
+						<h2 className="font-medium text-sm">No CRM conversations yet</h2>
 						<p className="mt-2 max-w-md text-muted-foreground text-sm">
-							Connect Microsoft 365 and run mailbox sync to see your CRM
-							conversations here.
+							Only mailbox conversations linked to CRM records appear here.
+							Check your Microsoft connection and sync status.
 						</p>
 						<Link
 							href={`/${slug}/settings/connections/microsoft`}
