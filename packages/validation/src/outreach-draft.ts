@@ -26,8 +26,8 @@ export type SaveOutreachDraftInput = z.infer<typeof saveOutreachDraftInput>;
 
 export function draftFieldsFromRunResult(value: unknown) {
 	const result = agentRunResult.parse(value);
-	const subject = result["Approval-ready email subject"];
-	const body = result["Approval-ready email body"];
+	const subject = result["Approval-ready email subject"] ?? result.emailSubject;
+	const body = result["Approval-ready email body"] ?? result.emailBody;
 	return typeof subject === "string" && typeof body === "string"
 		? { subject, body }
 		: null;

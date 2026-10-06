@@ -24,13 +24,7 @@ export class OutreachDraftsService {
 			where: {
 				initiatedById: userId,
 				status: "SUCCEEDED",
-				agent: {
-					status: { not: "DELETED" },
-					OR: [
-						{ name: { contains: "outreach", mode: "insensitive" } },
-						{ name: { contains: "email", mode: "insensitive" } },
-					],
-				},
+				agent: { status: { not: "DELETED" } },
 			},
 			orderBy: { createdAt: "desc" },
 			take: 100,
@@ -72,13 +66,7 @@ export class OutreachDraftsService {
 				id: input.runId,
 				initiatedById: userId,
 				status: "SUCCEEDED",
-				agent: {
-					status: { not: "DELETED" },
-					OR: [
-						{ name: { contains: "outreach", mode: "insensitive" } },
-						{ name: { contains: "email", mode: "insensitive" } },
-					],
-				},
+				agent: { status: { not: "DELETED" } },
 			},
 			select: {
 				id: true,
