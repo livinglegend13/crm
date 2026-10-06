@@ -11,6 +11,7 @@ export const companyListInput = listInput.extend({
 	enrichment: z.array(z.string()).default([]),
 	source: z.array(z.string()).default([]),
 	activity: activityFacetInput.default([]),
+	contactCoverage: z.array(z.enum(["none", "any"])).default([]),
 	fields: z.record(z.string(), z.array(z.string())).default({}),
 	archived: z.boolean().default(false),
 });

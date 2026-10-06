@@ -80,6 +80,12 @@ async function ResearchContent({
 				</PageShellHeading>
 			</PageShellHeader>
 			<PageShellContent>
+				<Link
+					href={`/${slug}/companies?contactCoverage=none`}
+					className="mb-5 inline-block text-primary text-sm hover:underline"
+				>
+					Review companies with no contacts
+				</Link>
 				{rows.length === 0 ? (
 					<div className="rounded-lg border border-dashed p-6 text-sm">
 						No research agents are visible in this workspace.

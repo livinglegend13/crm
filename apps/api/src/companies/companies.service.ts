@@ -662,6 +662,12 @@ export class CompaniesService {
 		if (input.source.length > 0) {
 			and.push({ source: { in: input.source as RecordSource[] } });
 		}
+		if (input.contactCoverage.length === 1) {
+			and.push({
+				contacts:
+					input.contactCoverage[0] === "none" ? { none: {} } : { some: {} },
+			});
+		}
 
 		const activity = activityFilter(input.activity);
 		if (activity) and.push(activity);
@@ -677,33 +683,47 @@ export class CompaniesService {
 			AND: [this.searchFilter(input.q), archivedFilter(input.archived)],
 		};
 
-		const [owners, industries, enrichment, sources, activity, fieldFacets] =
-			await Promise.all([
-				this.db.company.groupBy({
-					by: ["ownerId"],
-					where,
-					_count: { _all: true },
-				}),
-				this.db.company.groupBy({
-					by: ["industry"],
-					where,
-					_count: { _all: true },
-				}),
-				this.db.company.groupBy({
-					by: ["enrichmentStatus"],
-					where,
-					_count: { _all: true },
-				}),
-				this.db.company.groupBy({
-					by: ["source"],
-					where,
-					_count: { _all: true },
-				}),
-				activityFacetCounts((activityWhere) =>
-					this.db.company.count({ where: { AND: [where, activityWhere] } }),
-				),
-				this.fields.filterFacetCounts("COMPANY", where, filterableFields),
-			]);
+		const [
+			owners,
+			industries,
+			enrichment,
+			sources,
+			activity,
+			contactless,
+			withContacts,
+			fieldFacets,
+		] = await Promise.all([
+			this.db.company.groupBy({
+				by: ["ownerId"],
+				where,
+				_count: { _all: true },
+			}),
+			this.db.company.groupBy({
+				by: ["industry"],
+				where,
+				_count: { _all: true },
+			}),
+			this.db.company.groupBy({
+				by: ["enrichmentStatus"],
+				where,
+				_count: { _all: true },
+			}),
+			this.db.company.groupBy({
+				by: ["source"],
+				where,
+				_count: { _all: true },
+			}),
+			activityFacetCounts((activityWhere) =>
+				this.db.company.count({ where: { AND: [where, activityWhere] } }),
+			),
+			this.db.company.count({
+				where: { AND: [where, { contacts: { none: {} } }] },
+			}),
+			this.db.company.count({
+				where: { AND: [where, { contacts: { some: {} } }] },
+			}),
+			this.fields.filterFacetCounts("COMPANY", where, filterableFields),
+		]);
 
 		return {
 			owner: countsByKey(owners, "ownerId", FACET_UNASSIGNED),
@@ -711,6 +731,7 @@ export class CompaniesService {
 			enrichment: countsByKey(enrichment, "enrichmentStatus"),
 			source: countsByKey(sources, "source"),
 			activity,
+			contactCoverage: { none: contactless, any: withContacts },
 			...Object.fromEntries(
 				Object.entries(fieldFacets).map(([key, counts]) => [
 					`field:${key}`,

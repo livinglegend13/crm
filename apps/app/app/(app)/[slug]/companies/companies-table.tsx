@@ -230,6 +230,16 @@ export function CompaniesTable() {
 				(option) => (facetCounts?.activity?.[option.value] ?? 0) > 0,
 			),
 		},
+		{
+			id: "contactCoverage",
+			label: "Contacts",
+			options: [
+				{ value: "none", label: "No contacts" },
+				{ value: "any", label: "Has contacts" },
+			].filter(
+				(option) => (facetCounts?.contactCoverage?.[option.value] ?? 0) > 0,
+			),
+		},
 		...fieldFacets,
 	];
 
