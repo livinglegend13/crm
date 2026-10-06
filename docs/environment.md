@@ -115,6 +115,7 @@ single place that knows what is set.
 | `GITHUB_TOKEN` | Raises the GitHub rate limit from 60/hour |
 | `BLOB_READ_WRITE_TOKEN` | Mirrors logos and photos into Blob |
 | `AI_GATEWAY_API_KEY` | The model. Not needed on Vercel (OIDC) |
+| `AZURE_RESOURCE_NAME` + `AZURE_MODEL_DEPLOYMENT` | A direct Azure OpenAI model for a self-hosted agent using the host managed identity. Grant Cognitive Services OpenAI User on the resource. |
 | `AGENT_BRIDGE_SECRET` | The rep-facing Agent panel — see `agent.md` |
 
 `BLOB_READ_WRITE_TOKEN` is also in `env.validation.ts` and `apps/api/turbo.json`

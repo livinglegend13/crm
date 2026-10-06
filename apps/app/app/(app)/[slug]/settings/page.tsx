@@ -12,7 +12,7 @@ import {
 import { requireSession } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
-import { AgentModel } from "./agent-model";
+import { AgentModel, AzureAgentModel } from "./agent-model";
 import { ArchiveRetention } from "./archive-retention";
 import { ResearchKey } from "./research-key";
 import { WorkspaceForm } from "./workspace-form";
@@ -44,6 +44,10 @@ export default function GeneralSettingsPage() {
 
 async function Settings() {
 	await requireSession();
+	const azureDeployment =
+		process.env.AZURE_RESOURCE_NAME && process.env.AZURE_MODEL_DEPLOYMENT
+			? process.env.AZURE_MODEL_DEPLOYMENT
+			: null;
 
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
@@ -62,7 +66,11 @@ async function Settings() {
 				<WorkspaceForm />
 				<ResearchKey />
 				<ArchiveRetention />
-				<AgentModel />
+				{azureDeployment ? (
+					<AzureAgentModel deployment={azureDeployment} />
+				) : (
+					<AgentModel />
+				)}
 			</div>
 		</HydrateClient>
 	);

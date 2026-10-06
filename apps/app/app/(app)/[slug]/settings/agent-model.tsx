@@ -185,3 +185,15 @@ export function AgentModel() {
 		</Card>
 	);
 }
+
+export function AzureAgentModel({ deployment }: { deployment: string }) {
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Research agent</CardTitle>
+				<CardDescription>Azure OpenAI runs the research agent.</CardDescription>
+			</CardHeader>
+			<CardContent>{deployment}</CardContent>
+		</Card>
+	);
+}

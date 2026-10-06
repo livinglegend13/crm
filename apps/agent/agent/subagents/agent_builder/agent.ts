@@ -1,15 +1,19 @@
-import { DEFAULT_AGENT_MODEL } from "@crm/db/settings";
 import { defineAgent, defineDynamic } from "eve";
 import { z } from "zod";
+import { azureModelConfigured, fallbackModel } from "../../lib/azure-model";
+import { AZURE_MODEL } from "../../lib/azure-model-config";
 import { selectedModel } from "../../lib/model";
 
-export default defineAgent({
+const agent: ReturnType<typeof defineAgent> = defineAgent({
 	description:
 		"Turn one private CRM builder-chat request into a validated, reviewable team-agent version without deploying it.",
 	model: defineDynamic({
-		fallback: DEFAULT_AGENT_MODEL.id,
+		fallback: fallbackModel(),
 		events: { "session.started": () => selectedModel() },
 	}),
+	...(azureModelConfigured()
+		? { modelContextWindowTokens: AZURE_MODEL.contextWindowTokens }
+		: {}),
 	outputSchema: z.object({
 		status: z.literal("draft_ready"),
 		summary: z.string().min(1).max(1000),
@@ -22,3 +26,5 @@ export default defineAgent({
 		sessionTimeoutMs: 24 * 60 * 60 * 1000,
 	},
 });
+
+export default agent;

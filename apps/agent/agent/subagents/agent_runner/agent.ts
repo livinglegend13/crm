@@ -2,13 +2,15 @@ import { db } from "@crm/db";
 import { DEFAULT_AGENT_MODEL } from "@crm/db/settings";
 import { defineAgent, defineDynamic } from "eve";
 import { z } from "zod";
+import { azureModelConfigured, fallbackModel } from "../../lib/azure-model";
+import { AZURE_MODEL } from "../../lib/azure-model-config";
 import { attribute, purposeOf } from "../../lib/session-purpose";
 
-export default defineAgent({
+const agent: ReturnType<typeof defineAgent> = defineAgent({
 	description:
 		"Execute one immutable deployed CRM agent version and persist its result and every side effect.",
 	model: defineDynamic({
-		fallback: DEFAULT_AGENT_MODEL.id,
+		fallback: fallbackModel(),
 		events: {
 			"session.started": async (_event, ctx) => {
 				if (purposeOf(ctx) !== "team-agent") return null;
@@ -23,6 +25,13 @@ export default defineAgent({
 						},
 					},
 				});
+				if (
+					azureModelConfigured() &&
+					run?.version.modelId === DEFAULT_AGENT_MODEL.id
+				) {
+					return null;
+				}
+
 				return run
 					? {
 							model: run.version.modelId,
@@ -32,6 +41,9 @@ export default defineAgent({
 			},
 		},
 	}),
+	...(azureModelConfigured()
+		? { modelContextWindowTokens: AZURE_MODEL.contextWindowTokens }
+		: {}),
 	outputSchema: z.object({
 		summary: z.string().min(1).max(1000),
 		result: z.record(z.string(), z.unknown()).nullable(),
@@ -42,3 +54,5 @@ export default defineAgent({
 		sessionTimeoutMs: 24 * 60 * 60 * 1000,
 	},
 });
+
+export default agent;
