@@ -662,7 +662,10 @@ export class CompaniesService {
 		if (input.source.length > 0) {
 			and.push({ source: { in: input.source as RecordSource[] } });
 		}
-		if (input.contactCoverage.length === 1) {
+		if (
+			input.contactCoverage.length === 1 &&
+			["none", "any"].includes(input.contactCoverage[0] ?? "")
+		) {
 			and.push({
 				contacts:
 					input.contactCoverage[0] === "none" ? { none: {} } : { some: {} },
