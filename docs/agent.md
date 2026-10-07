@@ -303,6 +303,8 @@ credentials and network is exfiltration-shaped; with neither it is a text proces
 
 ## Team-agent builder and runner
 
+Campaign target actions queue Company Research or Outbound Strategist with a pinned campaign, company, buyer, and sequence context. These runs have summary-only access. The campaign page reads their results and links generated email drafts to the existing approval flow. It never sends mail.
+
 `agent_builder` and `agent_runner` are declared subagents with independent
 instructions, tools and deny-all sandboxes. They inherit nothing from the root. The
 root built-in `agent` copy tool is disabled; these two named specialists are the only

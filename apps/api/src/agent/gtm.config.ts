@@ -7,4 +7,5 @@ export const GTM = {
 	dayMs: DAY_MS,
 	minimumAverageCapacityPb: 1,
 	maxCampaigns: 100,
+	maxVisibleAgentRuns: 500,
 } as const;

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { agentRunResult } from "./agent-run-result";
+import { campaignAgentRunInput } from "./gtm";
 
 export const outreachDraft = z.object({
 	runId: z.string(),
@@ -69,7 +70,9 @@ export const outreachRevisionRequest = z.object({
 	researchUnknowns: z.string().nullable(),
 });
 
-export function recipientFromOutreachRevision(value: unknown) {
+export function recipientFromRunInput(value: unknown) {
+	const campaign = campaignAgentRunInput.safeParse(value);
+	if (campaign.success) return campaign.data.recipientEmail;
 	const kind = z.object({ kind: z.literal("outreach-revision") });
 	if (!kind.safeParse(value).success) return null;
 	return outreachRevisionRequest.parse(value).recipientEmail;

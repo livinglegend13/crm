@@ -12,7 +12,10 @@ import {
 	prospectsInput,
 	prospectsOutput,
 	type RemoveCampaignTargetInput,
+	type RunCampaignAgentInput,
 	removeCampaignTargetInput,
+	runCampaignAgentInput,
+	runCampaignAgentOutput,
 	type SaveCampaignStepsInput,
 	type SaveFiloReviewInput,
 	saveCampaignStepsInput,
@@ -87,6 +90,20 @@ export class GtmRouter {
 		@Input() input: CreateCampaignInput,
 	) {
 		return this.gtm.createCampaign(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: runCampaignAgentInput,
+		output: runCampaignAgentOutput,
+		meta: restMeta("POST", "/gtm/campaigns/{id}/targets/{targetId}/agent", [
+			"GTM",
+		]),
+	})
+	runTargetAgent(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: RunCampaignAgentInput,
+	) {
+		return this.gtm.runTargetAgent(ctx.user.id, input);
 	}
 
 	@Mutation({

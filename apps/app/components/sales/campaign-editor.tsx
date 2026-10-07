@@ -58,6 +58,14 @@ export function CampaignEditor({
 	const campaign = useQuery({
 		...trpc.gtm.campaign.queryOptions({ id: initialCampaign.id }),
 		initialData: initialCampaign,
+		refetchInterval: (query) =>
+			query.state.data?.targets.some((target) =>
+				target.agentRuns.some((run) =>
+					["QUEUED", "RUNNING", "WAITING_FOR_APPROVAL"].includes(run.status),
+				),
+			)
+				? 5000
+				: false,
 	});
 	const row = campaign.data ?? initialCampaign;
 	const [name, setName] = useState(row.name);
@@ -74,6 +82,7 @@ export function CampaignEditor({
 			bodyPrompt: step.bodyPrompt,
 		})),
 	);
+	const [queuedTargetId, setQueuedTargetId] = useState<string | null>(null);
 	const invalidate = async () => {
 		await Promise.all([
 			queryClient.invalidateQueries({ queryKey: trpc.gtm.campaign.pathKey() }),
@@ -106,6 +115,19 @@ export function CampaignEditor({
 				toast.success("Target removed from this campaign.");
 			},
 			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const runTargetAgent = useMutation(
+		trpc.gtm.runTargetAgent.mutationOptions({
+			onSuccess: async () => {
+				await invalidate();
+				setQueuedTargetId(null);
+				toast.success("Agent run queued. Output appears beside this target.");
+			},
+			onError: (error) => {
+				setQueuedTargetId(null);
+				toast.error(error.message);
+			},
 		}),
 	);
 	return (
@@ -359,31 +381,123 @@ export function CampaignEditor({
 				{row.targets.length ? (
 					<div className="mt-4 space-y-3">
 						{row.targets.map((target) => (
-							<div
-								key={target.id}
-								className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"
-							>
-								<div>
-									<p className="font-medium text-sm">{target.companyName}</p>
-									<p className="text-muted-foreground text-xs">
-										{target.contactName ?? "Buyer contact needed"} ·{" "}
-										{target.decision === "MEETS_GATE"
-											? "Meets gate"
-											: target.decision === "BELOW_GATE"
-												? "Below gate"
-												: "Evidence needed"}
-									</p>
+							<div key={target.id} className="rounded-lg border p-3">
+								<div className="flex flex-wrap items-center justify-between gap-3">
+									<div>
+										<p className="font-medium text-sm">{target.companyName}</p>
+										<p className="text-muted-foreground text-xs">
+											{target.contactName ?? "Buyer contact needed"} ·{" "}
+											{target.decision === "MEETS_GATE"
+												? "Meets gate"
+												: target.decision === "BELOW_GATE"
+													? "Below gate"
+													: "Evidence needed"}
+										</p>
+									</div>
+									<Button
+										variant="outline"
+										size="sm"
+										disabled={removeTarget.isPending}
+										onClick={() =>
+											removeTarget.mutate({ id: row.id, targetId: target.id })
+										}
+									>
+										Remove
+									</Button>
 								</div>
-								<Button
-									variant="outline"
-									size="sm"
-									disabled={removeTarget.isPending}
-									onClick={() =>
-										removeTarget.mutate({ id: row.id, targetId: target.id })
-									}
-								>
-									Remove
-								</Button>
+								<div className="mt-3 flex flex-wrap gap-2">
+									<Button
+										variant="outline"
+										size="sm"
+										disabled={runTargetAgent.isPending}
+										onClick={() => {
+											setQueuedTargetId(target.id);
+											runTargetAgent.mutate({
+												id: row.id,
+												targetId: target.id,
+												agentId: "terraeagle-sales-company",
+												clientRequestId: crypto.randomUUID(),
+											});
+										}}
+									>
+										{queuedTargetId === target.id
+											? "Queueing…"
+											: "Research company"}
+									</Button>
+									<Button
+										variant="outline"
+										size="sm"
+										disabled={
+											runTargetAgent.isPending ||
+											!target.contactEmail ||
+											row.steps.length === 0
+										}
+										onClick={() => {
+											setQueuedTargetId(target.id);
+											runTargetAgent.mutate({
+												id: row.id,
+												targetId: target.id,
+												agentId: "terraeagle-sales-outbound-strategist",
+												clientRequestId: crypto.randomUUID(),
+											});
+										}}
+									>
+										Draft outreach
+									</Button>
+								</div>
+								{!target.contactEmail || row.steps.length === 0 ? (
+									<p className="mt-2 text-muted-foreground text-xs">
+										Choose a buyer contact and save a sequence step to draft
+										outreach.
+									</p>
+								) : null}
+								{target.agentRuns.map((run) => (
+									<details
+										key={run.id}
+										className="mt-3 rounded-md border p-3 text-sm"
+									>
+										<summary className="cursor-pointer font-medium">
+											{run.agentId === "terraeagle-sales-company"
+												? "Company research"
+												: "Outreach draft"}{" "}
+											· {run.status.toLowerCase().replaceAll("_", " ")}
+										</summary>
+										{run.errorMessage ? (
+											<p className="mt-2 text-destructive">
+												{run.errorMessage}
+											</p>
+										) : null}
+										{run.summary ? (
+											<p className="mt-2 whitespace-pre-wrap text-muted-foreground">
+												{run.summary}
+											</p>
+										) : null}
+										{run.result ? (
+											<div className="mt-3 space-y-3">
+												{Object.entries(run.result).map(([key, value]) => (
+													<div key={key}>
+														<h4 className="font-medium">{key}</h4>
+														<pre className="mt-1 whitespace-pre-wrap break-words font-sans text-muted-foreground">
+															{JSON.stringify(value, null, 2)}
+														</pre>
+													</div>
+												))}
+											</div>
+										) : null}
+										{run.hasDraft ? (
+											<Button
+												asChild
+												size="sm"
+												variant="outline"
+												className="mt-3"
+											>
+												<Link href={workspaceUrl(`/outreach?draft=${run.id}`)}>
+													Review draft
+												</Link>
+											</Button>
+										) : null}
+									</details>
+								))}
 							</div>
 						))}
 					</div>

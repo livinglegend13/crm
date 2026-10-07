@@ -3,6 +3,7 @@ import { type Db, Prisma } from "@crm/db";
 import type { AgentRunStatus } from "@crm/db/enums";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
 import { agentRunResult } from "@crm/validation/agent-run-result";
+import type { CampaignAgentRunInput } from "@crm/validation/gtm";
 import {
 	BadRequestException,
 	ConflictException,
@@ -148,7 +149,11 @@ export class AgentRunsService {
 		}));
 	}
 
-	async runNow(input: AgentRunNowInput, userId: string) {
+	async runNow(
+		input: AgentRunNowInput,
+		userId: string,
+		campaignInput?: CampaignAgentRunInput,
+	) {
 		await this.access.assertMember(userId);
 		const existing = await this.db.agentRun.findUnique({
 			where: { idempotencyKey: input.clientRequestId },
@@ -212,7 +217,7 @@ export class AgentRunsService {
 					versionId: agent.currentVersionId,
 					initiatedById: userId,
 					triggerType: "MANUAL",
-					input: input.focus ? { focus: input.focus } : {},
+					input: campaignInput ?? (input.focus ? { focus: input.focus } : {}),
 					idempotencyKey: input.clientRequestId,
 					correlationId: randomUUID(),
 					events: {

@@ -99,7 +99,64 @@ export const campaignTarget = z.object({
 	contactEmail: z.string().nullable(),
 	decision: filoDecision,
 	createdAt: z.string(),
+	agentRuns: z.array(
+		z.object({
+			id: z.string(),
+			agentId: z.string(),
+			status: z.enum([
+				"QUEUED",
+				"RUNNING",
+				"WAITING_FOR_APPROVAL",
+				"SUCCEEDED",
+				"FAILED",
+				"CANCELLED",
+			]),
+			summary: z.string().nullable(),
+			result: z.record(z.string(), z.json()).nullable(),
+			errorMessage: z.string().nullable(),
+			hasDraft: z.boolean(),
+			createdAt: z.string(),
+		}),
+	),
 });
+
+export const campaignAgentId = z.enum([
+	"terraeagle-sales-company",
+	"terraeagle-sales-outbound-strategist",
+]);
+
+export const runCampaignAgentInput = z.object({
+	id: z.string().min(1),
+	targetId: z.string().min(1),
+	agentId: campaignAgentId,
+	clientRequestId: z.uuid(),
+});
+
+export const runCampaignAgentOutput = z.object({ runId: z.string() });
+
+export type RunCampaignAgentInput = z.infer<typeof runCampaignAgentInput>;
+
+export const campaignAgentRunInput = z.object({
+	kind: z.literal("campaign-target"),
+	campaignId: z.string(),
+	campaignTargetId: z.string(),
+	companyId: z.string(),
+	focus: z.string(),
+	contactName: z.string().nullable(),
+	recipientEmail: z.email().nullable(),
+	campaignName: z.string(),
+	campaignBrief: z.string().nullable(),
+	steps: z.array(
+		z.object({
+			position: z.number(),
+			delayDays: z.number(),
+			subjectPrompt: z.string(),
+			bodyPrompt: z.string(),
+		}),
+	),
+});
+
+export type CampaignAgentRunInput = z.infer<typeof campaignAgentRunInput>;
 
 export const campaignDetail = campaignSummary.extend({
 	steps: z.array(campaignStep),

@@ -11,7 +11,7 @@ import {
 	draftResearchFromRunResult,
 	outreachRevisionRequest,
 	type RegenerateOutreachDraftInput,
-	recipientFromOutreachRevision,
+	recipientFromRunInput,
 	type SaveOutreachDraftInput,
 	type SendOutreachDraftInput,
 } from "@crm/validation/outreach-draft";
@@ -90,8 +90,7 @@ export class OutreachDraftsService {
 			previousSubject: current?.subject ?? generated.subject,
 			previousBody: current?.body ?? generated.body,
 			recipientEmail:
-				current?.recipientEmail ??
-				recipientFromOutreachRevision(original.input),
+				current?.recipientEmail ?? recipientFromRunInput(original.input),
 			researchSummary: original.summary,
 			...draftResearchFromRunResult(original.result),
 		});
@@ -244,7 +243,7 @@ export class OutreachDraftsService {
 				agentId: run.agent.id,
 				agentName: run.agent.name,
 				recipientEmail:
-					edit?.recipientEmail ?? recipientFromOutreachRevision(run.input),
+					edit?.recipientEmail ?? recipientFromRunInput(run.input),
 				subject: edit?.subject ?? fields.subject,
 				body: edit?.body ?? fields.body,
 				senderEmail: edit?.senderEmail ?? null,

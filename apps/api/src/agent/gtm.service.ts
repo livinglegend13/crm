@@ -1,20 +1,27 @@
 import type { Db, Prisma } from "@crm/db";
+import { agentRunResult } from "@crm/validation/agent-run-result";
 import type {
 	AddCampaignTargetInput,
 	CreateCampaignInput,
 	ProspectsInput,
 	RemoveCampaignTargetInput,
+	RunCampaignAgentInput,
 	SaveCampaignStepsInput,
 	SaveFiloReviewInput,
 	UpdateCampaignInput,
 } from "@crm/validation/gtm";
+import { campaignAgentRunInput } from "@crm/validation/gtm";
+import { draftFieldsFromRunResult } from "@crm/validation/outreach-draft";
 import {
 	BadRequestException,
+	Inject,
 	Injectable,
 	NotFoundException,
 } from "@nestjs/common";
+import { z } from "zod";
 import { InjectDatabase } from "../database/database.constants";
 import { AgentAccessService } from "./agent-access.service";
+import { AgentRunsService } from "./agent-runs.service";
 import { GTM } from "./gtm.config";
 
 const india: Prisma.CompanyWhereInput = {
@@ -51,6 +58,7 @@ export class GtmService {
 	constructor(
 		@InjectDatabase() private readonly db: Db,
 		private readonly access: AgentAccessService,
+		@Inject(AgentRunsService) private readonly runs: AgentRunsService,
 	) {}
 
 	async prospects(userId: string, input: ProspectsInput) {
@@ -268,6 +276,38 @@ export class GtmService {
 			},
 		});
 		if (!row) throw new NotFoundException("Campaign not found.");
+		const recentRuns = await this.db.agentRun.findMany({
+			where: {
+				agentId: {
+					in: [
+						"terraeagle-sales-company",
+						"terraeagle-sales-outbound-strategist",
+					],
+				},
+				input: { path: ["campaignId"], equals: id },
+			},
+			orderBy: { createdAt: "desc" },
+			take: GTM.maxVisibleAgentRuns,
+			select: {
+				id: true,
+				agentId: true,
+				status: true,
+				summary: true,
+				result: true,
+				errorMessage: true,
+				createdAt: true,
+				input: true,
+			},
+		});
+		const runsByTarget = new Map<string, Array<(typeof recentRuns)[number]>>();
+		for (const run of recentRuns) {
+			const parsed = campaignAgentRunInput.parse(run.input);
+			const previous = runsByTarget.get(parsed.campaignTargetId) ?? [];
+			if (!previous.some((entry) => entry.agentId === run.agentId)) {
+				previous.push(run);
+				runsByTarget.set(parsed.campaignTargetId, previous);
+			}
+		}
 		return {
 			id: row.id,
 			name: row.name,
@@ -307,8 +347,85 @@ export class GtmService {
 				contactEmail: target.contact?.email ?? null,
 				decision: target.company.filoReview?.decision ?? "EVIDENCE_NEEDED",
 				createdAt: target.createdAt.toISOString(),
+				agentRuns: (runsByTarget.get(target.id) ?? []).map((run) => ({
+					id: run.id,
+					agentId: run.agentId,
+					status: run.status,
+					summary: run.summary,
+					result: run.result === null ? null : agentRunResult.parse(run.result),
+					errorMessage: run.errorMessage,
+					hasDraft:
+						run.result !== null &&
+						draftFieldsFromRunResult(run.result) !== null,
+					createdAt: run.createdAt.toISOString(),
+				})),
 			})),
 		};
+	}
+
+	async runTargetAgent(userId: string, input: RunCampaignAgentInput) {
+		await this.access.assertMember(userId);
+		const target = await this.db.gtmCampaignTarget.findFirst({
+			where: {
+				id: input.targetId,
+				campaignId: input.id,
+				company: { archivedAt: null, AND: [india] },
+			},
+			select: {
+				id: true,
+				companyId: true,
+				company: { select: { name: true } },
+				contact: { select: { firstName: true, lastName: true, email: true } },
+				campaign: {
+					select: {
+						id: true,
+						name: true,
+						description: true,
+						steps: {
+							orderBy: { position: "asc" },
+							select: {
+								position: true,
+								delayDays: true,
+								subjectPrompt: true,
+								bodyPrompt: true,
+							},
+						},
+					},
+				},
+			},
+		});
+		if (!target) throw new NotFoundException("Campaign target not found.");
+		const recipientEmail = z.email().safeParse(target.contact?.email);
+		if (
+			input.agentId === "terraeagle-sales-outbound-strategist" &&
+			(!recipientEmail.success || target.campaign.steps.length === 0)
+		) {
+			throw new BadRequestException(
+				"Choose a buyer contact and save a sequence step before drafting.",
+			);
+		}
+		const runInput = campaignAgentRunInput.parse({
+			kind: "campaign-target",
+			campaignId: target.campaign.id,
+			campaignTargetId: target.id,
+			companyId: target.companyId,
+			focus: target.company.name,
+			contactName: target.contact
+				? [target.contact.firstName, target.contact.lastName]
+						.filter(Boolean)
+						.join(" ")
+				: null,
+			recipientEmail: recipientEmail.success ? recipientEmail.data : null,
+			campaignName: target.campaign.name,
+			campaignBrief: target.campaign.description,
+			steps: target.campaign.steps,
+		});
+		const run = await this.runs.runNow(
+			{ id: input.agentId, clientRequestId: input.clientRequestId },
+			userId,
+			runInput,
+		);
+		return { runId: run.id };
 	}
 
 	async createCampaign(userId: string, input: CreateCampaignInput) {

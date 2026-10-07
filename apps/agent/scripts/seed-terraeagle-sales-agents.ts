@@ -129,7 +129,7 @@ for (const [name, slug, purpose] of AGENTS) {
 		].includes(slug)
 			? SOURCES["ai-sales-team-claude"]
 			: SOURCES["agency-agents"];
-	const instructions = [
+	const baseInstructions = [
 		`# ${name}`,
 		"",
 		purpose,
@@ -145,18 +145,45 @@ for (const [name, slug, purpose] of AGENTS) {
 		"For outreach, include Approval-ready email subject and Approval-ready email body in the structured result.",
 		"Call finish_run exactly once, even when evidence is unavailable.",
 	].join("\n");
+	const campaignInstructions =
+		slug === "sales-company"
+			? [
+					"For campaign-target runs, research inspect_run.input.companyId and use the campaign brief as context.",
+					"Do not treat a campaign target as Filo-qualified without 12-month average-capacity evidence.",
+				].join("\n")
+			: slug === "sales-outbound-strategist"
+				? [
+						"For campaign-target runs, address only inspect_run.input.contactName and recipientEmail.",
+						"Use the campaign brief and saved sequence guidance. Draft the first step only.",
+						"Return Approval-ready email subject and Approval-ready email body as strings.",
+						"Do not claim a meeting, storage capacity, or prior relationship without evidence. Never send email.",
+					].join("\n")
+				: null;
+	const instructions = campaignInstructions
+		? `${baseInstructions}\n${campaignInstructions}`
+		: baseInstructions;
 	if (existing) {
 		const current = existing.currentVersion;
-		if (
-			current?.number === 1 &&
-			!current.instructions.includes("inspect_run.input.focus")
-		) {
+		const legacyInstructions = baseInstructions
+			.split("\n")
+			.filter(
+				(line) =>
+					!line.startsWith("For manual runs,") &&
+					!line.startsWith("For scheduled runs"),
+			)
+			.join("\n");
+		const upgrade =
+			(current?.number === 1 && current.instructions === legacyInstructions) ||
+			(current?.number === 2 &&
+				campaignInstructions !== null &&
+				current.instructions === baseInstructions);
+		if (current && upgrade) {
 			await db.$transaction(async (tx) => {
 				const now = new Date();
 				const version = await tx.agentVersion.create({
 					data: {
 						agentId: id,
-						number: 2,
+						number: current.number + 1,
 						status: "DEPLOYED",
 						instructions,
 						manifest: current.manifest as object,
@@ -215,7 +242,7 @@ for (const [name, slug, purpose] of AGENTS) {
 						actorType: "USER",
 						actorId: owner.id,
 						type: "version.created",
-						summary: "Added manual run focus to sales agent",
+						summary: "Updated Terraeagle sales agent instructions",
 					},
 				});
 			});
