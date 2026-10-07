@@ -4,7 +4,8 @@ import {
 	OUTLOOK_READ_SHARED_SCOPE,
 	OUTLOOK_SEND_SHARED_SCOPE,
 } from "@crm/auth";
-import type { Db } from "@crm/db";
+import { type Db, type Prisma } from "@crm/db";
+import { campaignAgentRunInput } from "@crm/validation/gtm";
 import {
 	type ApproveOutreachDraftInput,
 	draftFieldsFromRunResult,
@@ -35,6 +36,42 @@ import { AgentAccessService } from "./agent-access.service";
 import { AgentTriggerService } from "./agent-trigger.service";
 import { senderAvailability } from "./outreach-rotation";
 import { OUTREACH_ROTATION } from "./outreach-rotation.config";
+
+async function assertNoCampaignReply(
+	tx: Prisma.TransactionClient,
+	runInput: unknown,
+) {
+	const current = campaignAgentRunInput.safeParse(runInput);
+	if (!current.success || current.data.stepPosition === 0) return;
+	const runs = await tx.agentRun.findMany({
+		where: {
+			agentId: "terraeagle-sales-outbound-strategist",
+			input: {
+				path: ["campaignTargetId"],
+				equals: current.data.campaignTargetId,
+			},
+		},
+		select: {
+			input: true,
+			outreachDrafts: { select: { id: true, status: true } },
+		},
+	});
+	const previousDraftIds = runs.flatMap((run) => {
+		const parsed = campaignAgentRunInput.parse(run.input);
+		return parsed.stepPosition < current.data.stepPosition
+			? run.outreachDrafts
+					.filter((draft) => draft.status === "SENT")
+					.map((draft) => draft.id)
+			: [];
+	});
+	const replies = await tx.outreachReplyAlert.count({
+		where: { draftId: { in: previousDraftIds } },
+	});
+	if (replies > 0)
+		throw new ConflictException(
+			"A reply arrived. Review the conversation before sending this follow-up.",
+		);
+}
 
 @Injectable()
 export class OutreachDraftsService {
@@ -469,6 +506,7 @@ export class OutreachDraftsService {
 			include: {
 				run: {
 					select: {
+						input: true,
 						initiatedById: true,
 						status: true,
 						agent: { select: { status: true } },
@@ -511,6 +549,7 @@ export class OutreachDraftsService {
 			throw new BadRequestException("Reconnect Microsoft 365 before sending.");
 		}
 		const claimed = await this.db.$transaction(async (tx) => {
+			await assertNoCampaignReply(tx, draft.run.input);
 			await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${senderAddress}))`;
 			const now = new Date();
 			const usage = await tx.outreachDraft.groupBy({

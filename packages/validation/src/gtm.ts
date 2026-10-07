@@ -199,6 +199,24 @@ export const campaignPlan = z.object({
 		.max(5),
 });
 
+export const campaignPlanValue = z.union([
+	campaignPlan,
+	z
+		.string()
+		.transform((value, context) => {
+			try {
+				return JSON.parse(value);
+			} catch {
+				context.addIssue({
+					code: "custom",
+					message: "Campaign plan is not valid JSON.",
+				});
+				return z.NEVER;
+			}
+		})
+		.pipe(campaignPlan),
+]);
+
 export const requestCampaignPlanInput = campaignPlanRunInput
 	.omit({ kind: true })
 	.extend({ clientRequestId: z.uuid() });

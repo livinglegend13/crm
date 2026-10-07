@@ -134,7 +134,7 @@ for (const [name, slug, purpose] of AGENTS) {
 		].includes(slug)
 			? SOURCES["ai-sales-team-claude"]
 			: SOURCES["agency-agents"];
-	const baseInstructions = [
+	const genericBaseInstructions = [
 		`# ${name}`,
 		"",
 		purpose,
@@ -151,6 +151,19 @@ for (const [name, slug, purpose] of AGENTS) {
 		"For outreach, include Approval-ready email subject and Approval-ready email body in the structured result.",
 		"Call finish_run exactly once, even when evidence is unavailable.",
 	].join("\n");
+	const baseInstructions =
+		slug === "marketing-campaign-planner"
+			? [
+					`# ${name}`,
+					"",
+					purpose,
+					"",
+					"Read inspect_run first. Use only the supplied campaign material and brief.",
+					"Do not select a CRM account or invent a prospect for a campaign plan.",
+					"Use only the approved run.summary action. Do not write CRM records or send email.",
+					"Call finish_run exactly once with a concise summary and structured plan.",
+				].join("\n")
+			: genericBaseInstructions;
 	const campaignInstructions =
 		slug === "sales-company"
 			? [
@@ -165,6 +178,7 @@ for (const [name, slug, purpose] of AGENTS) {
 						"Use one to five steps. Each step has numeric delayDays, subjectPrompt, and bodyPrompt strings.",
 						"Set the first delayDays to zero. Set later delays relative to the prior sent email.",
 						"Explain verified buyer problems, evidence needs, safe message angles, and one call to action per step.",
+						"For Filo, keep the 1 PB qualification gate in the brief. Do not put it in email subjectPrompt or bodyPrompt.",
 						"Do not invent product claims, people, results, or sources. Do not send email or add contacts.",
 					].join("\n")
 				: slug === "sales-outbound-strategist"
@@ -207,6 +221,10 @@ for (const [name, slug, purpose] of AGENTS) {
 		const previousInstructions = previousCampaignInstructions
 			? `${previousBaseInstructions}\n${previousCampaignInstructions}${slug === "sales-outbound-strategist" ? `\n${outboundReviewInstructions}` : ""}`
 			: previousBaseInstructions;
+		const previousPlannerInstructions =
+			slug === "marketing-campaign-planner"
+				? `${genericBaseInstructions}\n${campaignInstructions}`
+				: null;
 		const upgrade =
 			(current?.number === 1 && current.instructions === legacyInstructions) ||
 			(current?.number === 2 &&
@@ -216,7 +234,8 @@ for (const [name, slug, purpose] of AGENTS) {
 				slug === "sales-outbound-strategist" &&
 				current.instructions ===
 					`${previousBaseInstructions}\n${previousCampaignInstructions}`) ||
-			current?.instructions === previousInstructions;
+			current?.instructions === previousInstructions ||
+			current?.instructions === previousPlannerInstructions;
 		if (current && upgrade) {
 			await db.$transaction(async (tx) => {
 				const now = new Date();

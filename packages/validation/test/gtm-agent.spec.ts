@@ -1,5 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { campaignAgentRunInput, runCampaignAgentInput } from "../src/gtm";
+import {
+	campaignAgentRunInput,
+	campaignPlanValue,
+	runCampaignAgentInput,
+} from "../src/gtm";
 import {
 	draftResearchFromRunResult,
 	recipientFromRunInput,
@@ -63,5 +67,20 @@ describe("campaign agent runs", () => {
 			researchFacts: "Verified role",
 			researchUnknowns: "Capacity",
 		});
+	});
+
+	it("accepts a structured campaign plan returned as JSON text", () => {
+		const value = JSON.stringify({
+			brief: "Target India buyers with verified service needs.",
+			steps: [
+				{
+					delayDays: 0,
+					subjectPrompt: "Introduce the problem",
+					bodyPrompt: "Ask one question grounded in verified material.",
+				},
+			],
+		});
+		expect(campaignPlanValue.parse(value).steps).toHaveLength(1);
+		expect(campaignPlanValue.safeParse("{invalid").success).toBe(false);
 	});
 });

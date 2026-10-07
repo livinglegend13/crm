@@ -13,8 +13,8 @@ import type {
 } from "@crm/validation/gtm";
 import {
 	campaignAgentRunInput,
-	campaignPlan,
 	campaignPlanRunInput,
+	campaignPlanValue,
 } from "@crm/validation/gtm";
 import { draftFieldsFromRunResult } from "@crm/validation/outreach-draft";
 import {
@@ -491,15 +491,17 @@ export class GtmService {
 		const result =
 			run.result === null ? null : agentRunResult.parse(run.result);
 		const plan =
-			result === null ? null : campaignPlan.safeParse(result["Campaign plan"]);
+			result === null
+				? null
+				: campaignPlanValue.safeParse(result["Campaign plan"]);
 		return {
 			status: run.status,
 			errorMessage:
 				run.errorMessage ??
-				(plan && !plan.success
+				(run.status === "SUCCEEDED" && plan && !plan.success
 					? "Agent output needs revision. Open the agent run to review it."
 					: null),
-			plan: plan?.success ? plan.data : null,
+			plan: run.status === "SUCCEEDED" && plan?.success ? plan.data : null,
 		};
 	}
 
