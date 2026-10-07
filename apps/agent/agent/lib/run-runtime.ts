@@ -8,6 +8,7 @@ import {
 	parseAgentManifest,
 } from "@crm/validation/agent-manifest";
 import { agentRunResult } from "@crm/validation/agent-run-result";
+import { campaignPlanValue } from "@crm/validation/gtm";
 import { z } from "zod";
 import { readCompanyHistory, readDealHistory } from "./accounts";
 import { AGENT_ACTION_EXECUTORS, isAgentActionType } from "./agent-actions";
@@ -754,6 +755,15 @@ export async function stageRunResult(
 		}
 
 		const result: RunResult = { ...(input.result ?? {}) };
+		if (run.agentId === "terraeagle-marketing-campaign-planner") {
+			const plan = campaignPlanValue.safeParse(result["Campaign plan"]);
+			if (!plan.success) {
+				throw new Error(
+					"The campaign plan needs a brief and one to five complete steps. Include delayDays, subjectPrompt, and bodyPrompt for every step.",
+				);
+			}
+			result["Campaign plan"] = plan.data;
+		}
 		if (input.noActionNeeded) {
 			result.noActionNeeded = input.noActionNeeded.reason;
 		}

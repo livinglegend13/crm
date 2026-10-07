@@ -45,7 +45,7 @@ agent and the API both need it.
 
 ## Two lanes
 
-The dispatch tick also queues one campaign target run per minute across READY India campaigns. It creates research first. A successful research run allows a first-step draft when a valid buyer email exists. Later drafts wait until the prior step has a sent outreach draft, its delay passes, and no reply alert exists for any sent step. It never sends mail. The campaign window uses Asia/Kolkata time. Prior runs prevent duplicate automatic runs, including failed runs that need review. Campaign input selects Filo storage, Cybersecurity, AI, or FinOps. Only Filo uses the 1 PB average-capacity gate. The Campaign Planner turns supplied material into an editable brief and sequence through a summary-only agent run.
+The dispatch tick also queues one campaign target run per minute across READY India campaigns. It creates research first. A successful research run allows a first-step draft when a valid buyer email exists. Later drafts wait until the prior step has a sent outreach draft, its delay passes, and no reply alert exists for any sent step. It never sends mail. The campaign window uses Asia/Kolkata time. Prior runs prevent duplicate automatic runs, including failed runs that need review. Campaign input selects Filo storage, Cybersecurity, AI, or FinOps. Only Filo uses the 1 PB average-capacity gate. The Campaign Planner turns supplied material into an editable brief and sequence through a summary-only agent run. The agent run rejects an incomplete plan before saving its result.
 
 `schedules/dispatch.ts`, split by `DIRECT_KINDS` in `@crm/db/agent-tasks`.
 

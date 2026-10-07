@@ -82,6 +82,9 @@ describe("campaign agent runs", () => {
 		});
 		expect(campaignPlanValue.parse(value).steps).toHaveLength(1);
 		expect(campaignPlanValue.safeParse("{invalid").success).toBe(false);
+		expect(campaignPlanValue.safeParse({ brief: "A".repeat(50) }).success).toBe(
+			false,
+		);
 		expect(
 			campaignPlanValue.safeParse(
 				JSON.stringify({
