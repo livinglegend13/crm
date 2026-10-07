@@ -69,10 +69,14 @@ export function CampaignList({
 	const [sourceFileName, setSourceFileName] = useState<string | null>(null);
 	const [readingFile, setReadingFile] = useState(false);
 	const [planRunId, setPlanRunId] = useState<string | null>(null);
+	const [planBriefOverride, setPlanBriefOverride] = useState<string | null>(
+		null,
+	);
 	const requestPlan = useMutation(
 		trpc.gtm.requestCampaignPlan.mutationOptions({
 			onSuccess: ({ runId }) => {
 				setPlanRunId(runId);
+				setPlanBriefOverride(null);
 				toast.success("Campaign planner started. Its steps appear here.");
 			},
 			onError: (error) => toast.error(error.message),
@@ -149,7 +153,9 @@ export function CampaignList({
 						name: name.trim(),
 						serviceLine,
 						description:
-							planStatus.data?.plan?.brief ?? (description.trim() || null),
+							(planStatus.data?.plan
+								? (planBriefOverride ?? planStatus.data.plan.brief).trim()
+								: description.trim()) || null,
 						sourceFileName,
 						sourceMaterial: source || null,
 						steps:
@@ -159,8 +165,8 @@ export function CampaignList({
 			>
 				<h2 className="font-medium">Create another India campaign</h2>
 				<p className="text-sm text-muted-foreground">
-					Upload sales material to create a three-step draft sequence. Review
-					every step before activation.
+					Upload sales material, generate a plan, and review every step before
+					activation.
 				</p>
 				<div className="space-y-2">
 					<Label htmlFor="campaign-service">Service</Label>
@@ -295,7 +301,18 @@ export function CampaignList({
 							</Button>
 						) : null}
 						{planStatus.data?.plan ? (
-							<p className="mt-2">{planStatus.data.plan.brief}</p>
+							<div className="mt-3 space-y-2">
+								<Label htmlFor="campaign-generated-brief">
+									Review generated brief
+								</Label>
+								<Textarea
+									id="campaign-generated-brief"
+									value={planBriefOverride ?? planStatus.data.plan.brief}
+									onChange={(event) => setPlanBriefOverride(event.target.value)}
+									maxLength={3000}
+									rows={5}
+								/>
+							</div>
 						) : null}
 						<ol className="mt-2 list-inside list-decimal space-y-2">
 							{(planStatus.data?.plan?.steps ?? DRIP_STEPS).map((step) => (
