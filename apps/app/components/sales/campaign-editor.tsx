@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
+import { CampaignCallPrep } from "./campaign-call-prep";
 import { GTM_VIEW } from "./gtm-config";
 
 type Campaign = RouterOutputs["gtm"]["campaign"];
@@ -139,6 +140,29 @@ export function CampaignEditor({
 	);
 	return (
 		<div className="space-y-6">
+			<section className="rounded-lg border bg-card p-5">
+				<h2 className="font-medium">Sales handoff</h2>
+				<ol className="mt-3 grid gap-3 text-sm sm:grid-cols-3">
+					<li className="rounded-md border p-3">
+						<strong className="block">1. Research</strong>
+						<span className="text-muted-foreground">
+							Company agent · automatic
+						</span>
+					</li>
+					<li className="rounded-md border p-3">
+						<strong className="block">2. Prepare a call</strong>
+						<span className="text-muted-foreground">
+							Rep review and reminder · manual
+						</span>
+					</li>
+					<li className="rounded-md border p-3">
+						<strong className="block">3. Draft and follow up</strong>
+						<span className="text-muted-foreground">
+							Outbound agent · approval required
+						</span>
+					</li>
+				</ol>
+			</section>
 			<section className="rounded-lg border bg-card p-5">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<h2 className="font-medium">Plan and work window</h2>
@@ -502,6 +526,22 @@ export function CampaignEditor({
 										outreach.
 									</p>
 								) : null}
+								<CampaignCallPrep
+									key={`${target.id}-${target.agentRuns.find((run) => run.agentId === "terraeagle-sales-company" && run.status === "SUCCEEDED")?.id ?? "pending"}`}
+									targetId={target.id}
+									companyId={target.companyId}
+									companyName={target.companyName}
+									contactId={target.contactId}
+									contactName={target.contactName}
+									researchSummary={
+										target.agentRuns.find(
+											(run) =>
+												run.agentId === "terraeagle-sales-company" &&
+												run.status === "SUCCEEDED",
+										)?.summary ?? null
+									}
+									serviceLine={row.serviceLine}
+								/>
 								{target.agentRuns.map((run) => (
 									<details
 										key={run.id}
