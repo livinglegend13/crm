@@ -211,7 +211,7 @@ export function CampaignEditor({
 							value={description}
 							onChange={(event) => setDescription(event.target.value)}
 							rows={3}
-							maxLength={1000}
+							maxLength={3000}
 						/>
 					</div>
 					<div className="space-y-2">

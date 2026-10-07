@@ -186,7 +186,7 @@ export const campaignPlanRunInput = z.object({
 export type CampaignPlanRunInput = z.infer<typeof campaignPlanRunInput>;
 
 export const campaignPlan = z.object({
-	brief: z.string().trim().min(20).max(1000),
+	brief: z.string().trim().min(20).max(3000),
 	steps: z
 		.array(
 			z.object({
@@ -247,7 +247,7 @@ export const campaignsOutput = z.array(campaignSummary);
 export const createCampaignInput = z.object({
 	name: z.string().trim().min(3).max(120),
 	serviceLine: campaignServiceLine.default("FILO_STORAGE"),
-	description: z.string().trim().max(1000).nullable(),
+	description: z.string().trim().max(3000).nullable(),
 	sourceFileName: z.string().trim().max(255).nullable().default(null),
 	sourceMaterial: z.string().trim().max(100000).nullable().default(null),
 	steps: z
@@ -265,7 +265,7 @@ export const createCampaignInput = z.object({
 export const updateCampaignInput = campaignIdInput.extend({
 	name: z.string().trim().min(3).max(120),
 	serviceLine: campaignServiceLine,
-	description: z.string().trim().max(1000).nullable(),
+	description: z.string().trim().max(3000).nullable(),
 	sourceMaterial: z.string().trim().max(100000).nullable(),
 	status: campaignStatus,
 	schedule: campaignSchedule,

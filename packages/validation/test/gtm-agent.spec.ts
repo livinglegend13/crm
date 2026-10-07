@@ -82,5 +82,19 @@ describe("campaign agent runs", () => {
 		});
 		expect(campaignPlanValue.parse(value).steps).toHaveLength(1);
 		expect(campaignPlanValue.safeParse("{invalid").success).toBe(false);
+		expect(
+			campaignPlanValue.safeParse(
+				JSON.stringify({
+					brief: "A".repeat(1376),
+					steps: [
+						{
+							delayDays: 0,
+							subjectPrompt: "Introduce the problem",
+							bodyPrompt: "Ask one question grounded in verified material.",
+						},
+					],
+				}),
+			).success,
+		).toBe(true);
 	});
 });

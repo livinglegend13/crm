@@ -207,7 +207,7 @@ export function CampaignList({
 							setPlanRunId(null);
 						}}
 						placeholder="Who this campaign serves and what evidence it needs."
-						maxLength={1000}
+						maxLength={3000}
 						rows={3}
 					/>
 				</div>
