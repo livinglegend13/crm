@@ -54,7 +54,11 @@ export function AgentCode({
 
 	const code = useQuery(trpc.agents.files.queryOptions({ id: agentId }));
 	const files = code.data?.files ?? [];
-	const path = active ?? files[0]?.path ?? null;
+	const path =
+		active ??
+		files.find((entry) => entry.path.endsWith("instructions.md"))?.path ??
+		files[0]?.path ??
+		null;
 	const file = files.find((entry) => entry.path === path);
 
 	const save = useMutation(
@@ -95,7 +99,7 @@ export function AgentCode({
 		if (failed || remaining.length > 0) return;
 
 		setEditing(false);
-		toast.success("Saved.");
+		toast.success("Prompt saved. New runs use this version.");
 	}, [agentId, queryClient, save, trpc]);
 
 	const editorOptions = useMemo<EditorOptions<undefined>>(
@@ -162,7 +166,7 @@ export function AgentCode({
 							Agent prompt and configuration
 						</h2>
 						<p className="text-muted-foreground text-sm">
-							Select an instructions file, then choose Edit to change the agent
+							Edit instructions.md to change this agent. New runs use the saved
 							prompt.
 						</p>
 					</div>

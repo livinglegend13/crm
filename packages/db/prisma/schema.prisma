@@ -912,6 +912,8 @@ model GtmCampaign {
   id                String   @id @default(cuid())
   name              String
   description       String?
+  sourceFileName    String?
+  sourceMaterial    String?  @db.Text
   ownerId           String
   owner             User     @relation("GtmCampaignOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   status            GtmCampaignStatus @default(DRAFT)

@@ -237,6 +237,8 @@ export class GtmService {
 			id: row.id,
 			name: row.name,
 			description: row.description,
+			sourceFileName: row.sourceFileName,
+			sourceLength: row.sourceMaterial?.length ?? 0,
 			status: row.status,
 			marketCountryCode: "IN" as const,
 			schedule: {
@@ -312,6 +314,9 @@ export class GtmService {
 			id: row.id,
 			name: row.name,
 			description: row.description,
+			sourceFileName: row.sourceFileName,
+			sourceLength: row.sourceMaterial?.length ?? 0,
+			sourceMaterial: row.sourceMaterial,
 			status: row.status,
 			marketCountryCode: "IN" as const,
 			schedule: {
@@ -381,6 +386,7 @@ export class GtmService {
 						id: true,
 						name: true,
 						description: true,
+						sourceMaterial: true,
 						steps: {
 							orderBy: { position: "asc" },
 							select: {
@@ -418,6 +424,7 @@ export class GtmService {
 			recipientEmail: recipientEmail.success ? recipientEmail.data : null,
 			campaignName: target.campaign.name,
 			campaignBrief: target.campaign.description,
+			campaignMaterial: target.campaign.sourceMaterial,
 			steps: target.campaign.steps,
 		});
 		const run = await this.runs.runNow(
@@ -434,7 +441,17 @@ export class GtmService {
 			data: {
 				name: input.name,
 				description: input.description,
+				sourceFileName: input.sourceFileName,
+				sourceMaterial: input.sourceMaterial,
 				ownerId: userId,
+				steps: {
+					create: input.steps.map((step, position) => ({
+						position,
+						delayDays: step.delayDays,
+						subjectPrompt: step.subjectPrompt,
+						bodyPrompt: step.bodyPrompt,
+					})),
+				},
 			},
 		});
 		return this.campaign(userId, row.id);
@@ -465,6 +482,7 @@ export class GtmService {
 			data: {
 				name: input.name,
 				description: input.description,
+				sourceMaterial: input.sourceMaterial,
 				status: input.status,
 				sendDays: [...new Set(input.schedule.sendDays)].sort(),
 				startMinute: input.schedule.startMinute,

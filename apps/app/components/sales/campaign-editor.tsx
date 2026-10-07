@@ -73,6 +73,9 @@ export function CampaignEditor({
 	const row = campaign.data ?? initialCampaign;
 	const [name, setName] = useState(row.name);
 	const [description, setDescription] = useState(row.description ?? "");
+	const [sourceMaterial, setSourceMaterial] = useState(
+		row.sourceMaterial ?? "",
+	);
 	const [status, setStatus] = useState<Campaign["status"]>(row.status);
 	const [sendDays, setSendDays] = useState(row.schedule.sendDays);
 	const [start, setStart] = useState(clockOf(row.schedule.startMinute));
@@ -158,6 +161,7 @@ export function CampaignEditor({
 							id: row.id,
 							name: name.trim(),
 							description: description.trim() || null,
+							sourceMaterial: sourceMaterial.trim() || null,
 							status,
 							schedule: {
 								timeZone: "Asia/Kolkata",
@@ -188,6 +192,25 @@ export function CampaignEditor({
 							rows={3}
 							maxLength={1000}
 						/>
+					</div>
+					<div className="space-y-2">
+						<Label htmlFor="edit-campaign-material">Source material</Label>
+						{row.sourceFileName ? (
+							<p className="text-xs text-muted-foreground">
+								Uploaded from {row.sourceFileName}
+							</p>
+						) : null}
+						<Textarea
+							id="edit-campaign-material"
+							value={sourceMaterial}
+							onChange={(event) => setSourceMaterial(event.target.value)}
+							rows={8}
+							maxLength={GTM_VIEW.material.maxCharacters}
+							placeholder="Add verified product notes and supporting material."
+						/>
+						<p className="text-xs text-muted-foreground">
+							Agent drafts use this source. Verify claims before sending.
+						</p>
 					</div>
 					<div className="grid gap-4 sm:grid-cols-3">
 						<div className="space-y-2">

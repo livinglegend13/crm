@@ -109,6 +109,7 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 								id: true,
 								name: true,
 								description: true,
+								sourceMaterial: true,
 								ownerId: true,
 								sendDays: true,
 								startMinute: true,
@@ -190,6 +191,7 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 					recipientEmail,
 					campaignName: target.campaign.name,
 					campaignBrief: target.campaign.description,
+					campaignMaterial: target.campaign.sourceMaterial,
 					steps: target.campaign.steps.map((step) => ({
 						position: step.position,
 						delayDays: step.delayDays,

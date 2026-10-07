@@ -72,6 +72,8 @@ export const campaignSummary = z.object({
 	id: z.string(),
 	name: z.string(),
 	description: z.string().nullable(),
+	sourceFileName: z.string().nullable(),
+	sourceLength: z.number().int(),
 	status: campaignStatus,
 	marketCountryCode: z.literal("IN"),
 	schedule: campaignSchedule,
@@ -146,6 +148,7 @@ export const campaignAgentRunInput = z.object({
 	recipientEmail: z.email().nullable(),
 	campaignName: z.string(),
 	campaignBrief: z.string().nullable(),
+	campaignMaterial: z.string().nullable().optional(),
 	steps: z.array(
 		z.object({
 			position: z.number(),
@@ -159,6 +162,7 @@ export const campaignAgentRunInput = z.object({
 export type CampaignAgentRunInput = z.infer<typeof campaignAgentRunInput>;
 
 export const campaignDetail = campaignSummary.extend({
+	sourceMaterial: z.string().nullable(),
 	steps: z.array(campaignStep),
 	targets: z.array(campaignTarget),
 });
@@ -169,11 +173,24 @@ export const campaignsOutput = z.array(campaignSummary);
 export const createCampaignInput = z.object({
 	name: z.string().trim().min(3).max(120),
 	description: z.string().trim().max(1000).nullable(),
+	sourceFileName: z.string().trim().max(255).nullable().default(null),
+	sourceMaterial: z.string().trim().max(100000).nullable().default(null),
+	steps: z
+		.array(
+			z.object({
+				delayDays: z.number().int().min(0).max(90),
+				subjectPrompt: z.string().trim().min(3).max(500),
+				bodyPrompt: z.string().trim().min(3).max(3000),
+			}),
+		)
+		.max(5)
+		.default([]),
 });
 
 export const updateCampaignInput = campaignIdInput.extend({
 	name: z.string().trim().min(3).max(120),
 	description: z.string().trim().max(1000).nullable(),
+	sourceMaterial: z.string().trim().max(100000).nullable(),
 	status: campaignStatus,
 	schedule: campaignSchedule,
 });

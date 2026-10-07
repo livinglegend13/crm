@@ -25,6 +25,7 @@ import {
 	DropdownMenuTrigger,
 } from "@crm/ui/components/dropdown-menu";
 import { Icon } from "@crm/ui/components/icon";
+import { Input } from "@crm/ui/components/input";
 import { SaveBarViewport } from "@crm/ui/components/save-bar";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -232,10 +233,13 @@ export function TeamAgentDetail({
 									: triggerSummary}
 						</span>
 						<div className="mt-1 flex flex-wrap gap-2">
-							<label className="flex w-full flex-col gap-1 text-xs">
+							<label
+								htmlFor="agent-run-focus"
+								className="flex w-full flex-col gap-1 text-xs"
+							>
 								Run focus
-								<input
-									className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+								<Input
+									id="agent-run-focus"
 									placeholder="Company, contact, or question for this run"
 									value={runFocus}
 									onChange={(event) => setRunFocus(event.target.value)}
@@ -246,6 +250,12 @@ export function TeamAgentDetail({
 								<span className="font-mono text-muted-foreground">
 									{data.runCount}
 								</span>
+							</Button>
+							<Button asChild variant="outline">
+								<a href="#agent-schedule">Schedule</a>
+							</Button>
+							<Button asChild variant="outline">
+								<a href="#agent-prompt">Edit prompt</a>
 							</Button>
 							<Button asChild variant="outline">
 								<Link href={workspaceUrl("/chat")}>Open in chat</Link>
@@ -320,7 +330,10 @@ export function TeamAgentDetail({
 
 			<PageShellContent className="min-h-0">
 				<div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pb-1">
-					<section className="mb-6 rounded-lg border bg-card p-5">
+					<section
+						id="agent-output"
+						className="mb-6 rounded-lg border bg-card p-5"
+					>
 						<div className="flex flex-wrap items-center justify-between gap-3">
 							<h2 className="font-medium text-base">Latest run</h2>
 							<Button
@@ -617,8 +630,12 @@ function AgentOverview({ agent }: { agent: AgentDetail }) {
 					canManage={canEdit}
 					capabilities={capabilities}
 				/>
-				<AgentSchedule agent={agent} />
-				<AgentCode agentId={agent.id} canManage={canEdit} />
+				<div id="agent-schedule">
+					<AgentSchedule agent={agent} />
+				</div>
+				<div id="agent-prompt">
+					<AgentCode agentId={agent.id} canManage={canEdit} />
+				</div>
 			</div>
 		</SaveBarViewport>
 	);
