@@ -49,6 +49,9 @@ user needs delegated `Mail.Send.Shared` and Exchange Send As rights to send.
 Shared inbox sync also needs delegated `Mail.Read.Shared` and Exchange Full Access
 rights. A missing list removes the sender capability.
 
+**`OUTREACH_SENDING_ENABLED`** allows delivery of individually approved drafts only
+when set to the literal `true`. Keep it off until sender-domain DKIM works.
+
 **`OUTREACH_REPLY_ALERTS_ENABLED`** enables automatic email alerts for replies to
 sent outreach. The literal `true` enables delivery. Pending alerts stay queued
 while it is off. Turn it on after sender-domain DKIM works.

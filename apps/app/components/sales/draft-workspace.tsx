@@ -94,7 +94,9 @@ export function DraftWorkspace({
 						key={selected.runId}
 						draft={selected}
 						senders={senders.data?.addresses ?? []}
-						canSend={senders.data?.connected ?? false}
+						canSend={
+							senders.data?.connected === true && senders.data.sendingEnabled
+						}
 						recommendedSender={senders.data?.recommendedSender ?? null}
 						senderReason={senders.data?.reason ?? null}
 					/>
@@ -113,7 +115,7 @@ function MailboxConnections({ status }: { status: Senders | undefined }) {
 					<h2 className="font-medium">Sender mailboxes</h2>
 					<p className="mt-1 text-muted-foreground text-xs">
 						{status
-							? `${status.mailboxes.length} configured · Sending ${status.connected ? "connected" : "not connected"} · Inbox ${status.readConnected ? "connected" : "not connected"}`
+							? `${status.mailboxes.length} configured · Sending ${status.sendingEnabled ? (status.connected ? "connected" : "not connected") : "paused for DKIM"} · Inbox ${status.readConnected ? "connected" : "not connected"}`
 							: "Checking Microsoft 365 access…"}
 					</p>
 					{status ? (

@@ -74,6 +74,10 @@ export class EnvironmentVariables {
 
 	@IsOptional()
 	@IsString()
+	OUTREACH_SENDING_ENABLED?: string;
+
+	@IsOptional()
+	@IsString()
 	OUTREACH_REPLY_ALERTS_ENABLED?: string;
 
 	@IsOptional()

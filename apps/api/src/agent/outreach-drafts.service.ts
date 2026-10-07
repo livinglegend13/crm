@@ -177,6 +177,7 @@ export class OutreachDraftsService {
 			addresses.length > 0 && scopes.has(OUTLOOK_READ_SHARED_SCOPE) && refresh;
 		return {
 			addresses,
+			sendingEnabled: process.env.OUTREACH_SENDING_ENABLED === "true",
 			replyAlertsEnabled: process.env.OUTREACH_REPLY_ALERTS_ENABLED === "true",
 			pendingReplyAlerts,
 			unknownReplyAlerts,
@@ -199,11 +200,14 @@ export class OutreachDraftsService {
 					lastError: row?.lastError ?? null,
 				};
 			}),
-			reason: connected
-				? null
-				: addresses.length === 0
-					? "No sender mailboxes are configured."
-					: "Reconnect Microsoft 365 to grant Mail.Send.Shared.",
+			reason:
+				process.env.OUTREACH_SENDING_ENABLED !== "true"
+					? "Sending is paused until sender-domain DKIM is ready."
+					: connected
+						? null
+						: addresses.length === 0
+							? "No sender mailboxes are configured."
+							: "Reconnect Microsoft 365 to grant Mail.Send.Shared.",
 		};
 	}
 
@@ -455,6 +459,11 @@ export class OutreachDraftsService {
 
 	async send(userId: string, input: SendOutreachDraftInput) {
 		await this.access.assertMember(userId);
+		if (process.env.OUTREACH_SENDING_ENABLED !== "true") {
+			throw new ConflictException(
+				"Sending is paused until sender-domain DKIM is ready.",
+			);
+		}
 		const draft = await this.db.outreachDraft.findFirst({
 			where: { runId: input.runId, userId, status: "APPROVED" },
 			include: {

@@ -80,6 +80,7 @@ export function recipientFromRunInput(value: unknown) {
 
 export const outreachSendersOutput = z.object({
 	addresses: z.array(z.email()),
+	sendingEnabled: z.boolean(),
 	replyAlertsEnabled: z.boolean(),
 	pendingReplyAlerts: z.number().int(),
 	unknownReplyAlerts: z.number().int(),
