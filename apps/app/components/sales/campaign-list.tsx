@@ -107,8 +107,10 @@ export function CampaignList({
 								</p>
 							) : null}
 							<p className="mt-3 text-muted-foreground text-sm">
-								{campaign.targetCount} targets · {campaign.qualifiedCount} meet
-								gate · {campaign.stepCount} email steps · India
+								{campaign.targetCount}{" "}
+								{campaign.targetCount === 1 ? "target" : "targets"} ·{" "}
+								{campaign.qualifiedCount} meet gate · {campaign.stepCount} email
+								steps · India
 							</p>
 						</Link>
 					))

@@ -68,9 +68,10 @@ export function GtmInsights({
 							>
 								<span className="font-medium text-sm">{campaign.name}</span>
 								<span className="mt-1 block text-muted-foreground text-xs">
-									{campaign.targetCount} targets · {campaign.qualifiedCount}{" "}
-									meet gate · {campaign.stepCount} steps ·{" "}
-									{campaign.status.toLowerCase()}
+									{campaign.targetCount}{" "}
+									{campaign.targetCount === 1 ? "target" : "targets"} ·{" "}
+									{campaign.qualifiedCount} meet gate · {campaign.stepCount}{" "}
+									steps · {campaign.status.toLowerCase()}
 								</span>
 							</Link>
 						))}

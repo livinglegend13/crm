@@ -107,10 +107,13 @@ export function ProspectBoard({
 				<Button type="submit">Search</Button>
 			</form>
 			<p className="text-muted-foreground text-sm">
-				{prospects.data?.total ?? 0} India companies match. No company meets the
-				gate without a documented 12-month average.
+				{prospects.isError
+					? `Prospect search failed: ${prospects.error.message}`
+					: prospects.isPending
+						? "Searching India companies…"
+						: `${prospects.data?.total ?? 0} India companies match. No company meets the gate without a documented 12-month average.`}
 			</p>
-			{rows.length === 0 ? (
+			{prospects.isPending || prospects.isError ? null : rows.length === 0 ? (
 				<div className="rounded-lg border border-dashed p-6 text-sm">
 					No India companies match these filters.
 				</div>
