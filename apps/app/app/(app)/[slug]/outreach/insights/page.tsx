@@ -1,20 +1,30 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
+import { Suspense } from "react";
 import {
 	PageShell,
 	PageShellContent,
 	PageShellDescription,
+	PageShellFallback,
 	PageShellHeader,
 	PageShellHeading,
 	PageShellTitle,
 } from "@/components/page-shell";
-import { GtmNav } from "@/components/sales/gtm-nav";
 import { GtmInsights } from "@/components/sales/gtm-insights";
+import { GtmNav } from "@/components/sales/gtm-nav";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "GTM insights" };
 
-export default async function InsightsPage() {
+export default function InsightsPage() {
+	return (
+		<Suspense fallback={<PageShellFallback />}>
+			<InsightsContent />
+		</Suspense>
+	);
+}
+
+async function InsightsContent() {
 	await connection();
 	const client = getServerTrpcClient();
 	const [insights, campaigns] = await Promise.all([
@@ -27,7 +37,8 @@ export default async function InsightsPage() {
 				<PageShellHeading>
 					<PageShellTitle>GTM insights</PageShellTitle>
 					<PageShellDescription>
-						Track Filo qualification, campaign planning, draft approval, sent mail, and replies.
+						Track Filo qualification, campaign planning, draft approval, sent
+						mail, and replies.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>

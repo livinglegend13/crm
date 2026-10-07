@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
+import { Suspense } from "react";
 import {
 	PageShell,
 	PageShellContent,
 	PageShellDescription,
+	PageShellFallback,
 	PageShellHeader,
 	PageShellHeading,
 	PageShellTitle,
@@ -14,7 +16,15 @@ import { getServerTrpcClient } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "GTM campaigns" };
 
-export default async function CampaignsPage() {
+export default function CampaignsPage() {
+	return (
+		<Suspense fallback={<PageShellFallback />}>
+			<CampaignsContent />
+		</Suspense>
+	);
+}
+
+async function CampaignsContent() {
 	await connection();
 	const client = getServerTrpcClient();
 	const campaigns = await client.gtm.campaigns.query();
@@ -24,7 +34,8 @@ export default async function CampaignsPage() {
 				<PageShellHeading>
 					<PageShellTitle>Campaigns</PageShellTitle>
 					<PageShellDescription>
-						Plan targets, email steps, and sending windows. Every customer email still needs approval.
+						Plan targets, email steps, and sending windows. Every customer email
+						still needs approval.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>

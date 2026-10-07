@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
+import { Suspense } from "react";
 import {
 	PageShell,
 	PageShellContent,
 	PageShellDescription,
+	PageShellFallback,
 	PageShellHeader,
 	PageShellHeading,
 	PageShellTitle,
@@ -14,11 +16,24 @@ import { getServerTrpcClient } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "Filo prospecting" };
 
-export default async function ProspectsPage() {
+export default function ProspectsPage() {
+	return (
+		<Suspense fallback={<PageShellFallback />}>
+			<ProspectsContent />
+		</Suspense>
+	);
+}
+
+async function ProspectsContent() {
 	await connection();
 	const client = getServerTrpcClient();
 	const [prospects, campaigns] = await Promise.all([
-		client.gtm.prospects.query({ q: "", decision: "ALL", offset: 0, limit: 25 }),
+		client.gtm.prospects.query({
+			q: "",
+			decision: "ALL",
+			offset: 0,
+			limit: 25,
+		}),
 		client.gtm.campaigns.query(),
 	]);
 	return (
@@ -27,13 +42,17 @@ export default async function ProspectsPage() {
 				<PageShellHeading>
 					<PageShellTitle>Filo prospecting</PageShellTitle>
 					<PageShellDescription>
-						Review India companies against Filo’s 1 PB average-capacity gate. Record evidence before qualification.
+						Review India companies against Filo’s 1 PB average-capacity gate.
+						Record evidence before qualification.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>
 			<PageShellContent>
 				<GtmNav current="prospects" />
-				<ProspectBoard initialProspects={prospects} initialCampaigns={campaigns} />
+				<ProspectBoard
+					initialProspects={prospects}
+					initialCampaigns={campaigns}
+				/>
 			</PageShellContent>
 		</PageShell>
 	);

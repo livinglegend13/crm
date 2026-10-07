@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
+import { Suspense } from "react";
 import {
 	PageShell,
 	PageShellContent,
 	PageShellDescription,
+	PageShellFallback,
 	PageShellHeader,
 	PageShellHeading,
 	PageShellTitle,
@@ -14,7 +16,23 @@ import { getServerTrpcClient } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "Campaign plan" };
 
-export default async function CampaignPage({ params }: { params: Promise<{ id: string }> }) {
+export default function CampaignPage({
+	params,
+}: {
+	params: Promise<{ id: string }>;
+}) {
+	return (
+		<Suspense fallback={<PageShellFallback />}>
+			<CampaignContent params={params} />
+		</Suspense>
+	);
+}
+
+async function CampaignContent({
+	params,
+}: {
+	params: Promise<{ id: string }>;
+}) {
 	await connection();
 	const { id } = await params;
 	const client = getServerTrpcClient();
@@ -25,7 +43,8 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
 				<PageShellHeading>
 					<PageShellTitle>{campaign.name}</PageShellTitle>
 					<PageShellDescription>
-						Configure this India campaign plan. The plan does not send email automatically.
+						Configure this India campaign plan. The plan does not send email
+						automatically.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>
