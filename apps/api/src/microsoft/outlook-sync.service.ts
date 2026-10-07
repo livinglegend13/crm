@@ -210,6 +210,9 @@ export class OutlookSyncService {
 
 				const parsed = this.parse(message);
 				if (!parsed) continue;
+				if (shared && parsed.from.email === mailbox) {
+					await this.replies.captureSent(mailbox, parsed);
+				}
 				const outreach = shared
 					? await this.replies.match(mailbox, parsed)
 					: null;
@@ -313,6 +316,7 @@ export class OutlookSyncService {
 			sentAt,
 			outlookMessageId: message.id ?? null,
 			outlookWebLink: message.webLink ?? null,
+			outlookConversationId: message.conversationId ?? null,
 		};
 	}
 

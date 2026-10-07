@@ -3,11 +3,13 @@ import { MailboxModule } from "../mailbox/mailbox.module";
 import { MicrosoftModule } from "../microsoft/microsoft.module";
 import { TrpcModule } from "../trpc/trpc.module";
 import { AgentModule } from "./agent.module";
+import { GtmRouter } from "./gtm.router";
+import { GtmService } from "./gtm.service";
 import { OutreachDraftsRouter } from "./outreach-drafts.router";
 import { OutreachDraftsService } from "./outreach-drafts.service";
 
 @Module({
 	imports: [TrpcModule, MailboxModule, MicrosoftModule, AgentModule],
-	providers: [OutreachDraftsRouter, OutreachDraftsService],
+	providers: [OutreachDraftsRouter, OutreachDraftsService, GtmRouter, GtmService],
 })
 export class OutreachModule {}

@@ -38,6 +38,8 @@ model User {
   createdAgentTriggers    AgentTrigger[]                @relation("AgentTriggerCreator")
   initiatedAgentRuns      AgentRun[]                    @relation("AgentRunInitiator")
   outreachDrafts          OutreachDraft[]              @relation("OutreachDraftEditor")
+  gtmCampaigns            GtmCampaign[]               @relation("GtmCampaignOwner")
+  filoReviews             FiloProspectReview[]        @relation("FiloProspectReviewer")
   agentAuditEvents        AgentAuditEvent[]             @relation("AgentAuditActor")
   conversationShares      AgentConversationShare[]      @relation("ConversationShareCreator")
   conversationSubmissions AgentConversationSubmission[] @relation("ConversationSubmissionAuthor")
@@ -323,6 +325,8 @@ model Company {
   archivedAt     DateTime?
 
   contacts       Contact[]           @relation("CompanyContacts")
+  filoReview     FiloProspectReview?
+  gtmTargets     GtmCampaignTarget[]
   conversations  AgentConversation[]
   deals          Deal[]
   activities     Activity[]
@@ -386,6 +390,7 @@ model Contact {
   archivedAt     DateTime?
 
   deals           DealContact[]
+  gtmTargets      GtmCampaignTarget[]
   activities      Activity[]
   emailThreads    EmailThread[]
   calendarEvents  CalendarEvent[]
@@ -846,12 +851,16 @@ model OutreachDraft {
   senderEmail    String?
   sendStartedAt  DateTime?
   sentAt         DateTime?
+  sentConversationId String?
+  sentRfcMessageId String?
   sendError      String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@unique([runId, userId])
   @@index([userId, updatedAt])
+  @@index([senderEmail, sentConversationId])
+  @@index([senderEmail, sentRfcMessageId])
   @@map("outreachDraft")
 }
 
@@ -872,6 +881,88 @@ model OutreachReplyAlert {
 
   @@index([userId, status, createdAt])
   @@map("outreachReplyAlert")
+}
+
+model FiloProspectReview {
+  companyId         String   @id
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  decision          FiloProspectDecision @default(EVIDENCE_NEEDED)
+  averageCapacityPb Float?
+  periodStart       DateTime?
+  periodEnd         DateTime?
+  evidenceSource    String?
+  evidenceNote      String?
+  buyerContactId    String?
+  reviewedById      String
+  reviewedBy        User     @relation("FiloProspectReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([decision, updatedAt])
+  @@map("filoProspectReview")
+}
+
+enum FiloProspectDecision {
+  EVIDENCE_NEEDED
+  MEETS_GATE
+  BELOW_GATE
+}
+
+model GtmCampaign {
+  id                String   @id @default(cuid())
+  name              String
+  description       String?
+  ownerId           String
+  owner             User     @relation("GtmCampaignOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  status            GtmCampaignStatus @default(DRAFT)
+  marketCountryCode String   @default("IN")
+  timeZone          String   @default("Asia/Kolkata")
+  sendDays          Int[]    @default([1, 2, 3, 4, 5])
+  startMinute       Int      @default(540)
+  endMinute         Int      @default(1020)
+  steps             GtmCampaignStep[]
+  targets           GtmCampaignTarget[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([ownerId, createdAt])
+  @@map("gtmCampaign")
+}
+
+enum GtmCampaignStatus {
+  DRAFT
+  READY
+  PAUSED
+}
+
+model GtmCampaignStep {
+  id             String @id @default(cuid())
+  campaignId     String
+  campaign       GtmCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  position       Int
+  delayDays      Int
+  subjectPrompt  String
+  bodyPrompt     String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([campaignId, position])
+  @@map("gtmCampaignStep")
+}
+
+model GtmCampaignTarget {
+  id          String @id @default(cuid())
+  campaignId  String
+  campaign    GtmCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  companyId   String
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contactId   String?
+  contact     Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@unique([campaignId, companyId])
+  @@index([companyId])
+  @@map("gtmCampaignTarget")
 }
 
 enum OutreachReplyAlertStatus {

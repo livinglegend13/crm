@@ -1,5 +1,11 @@
 # API Rules
 
+## Terraeagle GTM records
+
+The GTM router stores India prospect reviews and campaign plans. It does not research companies or send mail. A Filo review records a documented 12-month average storage capacity. The 1 PB gate uses that average. A campaign plan stores targets, sequence instructions, and an Asia/Kolkata window. The window does not schedule sends. Each outreach draft still needs individual approval.
+
+Outlook sync links the sent copy of an approved draft to its RFC message ID and Microsoft conversation ID. Reply matching uses those IDs before subject matching. This handles replies with edited subjects after the sent copy syncs. Subject matching remains the fallback for messages without the IDs.
+
 ## Logging
 
 `apps/api/src/logging`. `new Logger(Thing.name)` picks up `ContextLogger`. **Never

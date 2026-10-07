@@ -15,6 +15,7 @@ const t = initTRPC.create();
 const publicProcedure = t.procedure;
 import { timelineInput, timelineOutput, timelineCountsInput, timelineCountsOutput, myTasksInput, myTasksOutput, activityCreateInput, activityCreateOutput, completeInput, completeOutput } from "../activities/activities.contracts";
 import { agentListOutput, agentReviseInput, agentReviseOutput, agentIdInput, agentFilesOutput, agentSaveFileInput, agentSaveFileOutput, agentByIdOutput, agentHistoryInput, agentHistoryOutput, agentActivityOutput, agentUpdateInput, agentUpdateOutput, agentDeployInput, agentDeployOutput, agentPauseOutput, agentResumeOutput, agentArchiveOutput, agentRestoreOutput, agentRemoveOutput, agentRunNowInput, agentRunNowOutput, agentRetryRunInput, agentRetryRunOutput, agentCancelRunInput, agentCancelRunOutput } from "../agent/agents.contracts";
+import { prospectsInput, prospectsOutput, saveFiloReviewInput, filoReview, campaignsOutput, campaignIdInput, campaignDetail, createCampaignInput, updateCampaignInput, saveCampaignStepsInput, addCampaignTargetInput, removeCampaignTargetInput, gtmInsights } from "@crm/validation/gtm";
 import { outreachDraftList, outreachStats, outreachSendersOutput, saveOutreachDraftInput, outreachDraft, approveOutreachDraftInput, sendOutreachDraftInput, sendOutreachDraftOutput, regenerateOutreachDraftInput, regenerateOutreachDraftOutput } from "@crm/validation/outreach-draft";
 import { apiKeyListInput, apiKeyListOutput, createApiKeyInput, createApiKeyOutput, revokeApiKeyInput, revokeApiKeyOutput } from "../api-keys/api-keys.contracts";
 import { companyListInput, companyListOutput, companyIdInput, companyDetailOutput, companyOptionsInput, companyOptionOutput, companyCreateInput, companySummaryOutput, companyUpdateArgs, companyArchiveResultOutput, companyBulkOwnerInput, companyBulkResultOutput, companyBulkInput, companyEnrichOutput, companyResearchOutput, setPrimaryContactInput, companySetPrimaryContactOutput } from "../companies/companies.contracts";
@@ -127,6 +128,46 @@ const appRouter = t.router({
       .input(agentCancelRunInput)
       .output(agentCancelRunOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  gtm: t.router({
+    prospects: publicProcedure
+      .input(prospectsInput)
+      .output(prospectsOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    saveReview: publicProcedure
+      .input(saveFiloReviewInput)
+      .output(filoReview)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    campaigns: publicProcedure
+      .output(campaignsOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    campaign: publicProcedure
+      .input(campaignIdInput)
+      .output(campaignDetail)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    createCampaign: publicProcedure
+      .input(createCampaignInput)
+      .output(campaignDetail)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    updateCampaign: publicProcedure
+      .input(updateCampaignInput)
+      .output(campaignDetail)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    saveSteps: publicProcedure
+      .input(saveCampaignStepsInput)
+      .output(campaignDetail)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    addTarget: publicProcedure
+      .input(addCampaignTargetInput)
+      .output(campaignDetail)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    removeTarget: publicProcedure
+      .input(removeCampaignTargetInput)
+      .output(campaignDetail)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    insights: publicProcedure
+      .output(gtmInsights)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
   outreachDrafts: t.router({
     list: publicProcedure

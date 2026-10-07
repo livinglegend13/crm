@@ -16,7 +16,12 @@ describe("outreach reply matching", () => {
 			},
 		];
 		const service = new OutreachRepliesService(
-			{ outreachDraft: { findMany: async () => drafts } } as never,
+			{
+				outreachDraft: {
+					findFirst: async () => null,
+					findMany: async () => drafts,
+				},
+			} as never,
 			{} as never,
 			{} as never,
 		);
@@ -36,6 +41,7 @@ describe("outreach reply matching", () => {
 		const service = new OutreachRepliesService(
 			{
 				outreachDraft: {
+					findFirst: async () => null,
 					findMany: async () => [{ id: "draft-1", subject: "Filo storage" }],
 				},
 			} as never,
@@ -52,5 +58,34 @@ describe("outreach reply matching", () => {
 			sentAt: new Date("2026-10-07T10:00:00.000Z"),
 		});
 		expect(match).toBeNull();
+	});
+
+	test("matches a changed subject by Outlook conversation id", async () => {
+		const service = new OutreachRepliesService(
+			{
+				outreachDraft: {
+					findFirst: async () => ({
+						id: "draft-1",
+						userId: "user-1",
+						subject: "Filo storage",
+						user: { email: "owner@terraeagle.com" },
+					}),
+					findMany: async () => [],
+				},
+			} as never,
+			{} as never,
+			{} as never,
+		);
+		const match = await service.match("rep@mailx.terraeagle.com", {
+			rfcMessageId: "<reply-3@example.com>",
+			rootId: "<sent@example.com>",
+			subject: "New topic",
+			from: { email: "buyer@example.com", name: null },
+			recipients: [],
+			body: "Thanks",
+			sentAt: new Date("2026-10-07T10:00:00.000Z"),
+			outlookConversationId: "outlook-123",
+		});
+		expect(match?.id).toBe("draft-1");
 	});
 });

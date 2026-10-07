@@ -9,6 +9,7 @@ import { InjectDatabase } from "../database/database.constants";
 import { MailboxTokenService } from "../mailbox/mailbox-token.service";
 import type { IncomingMessage } from "../mailbox/thread-writer.service";
 import { GraphClient } from "./graph.client";
+import { OUTREACH_REPLY } from "./outreach-reply.config";
 
 function baseSubject(value: string | null): string {
 	return (value ?? "")
@@ -27,8 +28,67 @@ export class OutreachRepliesService {
 		private readonly tokens: MailboxTokenService,
 	) {}
 
+	async captureSent(mailbox: string, message: IncomingMessage) {
+		const recipients = message.recipients
+			.filter((recipient) => recipient.kind === "to")
+			.map((recipient) => recipient.email);
+		if (recipients.length === 0) return;
+		const candidates = await this.db.outreachDraft.findMany({
+			where: {
+				senderEmail: mailbox,
+				recipientEmail: { in: recipients, mode: "insensitive" },
+				status: "SENT",
+				sentRfcMessageId: null,
+				sendStartedAt: {
+					lte: message.sentAt,
+					gte: new Date(
+						message.sentAt.getTime() - OUTREACH_REPLY.sentCopyWindowMs,
+					),
+				},
+			},
+			orderBy: { sendStartedAt: "desc" },
+			take: OUTREACH_REPLY.matchLimit,
+			select: { id: true, subject: true },
+		});
+		const draft = candidates.find(
+			(candidate) =>
+				baseSubject(candidate.subject) === baseSubject(message.subject),
+		);
+		if (!draft) return;
+		await this.db.outreachDraft.updateMany({
+			where: { id: draft.id, status: "SENT", sentRfcMessageId: null },
+			data: {
+				sentRfcMessageId: message.rfcMessageId,
+				sentConversationId: message.outlookConversationId ?? null,
+			},
+		});
+	}
+
 	async match(mailbox: string, message: IncomingMessage) {
 		if (message.from.email === mailbox) return null;
+		const identifiers = [
+			message.outlookConversationId
+				? { sentConversationId: message.outlookConversationId }
+				: null,
+			{ sentRfcMessageId: message.rootId },
+		].filter((value) => value !== null);
+		const identified = await this.db.outreachDraft.findFirst({
+			where: {
+				senderEmail: mailbox,
+				recipientEmail: { equals: message.from.email, mode: "insensitive" },
+				status: "SENT",
+				sentAt: { lte: message.sentAt },
+				OR: identifiers,
+			},
+			orderBy: { sentAt: "desc" },
+			select: {
+				id: true,
+				userId: true,
+				subject: true,
+				user: { select: { email: true } },
+			},
+		});
+		if (identified) return identified;
 		const candidates = await this.db.outreachDraft.findMany({
 			where: {
 				senderEmail: mailbox,
@@ -37,7 +97,7 @@ export class OutreachRepliesService {
 				sentAt: { lte: message.sentAt },
 			},
 			orderBy: { sentAt: "desc" },
-			take: 50,
+			take: OUTREACH_REPLY.matchLimit,
 			select: {
 				id: true,
 				userId: true,

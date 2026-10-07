@@ -29,6 +29,7 @@ export type IncomingMessage = {
 	gmailMessageId?: string | null;
 	outlookMessageId?: string | null;
 	outlookWebLink?: string | null;
+	outlookConversationId?: string | null;
 };
 
 @Injectable()

@@ -11,6 +11,7 @@ import {
 	PageShellTitle,
 } from "@/components/page-shell";
 import { DraftWorkspace } from "@/components/sales/draft-workspace";
+import { GtmNav } from "@/components/sales/gtm-nav";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "Filo outreach" };
@@ -51,6 +52,7 @@ async function OutreachContent({
 				</PageShellHeading>
 			</PageShellHeader>
 			<PageShellContent>
+				<GtmNav current="drafts" />
 				<section
 					aria-label="Recent outreach activity"
 					className="mb-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-6"
