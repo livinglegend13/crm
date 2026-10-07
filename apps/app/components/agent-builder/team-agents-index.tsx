@@ -52,7 +52,7 @@ export function TeamAgentsIndex({ initialAgents }: { initialAgents: Agents }) {
 				value={search}
 			/>
 			{rows.length ? (
-				<div className="overflow-hidden rounded-lg border bg-card">
+				<div className="shrink-0 overflow-hidden rounded-lg border bg-card">
 					{visible.map((agent) => (
 						<Link
 							key={agent.id}
