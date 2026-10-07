@@ -223,7 +223,10 @@ for (const [name, slug, purpose] of AGENTS) {
 			: previousBaseInstructions;
 		const previousPlannerInstructions =
 			slug === "marketing-campaign-planner"
-				? `${genericBaseInstructions}\n${campaignInstructions}`
+				? `${genericBaseInstructions}\n${campaignInstructions
+						?.split("\n")
+						.filter((line) => !line.startsWith("For Filo, keep the 1 PB"))
+						.join("\n")}`
 				: null;
 		const upgrade =
 			(current?.number === 1 && current.instructions === legacyInstructions) ||
