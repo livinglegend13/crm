@@ -4,6 +4,13 @@ import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
 import { Input } from "@crm/ui/components/input";
 import { Label } from "@crm/ui/components/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@crm/ui/components/select";
 import { Textarea } from "@crm/ui/components/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -54,10 +61,33 @@ export function CampaignList({
 		initialData: initialCampaigns,
 	});
 	const [name, setName] = useState("");
+	const [serviceLine, setServiceLine] = useState<
+		"FILO_STORAGE" | "CYBERSECURITY" | "AI" | "FINOPS"
+	>("FILO_STORAGE");
 	const [description, setDescription] = useState("");
 	const [material, setMaterial] = useState("");
 	const [sourceFileName, setSourceFileName] = useState<string | null>(null);
 	const [readingFile, setReadingFile] = useState(false);
+	const [planRunId, setPlanRunId] = useState<string | null>(null);
+	const requestPlan = useMutation(
+		trpc.gtm.requestCampaignPlan.mutationOptions({
+			onSuccess: ({ runId }) => {
+				setPlanRunId(runId);
+				toast.success("Campaign planner started. Its steps appear here.");
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const planStatus = useQuery({
+		...trpc.gtm.campaignPlanStatus.queryOptions({ runId: planRunId ?? "" }),
+		enabled: planRunId !== null,
+		refetchInterval: (query) =>
+			["QUEUED", "RUNNING", "WAITING_FOR_APPROVAL"].includes(
+				query.state.data?.status ?? "",
+			)
+				? GTM_VIEW.poll.activeMs
+				: false,
+	});
 	const create = useMutation(
 		trpc.gtm.createCampaign.mutationOptions({
 			onSuccess: async (campaign) => {
@@ -98,6 +128,7 @@ export function CampaignList({
 			if (extracted.length > GTM_VIEW.material.maxCharacters)
 				throw new Error("The extracted text exceeds 100,000 characters.");
 			setMaterial(extracted);
+			setPlanRunId(null);
 			setSourceFileName(file.name);
 		} catch (error) {
 			toast.error(
@@ -116,10 +147,13 @@ export function CampaignList({
 					event.preventDefault();
 					create.mutate({
 						name: name.trim(),
-						description: description.trim() || null,
+						serviceLine,
+						description:
+							planStatus.data?.plan?.brief ?? (description.trim() || null),
 						sourceFileName,
 						sourceMaterial: source || null,
-						steps: source ? [...DRIP_STEPS] : [],
+						steps:
+							planStatus.data?.plan?.steps ?? (source ? [...DRIP_STEPS] : []),
 					});
 				}}
 			>
@@ -129,11 +163,34 @@ export function CampaignList({
 					every step before activation.
 				</p>
 				<div className="space-y-2">
+					<Label htmlFor="campaign-service">Service</Label>
+					<Select
+						value={serviceLine}
+						onValueChange={(value: typeof serviceLine) => {
+							setServiceLine(value);
+							setPlanRunId(null);
+						}}
+					>
+						<SelectTrigger id="campaign-service">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="FILO_STORAGE">Filo storage</SelectItem>
+							<SelectItem value="CYBERSECURITY">Cybersecurity</SelectItem>
+							<SelectItem value="AI">AI services</SelectItem>
+							<SelectItem value="FINOPS">FinOps</SelectItem>
+						</SelectContent>
+					</Select>
+				</div>
+				<div className="space-y-2">
 					<Label htmlFor="campaign-name">Campaign name</Label>
 					<Input
 						id="campaign-name"
 						value={name}
-						onChange={(event) => setName(event.target.value)}
+						onChange={(event) => {
+							setName(event.target.value);
+							setPlanRunId(null);
+						}}
 						placeholder="Filo Storage · India BFSI"
 						minLength={3}
 						maxLength={120}
@@ -145,7 +202,10 @@ export function CampaignList({
 					<Textarea
 						id="campaign-description"
 						value={description}
-						onChange={(event) => setDescription(event.target.value)}
+						onChange={(event) => {
+							setDescription(event.target.value);
+							setPlanRunId(null);
+						}}
 						placeholder="Who this campaign serves and what evidence it needs."
 						maxLength={1000}
 						rows={3}
@@ -181,6 +241,7 @@ export function CampaignList({
 						value={material}
 						onChange={(event) => {
 							setMaterial(event.target.value);
+							setPlanRunId(null);
 							setSourceFileName(null);
 						}}
 						rows={5}
@@ -190,19 +251,76 @@ export function CampaignList({
 				</div>
 				{source ? (
 					<div className="rounded-md border p-4 text-sm">
-						<p className="font-medium">Draft drip sequence</p>
-						<ol className="mt-2 list-inside list-decimal space-y-1">
-							<li>Day 0 · Problem introduction</li>
-							<li>Day 4 · Verified insight</li>
-							<li>Day 11 · Final question</li>
+						<div className="flex flex-wrap items-center justify-between gap-3">
+							<p className="font-medium">Campaign sequence</p>
+							<Button
+								type="button"
+								variant="outline"
+								disabled={
+									requestPlan.isPending ||
+									name.trim().length < 3 ||
+									source.length < 100
+								}
+								onClick={() =>
+									requestPlan.mutate({
+										serviceLine,
+										campaignName: name.trim(),
+										campaignBrief: description.trim() || null,
+										campaignMaterial: source,
+										clientRequestId: crypto.randomUUID(),
+									})
+								}
+							>
+								{requestPlan.isPending ? "Starting…" : "Generate from material"}
+							</Button>
+						</div>
+						{planStatus.data?.status ? (
+							<p className="mt-2">
+								Planner:{" "}
+								{planStatus.data.status.toLowerCase().replaceAll("_", " ")}
+							</p>
+						) : null}
+						{planStatus.data?.errorMessage ? (
+							<p className="mt-2 text-destructive">
+								{planStatus.data.errorMessage}
+							</p>
+						) : null}
+						{planRunId && !planStatus.data?.plan ? (
+							<Button
+								type="button"
+								variant="ghost"
+								onClick={() => setPlanRunId(null)}
+							>
+								Use starter steps
+							</Button>
+						) : null}
+						{planStatus.data?.plan ? (
+							<p className="mt-2">{planStatus.data.plan.brief}</p>
+						) : null}
+						<ol className="mt-2 list-inside list-decimal space-y-2">
+							{(planStatus.data?.plan?.steps ?? DRIP_STEPS).map((step) => (
+								<li key={`${step.delayDays}-${step.subjectPrompt}`}>
+									Day {step.delayDays} after prior email · {step.subjectPrompt}
+									<p className="ml-5 text-muted-foreground">
+										{step.bodyPrompt}
+									</p>
+								</li>
+							))}
 						</ol>
 						<p className="mt-2 text-muted-foreground">
-							Edit the step instructions on the next screen. This campaign stays
-							in Draft.
+							Review and edit all instructions on the next screen. This campaign
+							stays in Draft.
 						</p>
 					</div>
 				) : null}
-				<Button type="submit" disabled={create.isPending || readingFile}>
+				<Button
+					type="submit"
+					disabled={
+						create.isPending ||
+						readingFile ||
+						(planRunId !== null && !planStatus.data?.plan)
+					}
+				>
 					{create.isPending ? "Creating…" : "Create draft campaign"}
 				</Button>
 			</form>
@@ -240,8 +358,10 @@ export function CampaignList({
 							<p className="mt-3 text-muted-foreground text-sm">
 								{campaign.targetCount}{" "}
 								{campaign.targetCount === 1 ? "target" : "targets"} ·{" "}
-								{campaign.qualifiedCount} meet Filo gate · {campaign.stepCount}{" "}
-								email steps · India
+								{campaign.serviceLine === "FILO_STORAGE"
+									? `${campaign.qualifiedCount} meet Filo gate · `
+									: ""}
+								{campaign.stepCount} email steps · India
 							</p>
 						</Link>
 					))

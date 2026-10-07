@@ -1,4 +1,5 @@
 const MINUTE_MS = 60_000;
+const DAY_MS = 24 * 60 * MINUTE_MS;
 
 export const DISPATCH = {
 	visible: {
@@ -30,6 +31,7 @@ export const DISPATCH = {
 	campaign: {
 		page: 100,
 		queuePerTick: 1,
+		dayMs: DAY_MS,
 	},
 
 	task: {

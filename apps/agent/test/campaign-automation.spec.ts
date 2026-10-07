@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	campaignWindowOpen,
+	followUpDue,
 	nextCampaignAgent,
 } from "../agent/lib/campaign-automation-policy";
 
@@ -37,5 +38,17 @@ describe("campaign automation", () => {
 			"terraeagle-sales-outbound-strategist",
 		);
 		expect(nextCampaignAgent("SUCCEEDED", true, true)).toBeNull();
+	});
+
+	test("waits for a sent draft and stops follow-ups after a reply", () => {
+		const now = new Date("2026-10-07T09:00:00Z");
+		const sent = { status: "SENT", sentAt: new Date("2026-10-03T09:00:00Z") };
+		expect(followUpDue(sent, 4, now, false, false)).toBe(true);
+		expect(followUpDue(sent, 5, now, false, false)).toBe(false);
+		expect(followUpDue(sent, 4, now, true, false)).toBe(false);
+		expect(followUpDue(sent, 4, now, false, true)).toBe(false);
+		expect(
+			followUpDue({ ...sent, status: "APPROVED" }, 4, now, false, false),
+		).toBe(false);
 	});
 });

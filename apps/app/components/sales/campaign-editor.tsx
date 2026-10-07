@@ -72,6 +72,7 @@ export function CampaignEditor({
 	});
 	const row = campaign.data ?? initialCampaign;
 	const [name, setName] = useState(row.name);
+	const [serviceLine, setServiceLine] = useState(row.serviceLine);
 	const [description, setDescription] = useState(row.description ?? "");
 	const [sourceMaterial, setSourceMaterial] = useState(
 		row.sourceMaterial ?? "",
@@ -160,6 +161,7 @@ export function CampaignEditor({
 						update.mutate({
 							id: row.id,
 							name: name.trim(),
+							serviceLine,
 							description: description.trim() || null,
 							sourceMaterial: sourceMaterial.trim() || null,
 							status,
@@ -172,6 +174,25 @@ export function CampaignEditor({
 						});
 					}}
 				>
+					<div className="space-y-2">
+						<Label htmlFor="edit-campaign-service">Service</Label>
+						<Select
+							value={serviceLine}
+							onValueChange={(value: Campaign["serviceLine"]) =>
+								setServiceLine(value)
+							}
+						>
+							<SelectTrigger id="edit-campaign-service">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="FILO_STORAGE">Filo storage</SelectItem>
+								<SelectItem value="CYBERSECURITY">Cybersecurity</SelectItem>
+								<SelectItem value="AI">AI services</SelectItem>
+								<SelectItem value="FINOPS">FinOps</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
 					<div className="space-y-2">
 						<Label htmlFor="edit-campaign-name">Name</Label>
 						<Input
@@ -415,11 +436,13 @@ export function CampaignEditor({
 										<p className="font-medium text-sm">{target.companyName}</p>
 										<p className="text-muted-foreground text-xs">
 											{target.contactName ?? "Buyer contact needed"} ·{" "}
-											{target.decision === "MEETS_GATE"
-												? "Meets gate"
-												: target.decision === "BELOW_GATE"
-													? "Below gate"
-													: "Evidence needed"}
+											{row.serviceLine !== "FILO_STORAGE"
+												? "Service fit needs research"
+												: target.decision === "MEETS_GATE"
+													? "Meets gate"
+													: target.decision === "BELOW_GATE"
+														? "Below gate"
+														: "Evidence needed"}
 										</p>
 									</div>
 									<Button
@@ -487,7 +510,7 @@ export function CampaignEditor({
 										<summary className="cursor-pointer font-medium">
 											{run.agentId === "terraeagle-sales-company"
 												? "Company research"
-												: "Outreach draft"}{" "}
+												: `Outreach step ${(run.stepPosition ?? 0) + 1}`}{" "}
 											· {run.status.toLowerCase().replaceAll("_", " ")}
 										</summary>
 										{run.errorMessage ? (

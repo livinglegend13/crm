@@ -5,12 +5,17 @@ import type {
 	CreateCampaignInput,
 	ProspectsInput,
 	RemoveCampaignTargetInput,
+	RequestCampaignPlanInput,
 	RunCampaignAgentInput,
 	SaveCampaignStepsInput,
 	SaveFiloReviewInput,
 	UpdateCampaignInput,
 } from "@crm/validation/gtm";
-import { campaignAgentRunInput } from "@crm/validation/gtm";
+import {
+	campaignAgentRunInput,
+	campaignPlan,
+	campaignPlanRunInput,
+} from "@crm/validation/gtm";
 import { draftFieldsFromRunResult } from "@crm/validation/outreach-draft";
 import {
 	BadRequestException,
@@ -225,12 +230,14 @@ export class GtmService {
 		});
 		const qualified = await Promise.all(
 			rows.map((row) =>
-				this.db.gtmCampaignTarget.count({
-					where: {
-						campaignId: row.id,
-						company: { filoReview: { is: { decision: "MEETS_GATE" } } },
-					},
-				}),
+				row.serviceLine === "FILO_STORAGE"
+					? this.db.gtmCampaignTarget.count({
+							where: {
+								campaignId: row.id,
+								company: { filoReview: { is: { decision: "MEETS_GATE" } } },
+							},
+						})
+					: Promise.resolve(0),
 			),
 		);
 		return rows.map((row, index) => ({
@@ -240,6 +247,7 @@ export class GtmService {
 			sourceFileName: row.sourceFileName,
 			sourceLength: row.sourceMaterial?.length ?? 0,
 			status: row.status,
+			serviceLine: row.serviceLine,
 			marketCountryCode: "IN" as const,
 			schedule: {
 				timeZone: "Asia/Kolkata" as const,
@@ -305,7 +313,14 @@ export class GtmService {
 		for (const run of recentRuns) {
 			const parsed = campaignAgentRunInput.parse(run.input);
 			const previous = runsByTarget.get(parsed.campaignTargetId) ?? [];
-			if (!previous.some((entry) => entry.agentId === run.agentId)) {
+			if (
+				!previous.some(
+					(entry) =>
+						entry.agentId === run.agentId &&
+						campaignAgentRunInput.parse(entry.input).stepPosition ===
+							parsed.stepPosition,
+				)
+			) {
 				previous.push(run);
 				runsByTarget.set(parsed.campaignTargetId, previous);
 			}
@@ -318,6 +333,7 @@ export class GtmService {
 			sourceLength: row.sourceMaterial?.length ?? 0,
 			sourceMaterial: row.sourceMaterial,
 			status: row.status,
+			serviceLine: row.serviceLine,
 			marketCountryCode: "IN" as const,
 			schedule: {
 				timeZone: "Asia/Kolkata" as const,
@@ -326,9 +342,12 @@ export class GtmService {
 				endMinute: row.endMinute,
 			},
 			targetCount: row.targets.length,
-			qualifiedCount: row.targets.filter(
-				(target) => target.company.filoReview?.decision === "MEETS_GATE",
-			).length,
+			qualifiedCount:
+				row.serviceLine === "FILO_STORAGE"
+					? row.targets.filter(
+							(target) => target.company.filoReview?.decision === "MEETS_GATE",
+						).length
+					: 0,
 			stepCount: row.steps.length,
 			createdAt: row.createdAt.toISOString(),
 			updatedAt: row.updatedAt.toISOString(),
@@ -350,7 +369,10 @@ export class GtmService {
 							.join(" ")
 					: null,
 				contactEmail: target.contact?.email ?? null,
-				decision: target.company.filoReview?.decision ?? "EVIDENCE_NEEDED",
+				decision:
+					row.serviceLine === "FILO_STORAGE"
+						? (target.company.filoReview?.decision ?? "EVIDENCE_NEEDED")
+						: "EVIDENCE_NEEDED",
 				createdAt: target.createdAt.toISOString(),
 				agentRuns: (runsByTarget.get(target.id) ?? []).map((run) => ({
 					id: run.id,
@@ -363,6 +385,10 @@ export class GtmService {
 						run.result !== null &&
 						draftFieldsFromRunResult(run.result) !== null,
 					createdAt: run.createdAt.toISOString(),
+					stepPosition:
+						run.agentId === "terraeagle-sales-company"
+							? null
+							: campaignAgentRunInput.parse(run.input).stepPosition,
 				})),
 			})),
 		};
@@ -387,6 +413,7 @@ export class GtmService {
 						name: true,
 						description: true,
 						sourceMaterial: true,
+						serviceLine: true,
 						steps: {
 							orderBy: { position: "asc" },
 							select: {
@@ -424,6 +451,8 @@ export class GtmService {
 			recipientEmail: recipientEmail.success ? recipientEmail.data : null,
 			campaignName: target.campaign.name,
 			campaignBrief: target.campaign.description,
+			serviceLine: target.campaign.serviceLine,
+			stepPosition: 0,
 			campaignMaterial: target.campaign.sourceMaterial,
 			steps: target.campaign.steps,
 		});
@@ -435,11 +464,51 @@ export class GtmService {
 		return { runId: run.id };
 	}
 
+	async requestCampaignPlan(userId: string, input: RequestCampaignPlanInput) {
+		await this.access.assertMember(userId);
+		const run = await this.runs.runNow(
+			{
+				id: "terraeagle-marketing-campaign-planner",
+				clientRequestId: input.clientRequestId,
+			},
+			userId,
+			campaignPlanRunInput.parse({ kind: "campaign-plan", ...input }),
+		);
+		return { runId: run.id };
+	}
+
+	async campaignPlanStatus(userId: string, runId: string) {
+		await this.access.assertMember(userId);
+		const run = await this.db.agentRun.findFirst({
+			where: {
+				id: runId,
+				initiatedById: userId,
+				agentId: "terraeagle-marketing-campaign-planner",
+			},
+			select: { status: true, errorMessage: true, result: true },
+		});
+		if (!run) throw new NotFoundException("Campaign plan run not found.");
+		const result =
+			run.result === null ? null : agentRunResult.parse(run.result);
+		const plan =
+			result === null ? null : campaignPlan.safeParse(result["Campaign plan"]);
+		return {
+			status: run.status,
+			errorMessage:
+				run.errorMessage ??
+				(plan && !plan.success
+					? "Agent output needs revision. Open the agent run to review it."
+					: null),
+			plan: plan?.success ? plan.data : null,
+		};
+	}
+
 	async createCampaign(userId: string, input: CreateCampaignInput) {
 		await this.access.assertMember(userId);
 		const row = await this.db.gtmCampaign.create({
 			data: {
 				name: input.name,
+				serviceLine: input.serviceLine,
 				description: input.description,
 				sourceFileName: input.sourceFileName,
 				sourceMaterial: input.sourceMaterial,
@@ -481,6 +550,7 @@ export class GtmService {
 			where: { id: input.id },
 			data: {
 				name: input.name,
+				serviceLine: input.serviceLine,
 				description: input.description,
 				sourceMaterial: input.sourceMaterial,
 				status: input.status,

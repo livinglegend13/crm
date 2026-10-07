@@ -3,7 +3,10 @@ import { type Db, Prisma } from "@crm/db";
 import type { AgentRunStatus } from "@crm/db/enums";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
 import { agentRunResult } from "@crm/validation/agent-run-result";
-import type { CampaignAgentRunInput } from "@crm/validation/gtm";
+import type {
+	CampaignAgentRunInput,
+	CampaignPlanRunInput,
+} from "@crm/validation/gtm";
 import {
 	BadRequestException,
 	ConflictException,
@@ -152,7 +155,7 @@ export class AgentRunsService {
 	async runNow(
 		input: AgentRunNowInput,
 		userId: string,
-		campaignInput?: CampaignAgentRunInput,
+		campaignInput?: CampaignAgentRunInput | CampaignPlanRunInput,
 	) {
 		await this.access.assertMember(userId);
 		const existing = await this.db.agentRun.findUnique({

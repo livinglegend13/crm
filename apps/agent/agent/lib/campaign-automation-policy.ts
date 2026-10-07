@@ -1,4 +1,7 @@
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+import { DISPATCH } from "./dispatch-config";
+
 const INDIA_CLOCK = new Intl.DateTimeFormat("en-US", {
 	timeZone: "Asia/Kolkata",
 	weekday: "short",
@@ -34,4 +37,21 @@ export function nextCampaignAgent(
 	if (researchStatus === "SUCCEEDED" && hasRecipient)
 		return "terraeagle-sales-outbound-strategist";
 	return null;
+}
+
+export function followUpDue(
+	previous: { sentAt: Date | null; status: string } | undefined,
+	delayDays: number,
+	now: Date,
+	hasReply: boolean,
+	hasRun: boolean,
+) {
+	return Boolean(
+		previous?.status === "SENT" &&
+			previous.sentAt &&
+			previous.sentAt.getTime() + delayDays * DISPATCH.campaign.dayMs <=
+				now.getTime() &&
+			!hasReply &&
+			!hasRun,
+	);
 }

@@ -1,14 +1,76 @@
-import { db } from "@crm/db";
+import { db, type Prisma } from "@crm/db";
 import { campaignAgentRunInput } from "@crm/validation/gtm";
 import { z } from "zod";
 import {
 	campaignWindowOpen,
+	followUpDue,
 	nextCampaignAgent,
 } from "./campaign-automation-policy";
 import { DISPATCH } from "./dispatch-config";
 
 const COMPANY_AGENT = "terraeagle-sales-company";
 const OUTBOUND_AGENT = "terraeagle-sales-outbound-strategist";
+
+function isIndiaCompany(company: {
+	countryCode: string | null;
+	country: string | null;
+}) {
+	return (
+		company.countryCode?.toUpperCase() === "IN" ||
+		Boolean(company.country?.toLowerCase().includes("india"))
+	);
+}
+
+function isLiveAgent<
+	T extends { status: string; currentVersionId: string | null },
+>(agent: T | undefined): agent is T & { currentVersionId: string } {
+	return agent?.status === "LIVE" && Boolean(agent.currentVersionId);
+}
+
+async function nextFollowUp(
+	tx: Prisma.TransactionClient,
+	runs: Array<{
+		input: Prisma.JsonValue | null;
+		outreachDrafts: Array<{
+			id: string;
+			status: string;
+			sentAt: Date | null;
+			subject: string;
+			body: string;
+		}>;
+	}>,
+	steps: Array<{ position: number; delayDays: number }>,
+	now: Date,
+) {
+	for (const step of steps.slice(1)) {
+		const prior = runs.find(
+			(run) =>
+				campaignAgentRunInput.parse(run.input).stepPosition ===
+				step.position - 1,
+		);
+		const current = runs.some(
+			(run) =>
+				campaignAgentRunInput.parse(run.input).stepPosition === step.position,
+		);
+		const sent = prior?.outreachDrafts.find((draft) => draft.status === "SENT");
+		if (!sent) continue;
+		const sentDraftIds = runs.flatMap((run) =>
+			run.outreachDrafts
+				.filter((draft) => draft.status === "SENT")
+				.map((draft) => draft.id),
+		);
+		const hasReply =
+			(await tx.outreachReplyAlert.count({
+				where: { draftId: { in: sentDraftIds } },
+			})) > 0;
+		if (followUpDue(sent, step.delayDays, now, hasReply, current))
+			return {
+				stepPosition: step.position,
+				previousEmail: { subject: sent.subject, body: sent.body },
+			};
+	}
+	return null;
+}
 export async function queueCampaignAgentRuns(now = new Date()) {
 	let queued = 0;
 	let cursor: string | undefined;
@@ -32,7 +94,15 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 				id: true,
 				contact: { select: { email: true } },
 				campaign: {
-					select: { sendDays: true, startMinute: true, endMinute: true },
+					select: {
+						sendDays: true,
+						startMinute: true,
+						endMinute: true,
+						steps: {
+							orderBy: { position: "asc" },
+							select: { position: true, delayDays: true },
+						},
+					},
 				},
 			},
 		});
@@ -45,27 +115,45 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 				})),
 			},
 			orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-			select: { agentId: true, status: true, input: true },
+			select: {
+				agentId: true,
+				status: true,
+				input: true,
+				outreachDrafts: {
+					select: {
+						id: true,
+						status: true,
+						sentAt: true,
+						subject: true,
+						body: true,
+					},
+				},
+			},
 		});
-		const runsByTarget = new Map<string, Map<string, string>>();
+		const runsByTarget = new Map<string, typeof existing>();
 		for (const run of existing) {
 			const parsed = campaignAgentRunInput.safeParse(run.input);
 			if (!parsed.success) throw new Error("A campaign run has invalid input.");
 			const targetId = parsed.data.campaignTargetId;
-			const agents = runsByTarget.get(targetId) ?? new Map<string, string>();
-			if (!agents.has(run.agentId)) agents.set(run.agentId, run.status);
-			runsByTarget.set(targetId, agents);
+			const runs = runsByTarget.get(targetId) ?? [];
+			runs.push(run);
+			runsByTarget.set(targetId, runs);
 		}
 		for (const candidate of targets) {
 			if (queued >= DISPATCH.campaign.queuePerTick) break;
 			if (!campaignWindowOpen(candidate.campaign, now)) continue;
-			const runs = runsByTarget.get(candidate.id);
-			const researchStatus = runs?.get(COMPANY_AGENT);
+			const runs = runsByTarget.get(candidate.id) ?? [];
+			const firstAgent = nextCampaignAgent(
+				runs.find((run) => run.agentId === COMPANY_AGENT)?.status,
+				runs.some((run) => run.agentId === OUTBOUND_AGENT),
+				z.email().safeParse(candidate.contact?.email).success,
+			);
 			if (
-				!nextCampaignAgent(
-					researchStatus,
-					runs?.has(OUTBOUND_AGENT) ?? false,
-					z.email().safeParse(candidate.contact?.email).success,
+				!firstAgent &&
+				!runs.some(
+					(run) =>
+						run.agentId === OUTBOUND_AGENT &&
+						run.outreachDrafts.some((draft) => draft.status === "SENT"),
 				)
 			)
 				continue;
@@ -110,6 +198,7 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 								name: true,
 								description: true,
 								sourceMaterial: true,
+								serviceLine: true,
 								ownerId: true,
 								sendDays: true,
 								startMinute: true,
@@ -122,26 +211,53 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 				if (!target || !campaignWindowOpen(target.campaign, now)) return false;
 				if (target.company.archivedAt || !target.campaign.steps.length)
 					return false;
-				if (
-					target.company.countryCode?.toUpperCase() !== "IN" &&
-					!target.company.country?.toLowerCase().includes("india")
-				)
-					return false;
+				if (!isIndiaCompany(target.company)) return false;
 				const existing = await tx.agentRun.findMany({
 					where: {
 						agentId: { in: [COMPANY_AGENT, OUTBOUND_AGENT] },
 						input: { path: ["campaignTargetId"], equals: target.id },
 					},
 					orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-					select: { agentId: true, status: true },
+					select: {
+						agentId: true,
+						status: true,
+						input: true,
+						outreachDrafts: {
+							select: {
+								id: true,
+								status: true,
+								sentAt: true,
+								subject: true,
+								body: true,
+							},
+						},
+					},
 				});
 				const research = existing.find((run) => run.agentId === COMPANY_AGENT);
-				const draft = existing.find((run) => run.agentId === OUTBOUND_AGENT);
-				const agentId = nextCampaignAgent(
+				const outboundRuns = existing.filter(
+					(run) => run.agentId === OUTBOUND_AGENT,
+				);
+				const initialAgent = nextCampaignAgent(
 					research?.status,
-					Boolean(draft),
+					outboundRuns.length > 0,
 					z.email().safeParse(target.contact?.email).success,
 				);
+				let stepPosition = 0;
+				let previousEmail: { subject: string; body: string } | null = null;
+				if (!initialAgent) {
+					const followUp = await nextFollowUp(
+						tx,
+						outboundRuns,
+						target.campaign.steps,
+						now,
+					);
+					if (followUp) {
+						stepPosition = followUp.stepPosition;
+						previousEmail = followUp.previousEmail;
+					}
+				}
+				const agentId =
+					initialAgent ?? (stepPosition > 0 ? OUTBOUND_AGENT : null);
 				if (!agentId) return false;
 				const [agent] = z
 					.array(
@@ -164,7 +280,7 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 				WHERE id = ${agentId} FOR UPDATE
 			`,
 					);
-				if (agent?.status !== "LIVE" || !agent.currentVersionId) return false;
+				if (!isLiveAgent(agent)) return false;
 				const active = await tx.agentRun.findFirst({
 					where: {
 						agentId,
@@ -191,6 +307,9 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 					recipientEmail,
 					campaignName: target.campaign.name,
 					campaignBrief: target.campaign.description,
+					serviceLine: target.campaign.serviceLine,
+					stepPosition,
+					previousEmail,
 					campaignMaterial: target.campaign.sourceMaterial,
 					steps: target.campaign.steps.map((step) => ({
 						position: step.position,
@@ -205,7 +324,7 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 						versionId: agent.currentVersionId,
 						initiatedById: target.campaign.ownerId,
 						triggerType: "SCHEDULE",
-						idempotencyKey: `campaign:${target.id}:${agentId}`,
+						idempotencyKey: `campaign:${target.id}:${agentId}:${stepPosition}`,
 						correlationId: crypto.randomUUID(),
 						input,
 						events: { create: { sequence: 0, type: "run.queued", data: {} } },

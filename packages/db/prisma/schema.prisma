@@ -914,6 +914,7 @@ model GtmCampaign {
   description       String?
   sourceFileName    String?
   sourceMaterial    String?  @db.Text
+  serviceLine       GtmServiceLine @default(FILO_STORAGE)
   ownerId           String
   owner             User     @relation("GtmCampaignOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   status            GtmCampaignStatus @default(DRAFT)
@@ -935,6 +936,13 @@ enum GtmCampaignStatus {
   DRAFT
   READY
   PAUSED
+}
+
+enum GtmServiceLine {
+  FILO_STORAGE
+  CYBERSECURITY
+  AI
+  FINOPS
 }
 
 model GtmCampaignStep {

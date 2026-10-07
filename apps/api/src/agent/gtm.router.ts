@@ -4,6 +4,8 @@ import {
 	type CreateCampaignInput,
 	campaignDetail,
 	campaignIdInput,
+	campaignPlanRunIdInput,
+	campaignPlanStatus,
 	campaignsOutput,
 	createCampaignInput,
 	filoReview,
@@ -12,8 +14,10 @@ import {
 	prospectsInput,
 	prospectsOutput,
 	type RemoveCampaignTargetInput,
+	type RequestCampaignPlanInput,
 	type RunCampaignAgentInput,
 	removeCampaignTargetInput,
+	requestCampaignPlanInput,
 	runCampaignAgentInput,
 	runCampaignAgentOutput,
 	type SaveCampaignStepsInput,
@@ -78,6 +82,22 @@ export class GtmRouter {
 	})
 	campaign(@Ctx() ctx: AuthedTrpcContext, @Input("id") id: string) {
 		return this.gtm.campaign(ctx.user.id, id);
+	}
+
+	@Mutation({ input: requestCampaignPlanInput, output: runCampaignAgentOutput })
+	requestCampaignPlan(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: RequestCampaignPlanInput,
+	) {
+		return this.gtm.requestCampaignPlan(ctx.user.id, input);
+	}
+
+	@Query({ input: campaignPlanRunIdInput, output: campaignPlanStatus })
+	campaignPlanStatus(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input("runId") runId: string,
+	) {
+		return this.gtm.campaignPlanStatus(ctx.user.id, runId);
 	}
 
 	@Mutation({

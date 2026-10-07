@@ -60,6 +60,12 @@ export const saveFiloReviewInput = z.object({
 });
 
 export const campaignStatus = z.enum(["DRAFT", "READY", "PAUSED"]);
+export const campaignServiceLine = z.enum([
+	"FILO_STORAGE",
+	"CYBERSECURITY",
+	"AI",
+	"FINOPS",
+]);
 
 export const campaignSchedule = z.object({
 	timeZone: z.literal("Asia/Kolkata"),
@@ -75,6 +81,7 @@ export const campaignSummary = z.object({
 	sourceFileName: z.string().nullable(),
 	sourceLength: z.number().int(),
 	status: campaignStatus,
+	serviceLine: campaignServiceLine,
 	marketCountryCode: z.literal("IN"),
 	schedule: campaignSchedule,
 	targetCount: z.number().int(),
@@ -118,6 +125,7 @@ export const campaignTarget = z.object({
 			errorMessage: z.string().nullable(),
 			hasDraft: z.boolean(),
 			createdAt: z.string(),
+			stepPosition: z.number().int().nullable(),
 		}),
 	),
 });
@@ -148,6 +156,12 @@ export const campaignAgentRunInput = z.object({
 	recipientEmail: z.email().nullable(),
 	campaignName: z.string(),
 	campaignBrief: z.string().nullable(),
+	serviceLine: campaignServiceLine.default("FILO_STORAGE"),
+	stepPosition: z.number().int().min(0).default(0),
+	previousEmail: z
+		.object({ subject: z.string(), body: z.string() })
+		.nullable()
+		.optional(),
 	campaignMaterial: z.string().nullable().optional(),
 	steps: z.array(
 		z.object({
@@ -161,6 +175,48 @@ export const campaignAgentRunInput = z.object({
 
 export type CampaignAgentRunInput = z.infer<typeof campaignAgentRunInput>;
 
+export const campaignPlanRunInput = z.object({
+	kind: z.literal("campaign-plan"),
+	serviceLine: campaignServiceLine,
+	campaignName: z.string().trim().min(3).max(120),
+	campaignBrief: z.string().trim().max(1000).nullable(),
+	campaignMaterial: z.string().trim().min(100).max(100000),
+});
+
+export type CampaignPlanRunInput = z.infer<typeof campaignPlanRunInput>;
+
+export const campaignPlan = z.object({
+	brief: z.string().trim().min(20).max(1000),
+	steps: z
+		.array(
+			z.object({
+				delayDays: z.number().int().min(0).max(90),
+				subjectPrompt: z.string().trim().min(3).max(500),
+				bodyPrompt: z.string().trim().min(3).max(3000),
+			}),
+		)
+		.min(1)
+		.max(5),
+});
+
+export const requestCampaignPlanInput = campaignPlanRunInput
+	.omit({ kind: true })
+	.extend({ clientRequestId: z.uuid() });
+export type RequestCampaignPlanInput = z.infer<typeof requestCampaignPlanInput>;
+export const campaignPlanRunIdInput = z.object({ runId: z.string().min(1) });
+export const campaignPlanStatus = z.object({
+	status: z.enum([
+		"QUEUED",
+		"RUNNING",
+		"WAITING_FOR_APPROVAL",
+		"SUCCEEDED",
+		"FAILED",
+		"CANCELLED",
+	]),
+	errorMessage: z.string().nullable(),
+	plan: campaignPlan.nullable(),
+});
+
 export const campaignDetail = campaignSummary.extend({
 	sourceMaterial: z.string().nullable(),
 	steps: z.array(campaignStep),
@@ -172,6 +228,7 @@ export const campaignsOutput = z.array(campaignSummary);
 
 export const createCampaignInput = z.object({
 	name: z.string().trim().min(3).max(120),
+	serviceLine: campaignServiceLine.default("FILO_STORAGE"),
 	description: z.string().trim().max(1000).nullable(),
 	sourceFileName: z.string().trim().max(255).nullable().default(null),
 	sourceMaterial: z.string().trim().max(100000).nullable().default(null),
@@ -189,6 +246,7 @@ export const createCampaignInput = z.object({
 
 export const updateCampaignInput = campaignIdInput.extend({
 	name: z.string().trim().min(3).max(120),
+	serviceLine: campaignServiceLine,
 	description: z.string().trim().max(1000).nullable(),
 	sourceMaterial: z.string().trim().max(100000).nullable(),
 	status: campaignStatus,
