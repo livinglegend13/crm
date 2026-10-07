@@ -81,6 +81,19 @@ export const agentRunNowInput = agentIdInput.extend({
 
 export type AgentRunNowInput = z.infer<typeof agentRunNowInput>;
 
+export const agentScheduleInput = agentIdInput.extend({
+	enabled: z.boolean(),
+	intervalMinutes: z.number().int().min(60).max(525_600),
+});
+
+export type AgentScheduleInput = z.infer<typeof agentScheduleInput>;
+
+export const agentScheduleOutput = z.object({
+	enabled: z.boolean(),
+	intervalMinutes: z.number(),
+	nextRunAt: z.string().nullable(),
+});
+
 export const agentRetryRunInput = agentIdInput.extend({
 	runId: z.string().min(1),
 	clientRequestId: z.uuid(),
@@ -246,6 +259,7 @@ export const agentByIdOutput = z.object({
 			type: agentTriggerType,
 			name: z.string(),
 			config: z.unknown(),
+			intervalMinutes: z.number().nullable(),
 			enabled: z.boolean(),
 			nextRunAt: z.string().nullable(),
 			lastRunAt: z.string().nullable(),

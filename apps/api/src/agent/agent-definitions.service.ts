@@ -1,7 +1,10 @@
 import type { Db, Prisma } from "@crm/db";
 import type { AgentDefinitionStatus } from "@crm/db/enums";
 import { schemas } from "@crm/validation";
-import { readAgentManifestSummary } from "@crm/validation/agent-manifest";
+import {
+	readAgentManifestSummary,
+	readAgentTriggerConfig,
+} from "@crm/validation/agent-manifest";
 import {
 	BadRequestException,
 	Injectable,
@@ -16,6 +19,7 @@ import {
 	type AgentDeployInput,
 	type AgentReviseInput,
 	type AgentSaveFileInput,
+	type AgentScheduleInput,
 	type AgentUpdateInput,
 	agentManifest,
 } from "./agents.contracts";
@@ -173,6 +177,10 @@ export class AgentDefinitionsService {
 					: null,
 			triggers: agent.triggers.map((trigger) => ({
 				...trigger,
+				intervalMinutes:
+					trigger.type === "SCHEDULE"
+						? readAgentTriggerConfig(trigger.config).intervalMinutes
+						: null,
 				nextRunAt: trigger.nextRunAt?.toISOString() ?? null,
 				lastRunAt: trigger.lastRunAt?.toISOString() ?? null,
 			})),
@@ -212,6 +220,74 @@ export class AgentDefinitionsService {
 		});
 
 		return updated;
+	}
+
+	async schedule(input: AgentScheduleInput, userId: string) {
+		return this.db.$transaction(async (tx) => {
+			await this.access.assertCanManageInTransaction(tx, input.id, userId);
+			const agent = await this.lockAgent(tx, input.id);
+			if (
+				!agent.currentVersionId ||
+				!["LIVE", "PAUSED"].includes(agent.status)
+			) {
+				throw new BadRequestException(
+					"Deploy this agent before setting a schedule.",
+				);
+			}
+			const existing = await tx.agentTrigger.findFirst({
+				where: { agentId: input.id, type: "SCHEDULE" },
+				orderBy: { createdAt: "asc" },
+			});
+			const nextRunAt = input.enabled
+				? new Date(Date.now() + input.intervalMinutes * 60_000)
+				: null;
+			const config = { intervalMinutes: input.intervalMinutes };
+			if (existing) {
+				await tx.agentTrigger.update({
+					where: { id: existing.id },
+					data: {
+						enabled: input.enabled,
+						config,
+						nextRunAt,
+						versionId: agent.currentVersionId,
+					},
+				});
+			} else {
+				await tx.agentTrigger.create({
+					data: {
+						agentId: input.id,
+						versionId: agent.currentVersionId,
+						type: "SCHEDULE",
+						name: "Automatic schedule",
+						config,
+						createdById: userId,
+						enabled: input.enabled,
+						nextRunAt,
+					},
+				});
+			}
+			await tx.agentAuditEvent.create({
+				data: {
+					agentId: input.id,
+					actorUserId: userId,
+					actorType: "USER",
+					actorId: userId,
+					type: "agent.schedule.updated",
+					summary: input.enabled
+						? "Enabled automatic schedule"
+						: "Disabled automatic schedule",
+					before: existing
+						? { enabled: existing.enabled, config: existing.config }
+						: {},
+					after: { enabled: input.enabled, config },
+				},
+			});
+			return {
+				enabled: input.enabled,
+				intervalMinutes: input.intervalMinutes,
+				nextRunAt: nextRunAt?.toISOString() ?? null,
+			};
+		});
 	}
 
 	async files(id: string, userId: string) {

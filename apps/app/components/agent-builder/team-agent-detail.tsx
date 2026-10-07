@@ -195,9 +195,6 @@ export function TeamAgentDetail({
 	const displayedVersionNumber =
 		data.currentVersion?.number ?? data.reviewVersion?.number;
 	const enabledTriggers = data.triggers.filter((trigger) => trigger.enabled);
-	const canRunManually =
-		enabledTriggers.length === 0 ||
-		enabledTriggers.some((trigger) => trigger.type !== "EVENT");
 	const nextRun =
 		enabledTriggers.length === 1 ? enabledTriggers[0]?.nextRunAt : null;
 	const triggerSummary =
@@ -248,7 +245,7 @@ export function TeamAgentDetail({
 									name={displayedName}
 									version={data.reviewVersion}
 								/>
-							) : canRunManually ? (
+							) : (
 								<Button
 									variant="outline"
 									disabled={data.status !== "LIVE" || runAction.pending}
@@ -265,7 +262,7 @@ export function TeamAgentDetail({
 										Run now
 									</AsyncButtonContent>
 								</Button>
-							) : null}
+							)}
 							{!isDraft && data.canManage && data.status === "LIVE" ? (
 								<Button
 									variant="outline"
@@ -609,9 +606,83 @@ function AgentOverview({ agent }: { agent: AgentDetail }) {
 					canManage={canEdit}
 					capabilities={capabilities}
 				/>
+				<AgentSchedule agent={agent} />
 				<AgentCode agentId={agent.id} canManage={canEdit} />
 			</div>
 		</SaveBarViewport>
+	);
+}
+
+function AgentSchedule({ agent }: { agent: AgentDetail }) {
+	const trpc = useTRPC();
+	const queryClient = useQueryClient();
+	const schedule = agent.triggers.find(
+		(trigger) => trigger.type === "SCHEDULE",
+	);
+	const [intervalMinutes, setIntervalMinutes] = useState(
+		schedule?.intervalMinutes ?? 1440,
+	);
+	const update = useMutation(
+		trpc.agents.schedule.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries({
+					queryKey: trpc.agents.byId.pathKey(),
+				});
+				await queryClient.invalidateQueries({
+					queryKey: trpc.agents.list.pathKey(),
+				});
+				toast.success("Schedule saved.");
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	return (
+		<section className="rounded-lg border p-4">
+			<h2 className="font-semibold text-lg">Automatic runs</h2>
+			<p className="mt-1 text-muted-foreground text-sm">
+				Manual runs remain available. Automatic runs start only after you enable
+				this schedule.
+			</p>
+			<p className="mt-3 text-sm">
+				{schedule?.enabled
+					? `Next run: ${schedule.nextRunAt ? formatDate(schedule.nextRunAt) : "Pending"}`
+					: "Automatic runs are off"}
+			</p>
+			<div className="mt-3 flex flex-wrap items-end gap-3">
+				<label className="flex flex-col gap-1 text-sm">
+					Repeat every
+					<select
+						className="h-9 rounded-md border bg-background px-3"
+						value={intervalMinutes}
+						onChange={(event) => setIntervalMinutes(Number(event.target.value))}
+						disabled={!agent.canManage}
+					>
+						<option value={1440}>Day</option>
+						<option value={10080}>Week</option>
+						<option value={43200}>30 days</option>
+					</select>
+				</label>
+				<Button
+					disabled={
+						!agent.canManage || update.isPending || agent.status !== "LIVE"
+					}
+					onClick={() =>
+						update.mutate({ id: agent.id, enabled: true, intervalMinutes })
+					}
+				>
+					Enable schedule
+				</Button>
+				<Button
+					variant="outline"
+					disabled={!agent.canManage || !schedule?.enabled || update.isPending}
+					onClick={() =>
+						update.mutate({ id: agent.id, enabled: false, intervalMinutes })
+					}
+				>
+					Disable schedule
+				</Button>
+			</div>
+		</section>
 	);
 }
 

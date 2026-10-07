@@ -38,6 +38,8 @@ import {
 	agentRunNowOutput,
 	agentSaveFileInput,
 	agentSaveFileOutput,
+	agentScheduleInput,
+	agentScheduleOutput,
 	agentUpdateInput,
 	agentUpdateOutput,
 } from "./agents.contracts";
@@ -136,6 +138,18 @@ export class AgentsRouter {
 		@Input() input: z.infer<typeof agentUpdateInput>,
 	) {
 		return this.agents.update(input, ctx.user.id);
+	}
+
+	@Mutation({
+		input: agentScheduleInput,
+		output: agentScheduleOutput,
+		meta: restMeta("PUT", "/agents/{id}/schedule", ["Agents"]),
+	})
+	async schedule(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof agentScheduleInput>,
+	) {
+		return this.agents.schedule(input, ctx.user.id);
 	}
 
 	@Mutation({
