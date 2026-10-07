@@ -45,6 +45,8 @@ agent and the API both need it.
 
 ## Two lanes
 
+The dispatch tick also queues one campaign target run per minute across READY India campaigns. It creates research first. A successful research run allows a first-step draft when a valid buyer email exists. It never sends mail. The campaign window uses Asia/Kolkata time. Prior runs prevent duplicate automatic runs, including failed runs that need review.
+
 `schedules/dispatch.ts`, split by `DIRECT_KINDS` in `@crm/db/agent-tasks`.
 
 | | Kinds | How | Per tick |

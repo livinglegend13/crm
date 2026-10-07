@@ -34,7 +34,7 @@ async function CampaignsContent() {
 				<PageShellHeading>
 					<PageShellTitle>Campaigns</PageShellTitle>
 					<PageShellDescription>
-						Plan targets, email steps, and sending windows. Every customer email
+						Plan targets, email steps, and work windows. Every customer email
 						still needs approval.
 					</PageShellDescription>
 				</PageShellHeading>

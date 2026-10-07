@@ -2,7 +2,7 @@
 
 ## Terraeagle GTM records
 
-The GTM router stores India prospect reviews and campaign plans. It queues approved team-agent runs for individual campaign targets. The agent owns research and draft wording; the API validates the India target and stores run context. A Filo review records a documented 12-month average storage capacity. The 1 PB gate uses that average. A campaign plan stores targets, sequence instructions, and an Asia/Kolkata window. The window does not schedule sends. Each outreach draft still needs individual approval.
+The GTM router stores India prospect reviews and campaign plans. It queues approved team-agent runs for individual campaign targets. The agent owns research and draft wording; the API validates the India target and stores run context. A Filo review records a documented 12-month average storage capacity. The 1 PB gate uses that average. A campaign plan stores targets, sequence instructions, and an Asia/Kolkata window. READY plans queue research and first-step drafts during that window. The window does not schedule sends. Each outreach draft still needs individual approval.
 
 Outreach delivery also requires `OUTREACH_SENDING_ENABLED=true`. This server-side gate keeps approved drafts unsent while sender-domain DKIM is unresolved.
 

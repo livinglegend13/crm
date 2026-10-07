@@ -1,6 +1,7 @@
 import { defineSchedule } from "eve/schedules";
 import crm from "../channels/crm";
 import { sweepBlankFacts } from "../lib/blank-facts";
+import { queueCampaignAgentRuns } from "../lib/campaign-automation";
 import {
 	pendingAgentRunIds,
 	pendingBuilderSubmissionIds,
@@ -26,6 +27,7 @@ export default defineSchedule({
 						}),
 					);
 					await queueDueAgentRuns();
+					await queueCampaignAgentRuns();
 					const [builderIds, runIds] = await Promise.all([
 						pendingBuilderSubmissionIds(),
 						pendingAgentRunIds(),

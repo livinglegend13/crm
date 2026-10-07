@@ -27,6 +27,10 @@ export const DISPATCH = {
 		executionTimeoutMs: 20 * MINUTE_MS,
 		noActionTriggerTypes: ["EVENT", "SCHEDULE", "WEBHOOK"],
 	},
+	campaign: {
+		page: 100,
+		queuePerTick: 1,
+	},
 
 	task: {
 		leaseMs: 10 * MINUTE_MS,

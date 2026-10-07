@@ -95,7 +95,7 @@ export function CampaignList({
 								<h3 className="font-medium">{campaign.name}</h3>
 								<Badge variant="outline">
 									{campaign.status === "READY"
-										? "Plan ready"
+										? "Research and drafts active"
 										: campaign.status === "PAUSED"
 											? "Paused"
 											: "Draft plan"}

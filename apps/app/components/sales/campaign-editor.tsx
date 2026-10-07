@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
+import { GTM_VIEW } from "./gtm-config";
 
 type Campaign = RouterOutputs["gtm"]["campaign"];
 type Step = {
@@ -64,8 +65,10 @@ export function CampaignEditor({
 					["QUEUED", "RUNNING", "WAITING_FOR_APPROVAL"].includes(run.status),
 				),
 			)
-				? 5000
-				: false,
+				? GTM_VIEW.poll.activeMs
+				: query.state.data?.status === "READY"
+					? GTM_VIEW.poll.readyMs
+					: false,
 	});
 	const row = campaign.data ?? initialCampaign;
 	const [name, setName] = useState(row.name);
@@ -134,18 +137,18 @@ export function CampaignEditor({
 		<div className="space-y-6">
 			<section className="rounded-lg border bg-card p-5">
 				<div className="flex flex-wrap items-center justify-between gap-3">
-					<h2 className="font-medium">Plan and sending window</h2>
+					<h2 className="font-medium">Plan and work window</h2>
 					<Badge variant="outline">
 						{row.status === "READY"
-							? "Plan ready"
+							? "Automatic research and drafts active"
 							: row.status === "PAUSED"
 								? "Paused"
 								: "Draft plan"}
 					</Badge>
 				</div>
 				<p className="mt-2 text-muted-foreground text-sm">
-					Time zone: Asia/Kolkata. This window guides future sending. Current
-					sends still require individual approval.
+					Time zone: Asia/Kolkata. Ready plans run research and create drafts
+					during this window. Every email needs individual approval.
 				</p>
 				<form
 					className="mt-4 space-y-4"
@@ -198,7 +201,9 @@ export function CampaignEditor({
 								</SelectTrigger>
 								<SelectContent>
 									<SelectItem value="DRAFT">Draft plan</SelectItem>
-									<SelectItem value="READY">Plan ready</SelectItem>
+									<SelectItem value="READY">
+										Run research and draft automatically
+									</SelectItem>
 									<SelectItem value="PAUSED">Paused</SelectItem>
 								</SelectContent>
 							</Select>
@@ -254,8 +259,8 @@ export function CampaignEditor({
 			<section className="rounded-lg border bg-card p-5">
 				<h2 className="font-medium">Email sequence instructions</h2>
 				<p className="mt-2 text-muted-foreground text-sm">
-					Define up to five steps. These instructions do not create or send
-					drafts automatically.
+					Define up to five steps. Ready plans create first-step drafts during
+					the selected India work window. Every draft needs approval.
 				</p>
 				<div className="mt-4 space-y-4">
 					{steps.map((step, index) => (
