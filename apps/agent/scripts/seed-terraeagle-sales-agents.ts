@@ -102,12 +102,22 @@ for (const [name, slug, purpose] of AGENTS) {
 	const id = `terraeagle-${slug}`;
 	const existing = await db.agentDefinition.findUnique({
 		where: { id },
-		select: { id: true },
+		select: {
+			id: true,
+			currentVersion: {
+				select: {
+					id: true,
+					number: true,
+					instructions: true,
+					manifest: true,
+					modelId: true,
+					modelContextWindowTokens: true,
+					sandboxPolicy: true,
+					validation: true,
+				},
+			},
+		},
 	});
-	if (existing) {
-		console.log(`Kept ${name}`);
-		continue;
-	}
 	const source =
 		slug.startsWith("sales-") &&
 		[
@@ -126,6 +136,8 @@ for (const [name, slug, purpose] of AGENTS) {
 		"",
 		"Work for Terraeagle's cybersecurity, AI, and FinOps sales team in India.",
 		"Read inspect_run first. Use CRM and public HTTPS evidence through the approved tools.",
+		"For manual runs, inspect_run.input.focus names the company, contact, or question. Research that focus first.",
+		"For scheduled runs without a focus, query CRM for a relevant account and identify that account in the result.",
 		"For Filo storage qualification, require evidence of at least 1 PB average stored capacity over 12 months.",
 		"Mark capacity unknown when no reliable evidence establishes it. Do not infer capacity from company size.",
 		"Use only the approved run.summary action. Do not write CRM records or send email.",
@@ -133,6 +145,86 @@ for (const [name, slug, purpose] of AGENTS) {
 		"For outreach, include Approval-ready email subject and Approval-ready email body in the structured result.",
 		"Call finish_run exactly once, even when evidence is unavailable.",
 	].join("\n");
+	if (existing) {
+		const current = existing.currentVersion;
+		if (
+			current?.number === 1 &&
+			!current.instructions.includes("inspect_run.input.focus")
+		) {
+			await db.$transaction(async (tx) => {
+				const now = new Date();
+				const version = await tx.agentVersion.create({
+					data: {
+						agentId: id,
+						number: 2,
+						status: "DEPLOYED",
+						instructions,
+						manifest: current.manifest as object,
+						modelId: current.modelId,
+						modelContextWindowTokens: current.modelContextWindowTokens,
+						sandboxPolicy: current.sandboxPolicy as object,
+						validation: current.validation as object,
+						createdById: owner.id,
+						approvedAt: now,
+						deployedAt: now,
+					},
+					select: { id: true },
+				});
+				await tx.agentBuilderArtifact.createMany({
+					data: [
+						{
+							versionId: version.id,
+							path: "agent/instructions.md",
+							language: "markdown",
+							content: instructions,
+							previousContent: current.instructions,
+							revision: 1,
+							status: "READY",
+						},
+						{
+							versionId: version.id,
+							path: "agent/manifest.json",
+							language: "json",
+							content: JSON.stringify(current.manifest, null, 2),
+							revision: 1,
+							status: "READY",
+						},
+						{
+							versionId: version.id,
+							path: "agent/README.md",
+							language: "markdown",
+							content: `# ${name}\n\n${purpose}\n\nAdapted from ${source}. Automatic runs start disabled.`,
+							revision: 1,
+							status: "READY",
+						},
+					],
+				});
+				await tx.agentDefinition.update({
+					where: { id },
+					data: { currentVersionId: version.id },
+				});
+				await tx.agentTrigger.updateMany({
+					where: { agentId: id, versionId: current.id },
+					data: { versionId: version.id },
+				});
+				await tx.agentAuditEvent.create({
+					data: {
+						agentId: id,
+						versionId: version.id,
+						actorUserId: owner.id,
+						actorType: "USER",
+						actorId: owner.id,
+						type: "version.created",
+						summary: "Added manual run focus to sales agent",
+					},
+				});
+			});
+			console.log(`Updated ${name}`);
+		} else {
+			console.log(`Kept ${name}`);
+		}
+		continue;
+	}
 	const manifest = parseAgentManifest({
 		name,
 		description: purpose,

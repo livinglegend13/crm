@@ -77,6 +77,7 @@ export type AgentUpdateInput = z.infer<typeof agentUpdateInput>;
 
 export const agentRunNowInput = agentIdInput.extend({
 	clientRequestId: z.uuid(),
+	focus: z.string().trim().max(500).optional(),
 });
 
 export type AgentRunNowInput = z.infer<typeof agentRunNowInput>;

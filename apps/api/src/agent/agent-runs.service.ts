@@ -212,6 +212,7 @@ export class AgentRunsService {
 					versionId: agent.currentVersionId,
 					initiatedById: userId,
 					triggerType: "MANUAL",
+					input: input.focus ? { focus: input.focus } : {},
 					idempotencyKey: input.clientRequestId,
 					correlationId: randomUUID(),
 					events: {

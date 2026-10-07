@@ -84,6 +84,7 @@ export function TeamAgentDetail({
 	const queryClient = useQueryClient();
 	const workspaceUrl = useWorkspaceUrl();
 	const [runsOpen, setRunsOpen] = useState(false);
+	const [runFocus, setRunFocus] = useState("");
 	const agent = useQuery({
 		...trpc.agents.byId.queryOptions({ id: agentId }),
 		initialData: initialAgent,
@@ -160,6 +161,7 @@ export function TeamAgentDetail({
 			runNow.mutateAsync({
 				id: agentId,
 				clientRequestId: crypto.randomUUID(),
+				focus: runFocus.trim() || undefined,
 			}),
 	});
 	const pauseAction = useAsyncAction({
@@ -230,6 +232,15 @@ export function TeamAgentDetail({
 									: triggerSummary}
 						</span>
 						<div className="mt-1 flex flex-wrap gap-2">
+							<label className="flex w-full flex-col gap-1 text-xs">
+								Run focus
+								<input
+									className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+									placeholder="Company, contact, or question for this run"
+									value={runFocus}
+									onChange={(event) => setRunFocus(event.target.value)}
+								/>
+							</label>
 							<Button onClick={() => setRunsOpen(true)} variant="outline">
 								Runs
 								<span className="font-mono text-muted-foreground">
