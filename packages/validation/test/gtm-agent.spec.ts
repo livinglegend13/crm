@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import { campaignAgentRunInput, runCampaignAgentInput } from "../src/gtm";
-import { recipientFromRunInput } from "../src/outreach-draft";
+import {
+	draftResearchFromRunResult,
+	recipientFromRunInput,
+} from "../src/outreach-draft";
 
 const campaignInput = {
 	kind: "campaign-target",
@@ -46,5 +49,19 @@ describe("campaign agent runs", () => {
 				recipientEmail: "not-an-email",
 			}).success,
 		).toBe(false);
+	});
+
+	it("shows campaign evidence in the draft review", () => {
+		expect(
+			draftResearchFromRunResult({
+				Evidence: "Official site",
+				Findings: "Verified role",
+				Unknowns: "Capacity",
+			}),
+		).toEqual({
+			researchSources: "Official site",
+			researchFacts: "Verified role",
+			researchUnknowns: "Capacity",
+		});
 	});
 });

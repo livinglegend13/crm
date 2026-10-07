@@ -159,8 +159,14 @@ for (const [name, slug, purpose] of AGENTS) {
 						"Do not claim a meeting, storage capacity, or prior relationship without evidence. Never send email.",
 					].join("\n")
 				: null;
+	const outboundReviewInstructions = [
+		"Keep internal qualification and the 1 PB threshold out of the prospect email.",
+		"Ask one relevant question in the first email. Keep the message under 120 words.",
+		"Do not describe Filo features or savings without an approved source. Avoid placeholders and invented sender names.",
+		"Return Sources, CRM facts, Public facts, and Unknowns as strings alongside the email fields.",
+	].join("\n");
 	const instructions = campaignInstructions
-		? `${baseInstructions}\n${campaignInstructions}`
+		? `${baseInstructions}\n${campaignInstructions}${slug === "sales-outbound-strategist" ? `\n${outboundReviewInstructions}` : ""}`
 		: baseInstructions;
 	if (existing) {
 		const current = existing.currentVersion;
@@ -176,7 +182,11 @@ for (const [name, slug, purpose] of AGENTS) {
 			(current?.number === 1 && current.instructions === legacyInstructions) ||
 			(current?.number === 2 &&
 				campaignInstructions !== null &&
-				current.instructions === baseInstructions);
+				current.instructions === baseInstructions) ||
+			(current?.number === 3 &&
+				slug === "sales-outbound-strategist" &&
+				current.instructions ===
+					`${baseInstructions}\n${campaignInstructions}`);
 		if (current && upgrade) {
 			await db.$transaction(async (tx) => {
 				const now = new Date();

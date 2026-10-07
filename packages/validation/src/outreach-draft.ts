@@ -133,10 +133,10 @@ export function draftResearchFromRunResult(value: unknown) {
 	const read = (key: string) =>
 		typeof result[key] === "string" ? (result[key] as string) : null;
 	return {
-		researchSources: read("Sources"),
+		researchSources: read("Sources") ?? read("Evidence"),
 		researchFacts:
 			[read("CRM facts"), read("Public facts")].filter(Boolean).join("\n\n") ||
-			null,
+			read("Findings"),
 		researchUnknowns: read("Unknowns"),
 	};
 }
