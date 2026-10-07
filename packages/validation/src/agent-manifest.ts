@@ -131,6 +131,15 @@ export function parseAgentManifest(value: unknown): AgentManifest {
 	);
 }
 
+export function canAutoRunInCampaign(manifest: AgentManifest) {
+	return (
+		manifest.dataScope.mode === "WORKSPACE" &&
+		manifest.actions.every(
+			(action) => action.type === AGENT_ACTION_TYPES.RUN_SUMMARY,
+		)
+	);
+}
+
 export const agentTriggerConfig = z.object({
 	intervalMinutes: z
 		.number()

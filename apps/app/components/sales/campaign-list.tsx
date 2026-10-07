@@ -21,6 +21,7 @@ import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { GTM_VIEW } from "./gtm-config";
+import { readSalesMaterial } from "./read-sales-material";
 
 type Campaigns = RouterOutputs["gtm"]["campaigns"];
 
@@ -108,29 +109,9 @@ export function CampaignList({
 	);
 	const source = material.trim();
 	const readMaterial = async (file: File) => {
-		if (file.size > GTM_VIEW.material.maxFileBytes) {
-			toast.error("The file exceeds the 2 MB limit.");
-			return;
-		}
 		setReadingFile(true);
 		try {
-			const extension = file.name.toLowerCase().split(".").pop();
-			let extracted: string;
-			if (extension === "docx") {
-				const mammoth = await import("mammoth");
-				const result = await mammoth.extractRawText({
-					arrayBuffer: await file.arrayBuffer(),
-				});
-				extracted = result.value;
-			} else if (extension === "txt" || extension === "md") {
-				extracted = await file.text();
-			} else {
-				throw new Error("Upload a DOCX, TXT, or Markdown file.");
-			}
-			if (!extracted.trim())
-				throw new Error("The file contains no readable text.");
-			if (extracted.length > GTM_VIEW.material.maxCharacters)
-				throw new Error("The extracted text exceeds 100,000 characters.");
+			const extracted = await readSalesMaterial(file);
 			setMaterial(extracted);
 			setPlanRunId(null);
 			setSourceFileName(file.name);

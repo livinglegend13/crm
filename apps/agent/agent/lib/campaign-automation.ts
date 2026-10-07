@@ -1,15 +1,66 @@
 import { db, type Prisma } from "@crm/db";
-import { campaignAgentRunInput } from "@crm/validation/gtm";
+import {
+	canAutoRunInCampaign,
+	parseAgentManifest,
+} from "@crm/validation/agent-manifest";
+import {
+	campaignAgentRunInput,
+	campaignWorkflowRunInput,
+} from "@crm/validation/gtm";
 import { z } from "zod";
 import {
 	campaignWindowOpen,
 	followUpDue,
 	nextCampaignAgent,
+	nextWorkflowStage,
 } from "./campaign-automation-policy";
 import { DISPATCH } from "./dispatch-config";
 
 const COMPANY_AGENT = "terraeagle-sales-company";
 const OUTBOUND_AGENT = "terraeagle-sales-outbound-strategist";
+
+type CampaignRunRow = {
+	agentId: string;
+	status: string;
+	summary: string | null;
+	input: Prisma.JsonValue | null;
+	outreachDrafts: Array<{
+		id: string;
+		status: string;
+		sentAt: Date | null;
+		subject: string;
+		body: string;
+	}>;
+};
+
+function parseCampaignRunInput(value: Prisma.JsonValue | null) {
+	const target = campaignAgentRunInput.safeParse(value);
+	if (target.success) return target.data;
+	const workflow = campaignWorkflowRunInput.safeParse(value);
+	if (workflow.success) return workflow.data;
+	throw new Error("A campaign run has invalid input.");
+}
+
+function workflowRuns(
+	runs: Array<{
+		agentId: string;
+		status: string;
+		input: Prisma.JsonValue | null;
+	}>,
+) {
+	return runs.flatMap((run) => {
+		const input = parseCampaignRunInput(run.input);
+		return input.kind === "campaign-workflow"
+			? [
+					{
+						agentId: run.agentId,
+						status: run.status,
+						stageIndex: input.stageIndex,
+					},
+				]
+			: [];
+	});
+}
 
 function isIndiaCompany(company: {
 	countryCode: string | null;
@@ -21,6 +72,27 @@ function isIndiaCompany(company: {
 	);
 }
 
+function eligibleTarget<
+	T extends {
+		company: {
+			archivedAt: Date | null;
+			countryCode: string | null;
+			country: string | null;
+		};
+		campaign: {
+			sendDays: number[];
+			startMinute: number;
+			endMinute: number;
+			steps: unknown[];
+		};
+	},
+>(target: T | null, now: Date): target is T {
+	if (!target) return false;
+	if (!campaignWindowOpen(target.campaign, now)) return false;
+	if (target.company.archivedAt || !target.campaign.steps.length) return false;
+	return isIndiaCompany(target.company);
+}
+
 function isLiveAgent<
 	T extends { status: string; currentVersionId: string | null },
 >(agent: T | undefined): agent is T & { currentVersionId: string } {
@@ -29,16 +101,7 @@ function isLiveAgent<
 
 async function nextFollowUp(
 	tx: Prisma.TransactionClient,
-	runs: Array<{
-		input: Prisma.JsonValue | null;
-		outreachDrafts: Array<{
-			id: string;
-			status: string;
-			sentAt: Date | null;
-			subject: string;
-			body: string;
-		}>;
-	}>,
+	runs: CampaignRunRow[],
 	steps: Array<{ position: number; delayDays: number }>,
 	now: Date,
 ) {
@@ -71,6 +134,59 @@ async function nextFollowUp(
 	}
 	return null;
 }
+
+async function selectTargetRun(
+	tx: Prisma.TransactionClient,
+	runs: CampaignRunRow[],
+	campaign: {
+		workflowAgentIds: string[];
+		steps: Array<{ position: number; delayDays: number }>;
+	},
+	hasRecipient: boolean,
+	now: Date,
+) {
+	const research = runs.find((run) => run.agentId === COMPANY_AGENT);
+	const outboundRuns = runs.filter((run) => run.agentId === OUTBOUND_AGENT);
+	const initialAgent = nextCampaignAgent(
+		research?.status,
+		outboundRuns.length > 0,
+		hasRecipient,
+	);
+	const progress = nextWorkflowStage(
+		research?.status,
+		campaign.workflowAgentIds,
+		workflowRuns(runs),
+	);
+	const followUp =
+		!initialAgent && progress.complete
+			? await nextFollowUp(tx, outboundRuns, campaign.steps, now)
+			: null;
+	const stepPosition = followUp?.stepPosition ?? 0;
+	const agentId =
+		initialAgent === COMPANY_AGENT
+			? COMPANY_AGENT
+			: (progress.next?.agentId ??
+				(progress.complete
+					? (initialAgent ?? (stepPosition > 0 ? OUTBOUND_AGENT : null))
+					: null));
+	return {
+		agentId,
+		progress,
+		stepPosition,
+		previousEmail: followUp?.previousEmail ?? null,
+		previousSummary: progress.next
+			? (runs.find((run) => {
+					const input = parseCampaignRunInput(run.input);
+					return (
+						input.kind === "campaign-workflow" &&
+						input.stageIndex === progress.next.stageIndex - 1
+					);
+				})?.summary ??
+				research?.summary ??
+				null)
+			: null,
+	};
+}
 export async function queueCampaignAgentRuns(now = new Date()) {
 	let queued = 0;
 	let cursor: string | undefined;
@@ -95,6 +211,7 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 				contact: { select: { email: true } },
 				campaign: {
 					select: {
+						workflowAgentIds: true,
 						sendDays: true,
 						startMinute: true,
 						endMinute: true,
@@ -107,9 +224,14 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 			},
 		});
 		if (targets.length === 0) return queued;
+		const agentIds = [
+			COMPANY_AGENT,
+			OUTBOUND_AGENT,
+			...new Set(targets.flatMap((target) => target.campaign.workflowAgentIds)),
+		];
 		const existing = await db.agentRun.findMany({
 			where: {
-				agentId: { in: [COMPANY_AGENT, OUTBOUND_AGENT] },
+				agentId: { in: agentIds },
 				OR: targets.map((target) => ({
 					input: { path: ["campaignTargetId"], equals: target.id },
 				})),
@@ -118,6 +240,7 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 			select: {
 				agentId: true,
 				status: true,
+				summary: true,
 				input: true,
 				outreachDrafts: {
 					select: {
@@ -132,9 +255,7 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 		});
 		const runsByTarget = new Map<string, typeof existing>();
 		for (const run of existing) {
-			const parsed = campaignAgentRunInput.safeParse(run.input);
-			if (!parsed.success) throw new Error("A campaign run has invalid input.");
-			const targetId = parsed.data.campaignTargetId;
+			const targetId = parseCampaignRunInput(run.input).campaignTargetId;
 			const runs = runsByTarget.get(targetId) ?? [];
 			runs.push(run);
 			runsByTarget.set(targetId, runs);
@@ -143,13 +264,22 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 			if (queued >= DISPATCH.campaign.queuePerTick) break;
 			if (!campaignWindowOpen(candidate.campaign, now)) continue;
 			const runs = runsByTarget.get(candidate.id) ?? [];
+			const researchStatus = runs.find(
+				(run) => run.agentId === COMPANY_AGENT,
+			)?.status;
+			const progress = nextWorkflowStage(
+				researchStatus,
+				candidate.campaign.workflowAgentIds,
+				workflowRuns(runs),
+			);
 			const firstAgent = nextCampaignAgent(
-				runs.find((run) => run.agentId === COMPANY_AGENT)?.status,
+				researchStatus,
 				runs.some((run) => run.agentId === OUTBOUND_AGENT),
 				z.email().safeParse(candidate.contact?.email).success,
 			);
 			if (
 				!firstAgent &&
+				!progress.next &&
 				!runs.some(
 					(run) =>
 						run.agentId === OUTBOUND_AGENT &&
@@ -199,6 +329,7 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 								description: true,
 								sourceMaterial: true,
 								serviceLine: true,
+								workflowAgentIds: true,
 								ownerId: true,
 								sendDays: true,
 								startMinute: true,
@@ -208,19 +339,23 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 						},
 					},
 				});
-				if (!target || !campaignWindowOpen(target.campaign, now)) return false;
-				if (target.company.archivedAt || !target.campaign.steps.length)
-					return false;
-				if (!isIndiaCompany(target.company)) return false;
+				if (!eligibleTarget(target, now)) return false;
 				const existing = await tx.agentRun.findMany({
 					where: {
-						agentId: { in: [COMPANY_AGENT, OUTBOUND_AGENT] },
+						agentId: {
+							in: [
+								COMPANY_AGENT,
+								OUTBOUND_AGENT,
+								...target.campaign.workflowAgentIds,
+							],
+						},
 						input: { path: ["campaignTargetId"], equals: target.id },
 					},
 					orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 					select: {
 						agentId: true,
 						status: true,
+						summary: true,
 						input: true,
 						outreachDrafts: {
 							select: {
@@ -233,31 +368,19 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 						},
 					},
 				});
-				const research = existing.find((run) => run.agentId === COMPANY_AGENT);
-				const outboundRuns = existing.filter(
-					(run) => run.agentId === OUTBOUND_AGENT,
-				);
-				const initialAgent = nextCampaignAgent(
-					research?.status,
-					outboundRuns.length > 0,
+				const {
+					agentId,
+					progress,
+					stepPosition,
+					previousEmail,
+					previousSummary,
+				} = await selectTargetRun(
+					tx,
+					existing,
+					target.campaign,
 					z.email().safeParse(target.contact?.email).success,
+					now,
 				);
-				let stepPosition = 0;
-				let previousEmail: { subject: string; body: string } | null = null;
-				if (!initialAgent) {
-					const followUp = await nextFollowUp(
-						tx,
-						outboundRuns,
-						target.campaign.steps,
-						now,
-					);
-					if (followUp) {
-						stepPosition = followUp.stepPosition;
-						previousEmail = followUp.previousEmail;
-					}
-				}
-				const agentId =
-					initialAgent ?? (stepPosition > 0 ? OUTBOUND_AGENT : null);
 				if (!agentId) return false;
 				const [agent] = z
 					.array(
@@ -281,6 +404,14 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 			`,
 					);
 				if (!isLiveAgent(agent)) return false;
+				if (progress.next && agentId === progress.next.agentId) {
+					const version = await tx.agentVersion.findUniqueOrThrow({
+						where: { id: agent.currentVersionId },
+						select: { manifest: true },
+					});
+					if (!canAutoRunInCampaign(parseAgentManifest(version.manifest)))
+						return false;
+				}
 				const active = await tx.agentRun.findFirst({
 					where: {
 						agentId,
@@ -293,38 +424,55 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 				const parsedEmail = z.email().safeParse(email);
 				const recipientEmail = parsedEmail.success ? parsedEmail.data : null;
 				if (agentId === OUTBOUND_AGENT && !recipientEmail) return false;
-				const input = campaignAgentRunInput.parse({
-					kind: "campaign-target",
-					campaignId: target.campaign.id,
-					campaignTargetId: target.id,
-					companyId: target.companyId,
-					focus: target.company.name,
-					contactName: target.contact
-						? [target.contact.firstName, target.contact.lastName]
-								.filter(Boolean)
-								.join(" ")
-						: null,
-					recipientEmail,
-					campaignName: target.campaign.name,
-					campaignBrief: target.campaign.description,
-					serviceLine: target.campaign.serviceLine,
-					stepPosition,
-					previousEmail,
-					campaignMaterial: target.campaign.sourceMaterial,
-					steps: target.campaign.steps.map((step) => ({
-						position: step.position,
-						delayDays: step.delayDays,
-						subjectPrompt: step.subjectPrompt,
-						bodyPrompt: step.bodyPrompt,
-					})),
-				});
+				const input =
+					progress.next && agentId === progress.next.agentId
+						? campaignWorkflowRunInput.parse({
+								kind: "campaign-workflow",
+								campaignId: target.campaign.id,
+								campaignTargetId: target.id,
+								companyId: target.companyId,
+								focus: target.company.name,
+								serviceLine: target.campaign.serviceLine,
+								campaignBrief: target.campaign.description,
+								campaignMaterial: target.campaign.sourceMaterial,
+								stageIndex: progress.next.stageIndex,
+								previousSummary,
+							})
+						: campaignAgentRunInput.parse({
+								kind: "campaign-target",
+								campaignId: target.campaign.id,
+								campaignTargetId: target.id,
+								companyId: target.companyId,
+								focus: target.company.name,
+								contactName: target.contact
+									? [target.contact.firstName, target.contact.lastName]
+											.filter(Boolean)
+											.join(" ")
+									: null,
+								recipientEmail,
+								campaignName: target.campaign.name,
+								campaignBrief: target.campaign.description,
+								serviceLine: target.campaign.serviceLine,
+								stepPosition,
+								previousEmail,
+								campaignMaterial: target.campaign.sourceMaterial,
+								steps: target.campaign.steps.map((step) => ({
+									position: step.position,
+									delayDays: step.delayDays,
+									subjectPrompt: step.subjectPrompt,
+									bodyPrompt: step.bodyPrompt,
+								})),
+							});
 				await tx.agentRun.create({
 					data: {
 						agentId,
 						versionId: agent.currentVersionId,
 						initiatedById: target.campaign.ownerId,
 						triggerType: "SCHEDULE",
-						idempotencyKey: `campaign:${target.id}:${agentId}:${stepPosition}`,
+						idempotencyKey:
+							progress.next && agentId === progress.next.agentId
+								? `campaign:${target.id}:workflow:${progress.next.stageIndex}:${agentId}`
+								: `campaign:${target.id}:${agentId}:${stepPosition}`,
 						correlationId: crypto.randomUUID(),
 						input,
 						events: { create: { sequence: 0, type: "run.queued", data: {} } },

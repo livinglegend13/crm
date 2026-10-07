@@ -67,6 +67,13 @@ export const campaignServiceLine = z.enum([
 	"FINOPS",
 ]);
 
+export function campaignCallSubject(
+	companyName: string,
+	contactName: string | null,
+) {
+	return `Call ${contactName ?? companyName} about ${companyName}`;
+}
+
 export const campaignSchedule = z.object({
 	timeZone: z.literal("Asia/Kolkata"),
 	sendDays: z.array(z.number().int().min(1).max(7)).min(1).max(7),
@@ -82,6 +89,7 @@ export const campaignSummary = z.object({
 	sourceLength: z.number().int(),
 	status: campaignStatus,
 	serviceLine: campaignServiceLine,
+	workflowAgentIds: z.array(z.string()),
 	marketCountryCode: z.literal("IN"),
 	schedule: campaignSchedule,
 	targetCount: z.number().int(),
@@ -126,6 +134,7 @@ export const campaignTarget = z.object({
 			hasDraft: z.boolean(),
 			createdAt: z.string(),
 			stepPosition: z.number().int().nullable(),
+			workflowStageIndex: z.number().int().nullable(),
 		}),
 	),
 });
@@ -174,6 +183,23 @@ export const campaignAgentRunInput = z.object({
 });
 
 export type CampaignAgentRunInput = z.infer<typeof campaignAgentRunInput>;
+
+export const campaignWorkflowRunInput = z.object({
+	kind: z.literal("campaign-workflow"),
+	campaignId: z.string(),
+	campaignTargetId: z.string(),
+	companyId: z.string(),
+	focus: z.string(),
+	serviceLine: campaignServiceLine,
+	campaignBrief: z.string().nullable(),
+	campaignMaterial: z.string().nullable(),
+	stageIndex: z.number().int().min(0),
+	previousSummary: z.string().nullable(),
+});
+
+export const campaignWorkflowAgents = z.array(
+	z.object({ id: z.string(), name: z.string() }),
+);
 
 export const campaignPlanRunInput = z.object({
 	kind: z.literal("campaign-plan"),
@@ -242,6 +268,43 @@ export const campaignDetail = campaignSummary.extend({
 });
 
 export const campaignIdInput = z.object({ id: z.string().min(1) });
+export const campaignCallTaskInput = campaignIdInput.extend({
+	targetId: z.string().min(1),
+});
+export const campaignCallTaskOutput = z
+	.object({ id: z.string(), dueAt: z.string().nullable() })
+	.nullable();
+export type CampaignCallTaskInput = z.infer<typeof campaignCallTaskInput>;
+export const proposalKnowledgeEntry = z.object({
+	id: z.string(),
+	title: z.string(),
+	serviceLine: campaignServiceLine,
+	sourceFileName: z.string().nullable(),
+	content: z.string(),
+	status: z.enum(["DRAFT", "APPROVED", "ARCHIVED"]),
+	createdAt: z.string(),
+	approvedAt: z.string().nullable(),
+});
+export const proposalKnowledgeList = z.object({
+	rows: z.array(proposalKnowledgeEntry),
+	canApprove: z.boolean(),
+});
+export const addProposalKnowledgeInput = z.object({
+	title: z.string().trim().min(3).max(120),
+	serviceLine: campaignServiceLine,
+	sourceFileName: z.string().trim().max(255).nullable(),
+	content: z.string().trim().min(100).max(100000),
+});
+export type AddProposalKnowledgeInput = z.infer<
+	typeof addProposalKnowledgeInput
+>;
+export const updateProposalKnowledgeStatusInput = z.object({
+	id: z.string().min(1),
+	status: z.enum(["APPROVED", "ARCHIVED"]),
+});
+export type UpdateProposalKnowledgeStatusInput = z.infer<
+	typeof updateProposalKnowledgeStatusInput
+>;
 export const campaignsOutput = z.array(campaignSummary);
 
 export const createCampaignInput = z.object({
@@ -265,6 +328,10 @@ export const createCampaignInput = z.object({
 export const updateCampaignInput = campaignIdInput.extend({
 	name: z.string().trim().min(3).max(120),
 	serviceLine: campaignServiceLine,
+	workflowAgentIds: z
+		.array(z.string().min(1))
+		.max(19)
+		.refine((ids) => new Set(ids).size === ids.length),
 	description: z.string().trim().max(3000).nullable(),
 	sourceMaterial: z.string().trim().max(100000).nullable(),
 	status: campaignStatus,

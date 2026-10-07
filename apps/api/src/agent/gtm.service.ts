@@ -1,7 +1,14 @@
-import type { Db, Prisma } from "@crm/db";
+import { isWorkspaceAdmin } from "@crm/auth";
+import { ActivityType, type Db, type Prisma } from "@crm/db";
+import {
+	canAutoRunInCampaign,
+	parseAgentManifest,
+} from "@crm/validation/agent-manifest";
 import { agentRunResult } from "@crm/validation/agent-run-result";
 import type {
 	AddCampaignTargetInput,
+	AddProposalKnowledgeInput,
+	CampaignCallTaskInput,
 	CreateCampaignInput,
 	ProspectsInput,
 	RemoveCampaignTargetInput,
@@ -10,15 +17,19 @@ import type {
 	SaveCampaignStepsInput,
 	SaveFiloReviewInput,
 	UpdateCampaignInput,
+	UpdateProposalKnowledgeStatusInput,
 } from "@crm/validation/gtm";
 import {
 	campaignAgentRunInput,
+	campaignCallSubject,
 	campaignPlanRunInput,
 	campaignPlanValue,
+	campaignWorkflowRunInput,
 } from "@crm/validation/gtm";
 import { draftFieldsFromRunResult } from "@crm/validation/outreach-draft";
 import {
 	BadRequestException,
+	ForbiddenException,
 	Inject,
 	Injectable,
 	NotFoundException,
@@ -35,6 +46,14 @@ const india: Prisma.CompanyWhereInput = {
 		{ country: { contains: "India", mode: "insensitive" } },
 	],
 };
+
+function parseCampaignRunInput(value: Prisma.JsonValue | null) {
+	const target = campaignAgentRunInput.safeParse(value);
+	if (target.success) return target.data;
+	const workflow = campaignWorkflowRunInput.safeParse(value);
+	if (workflow.success) return workflow.data;
+	throw new Error("A campaign run has invalid input.");
+}
 
 function reviewOf(review: {
 	decision: "EVIDENCE_NEEDED" | "MEETS_GATE" | "BELOW_GATE";
@@ -248,6 +267,7 @@ export class GtmService {
 			sourceLength: row.sourceMaterial?.length ?? 0,
 			status: row.status,
 			serviceLine: row.serviceLine,
+			workflowAgentIds: row.workflowAgentIds,
 			marketCountryCode: "IN" as const,
 			schedule: {
 				timeZone: "Asia/Kolkata" as const,
@@ -292,6 +312,7 @@ export class GtmService {
 					in: [
 						"terraeagle-sales-company",
 						"terraeagle-sales-outbound-strategist",
+						...row.workflowAgentIds,
 					],
 				},
 				input: { path: ["campaignId"], equals: id },
@@ -311,18 +332,24 @@ export class GtmService {
 		});
 		const runsByTarget = new Map<string, Array<(typeof recentRuns)[number]>>();
 		for (const run of recentRuns) {
-			const parsed = campaignAgentRunInput.parse(run.input);
-			const previous = runsByTarget.get(parsed.campaignTargetId) ?? [];
+			const input = parseCampaignRunInput(run.input);
+			const targetId = input.campaignTargetId;
+			const previous = runsByTarget.get(targetId) ?? [];
 			if (
-				!previous.some(
-					(entry) =>
+				!previous.some((entry) => {
+					const earlier = parseCampaignRunInput(entry.input);
+					return (
 						entry.agentId === run.agentId &&
-						campaignAgentRunInput.parse(entry.input).stepPosition ===
-							parsed.stepPosition,
-				)
+						(input.kind === "campaign-workflow"
+							? earlier.kind === "campaign-workflow" &&
+								earlier.stageIndex === input.stageIndex
+							: earlier.kind === "campaign-target" &&
+								earlier.stepPosition === input.stepPosition)
+					);
+				})
 			) {
 				previous.push(run);
-				runsByTarget.set(parsed.campaignTargetId, previous);
+				runsByTarget.set(targetId, previous);
 			}
 		}
 		return {
@@ -334,6 +361,7 @@ export class GtmService {
 			sourceMaterial: row.sourceMaterial,
 			status: row.status,
 			serviceLine: row.serviceLine,
+			workflowAgentIds: row.workflowAgentIds,
 			marketCountryCode: "IN" as const,
 			schedule: {
 				timeZone: "Asia/Kolkata" as const,
@@ -386,12 +414,135 @@ export class GtmService {
 						draftFieldsFromRunResult(run.result) !== null,
 					createdAt: run.createdAt.toISOString(),
 					stepPosition:
-						run.agentId === "terraeagle-sales-company"
-							? null
-							: campaignAgentRunInput.parse(run.input).stepPosition,
+						parseCampaignRunInput(run.input).kind === "campaign-target" &&
+						run.agentId !== "terraeagle-sales-company"
+							? campaignAgentRunInput.parse(run.input).stepPosition
+							: null,
+					workflowStageIndex:
+						campaignWorkflowRunInput.safeParse(run.input).data?.stageIndex ??
+						null,
 				})),
 			})),
 		};
+	}
+
+	async callTask(userId: string, input: CampaignCallTaskInput) {
+		await this.access.assertMember(userId);
+		const target = await this.db.gtmCampaignTarget.findFirst({
+			where: { id: input.targetId, campaignId: input.id },
+			select: {
+				companyId: true,
+				company: { select: { name: true } },
+				contact: { select: { firstName: true, lastName: true } },
+			},
+		});
+		if (!target) throw new NotFoundException("Campaign target not found.");
+		const contactName = target.contact
+			? [target.contact.firstName, target.contact.lastName]
+					.filter(Boolean)
+					.join(" ")
+			: null;
+		const task = await this.db.activity.findFirst({
+			where: {
+				type: ActivityType.TASK,
+				createdById: userId,
+				companyId: target.companyId,
+				subject: campaignCallSubject(target.company.name, contactName),
+				completedAt: null,
+			},
+			orderBy: { createdAt: "desc" },
+			select: { id: true, dueAt: true },
+		});
+		return task
+			? { id: task.id, dueAt: task.dueAt?.toISOString() ?? null }
+			: null;
+	}
+
+	async proposalKnowledge(userId: string) {
+		const role = await this.access.assertMember(userId);
+		const rows = await this.db.proposalKnowledge.findMany({
+			where: { status: { not: "ARCHIVED" } },
+			orderBy: { createdAt: "desc" },
+			take: GTM.maxProposalExamples,
+		});
+		return {
+			canApprove: isWorkspaceAdmin(role),
+			rows: rows.map((row) => ({
+				id: row.id,
+				title: row.title,
+				serviceLine: row.serviceLine,
+				sourceFileName: row.sourceFileName,
+				content: row.content,
+				status: row.status,
+				createdAt: row.createdAt.toISOString(),
+				approvedAt: row.approvedAt?.toISOString() ?? null,
+			})),
+		};
+	}
+
+	async workflowAgents(userId: string) {
+		await this.access.assertMember(userId);
+		const rows = await this.db.agentDefinition.findMany({
+			where: { status: "LIVE", currentVersionId: { not: null } },
+			orderBy: { name: "asc" },
+			select: {
+				id: true,
+				name: true,
+				currentVersion: { select: { manifest: true } },
+			},
+		});
+		return rows
+			.filter(
+				(row) =>
+					row.currentVersion &&
+					![
+						"terraeagle-sales-company",
+						"terraeagle-sales-outbound-strategist",
+						"terraeagle-marketing-campaign-planner",
+					].includes(row.id) &&
+					canAutoRunInCampaign(parseAgentManifest(row.currentVersion.manifest)),
+			)
+			.map((row) => ({ id: row.id, name: row.name }));
+	}
+
+	async addProposalKnowledge(userId: string, input: AddProposalKnowledgeInput) {
+		await this.access.assertMember(userId);
+		await this.db.proposalKnowledge.create({
+			data: {
+				title: input.title,
+				serviceLine: input.serviceLine,
+				sourceFileName: input.sourceFileName,
+				content: input.content,
+				createdById: userId,
+			},
+		});
+		return this.proposalKnowledge(userId);
+	}
+
+	async updateProposalKnowledgeStatus(
+		userId: string,
+		input: UpdateProposalKnowledgeStatusInput,
+	) {
+		const role = await this.access.assertMember(userId);
+		if (!isWorkspaceAdmin(role)) {
+			throw new ForbiddenException(
+				"Only a workspace admin can approve proposals.",
+			);
+		}
+		const existing = await this.db.proposalKnowledge.findUnique({
+			where: { id: input.id },
+			select: { id: true },
+		});
+		if (!existing) throw new NotFoundException("Proposal example not found.");
+		await this.db.proposalKnowledge.update({
+			where: { id: input.id },
+			data: {
+				status: input.status,
+				approvedById: input.status === "APPROVED" ? userId : null,
+				approvedAt: input.status === "APPROVED" ? new Date() : null,
+			},
+		});
+		return this.proposalKnowledge(userId);
 	}
 
 	async runTargetAgent(userId: string, input: RunCampaignAgentInput) {
@@ -530,6 +681,14 @@ export class GtmService {
 
 	async updateCampaign(userId: string, input: UpdateCampaignInput) {
 		await this.access.assertMember(userId);
+		const eligible = new Set(
+			(await this.workflowAgents(userId)).map((agent) => agent.id),
+		);
+		if (input.workflowAgentIds.some((id) => !eligible.has(id))) {
+			throw new BadRequestException(
+				"Select only live, summary-only team agents for automatic handoffs.",
+			);
+		}
 		if (input.schedule.startMinute >= input.schedule.endMinute) {
 			throw new BadRequestException(
 				"The sending window must end after it starts.",
@@ -540,6 +699,16 @@ export class GtmService {
 			include: { _count: { select: { steps: true, targets: true } } },
 		});
 		if (!existing) throw new NotFoundException("Campaign not found.");
+		if (
+			existing.status === "READY" &&
+			input.status === "READY" &&
+			JSON.stringify(existing.workflowAgentIds) !==
+				JSON.stringify(input.workflowAgentIds)
+		) {
+			throw new BadRequestException(
+				"Pause the campaign before changing its agent sequence.",
+			);
+		}
 		if (
 			input.status === "READY" &&
 			(existing._count.steps === 0 || existing._count.targets === 0)
@@ -553,6 +722,7 @@ export class GtmService {
 			data: {
 				name: input.name,
 				serviceLine: input.serviceLine,
+				workflowAgentIds: input.workflowAgentIds,
 				description: input.description,
 				sourceMaterial: input.sourceMaterial,
 				status: input.status,

@@ -39,6 +39,24 @@ export function nextCampaignAgent(
 	return null;
 }
 
+export function nextWorkflowStage(
+	researchStatus: string | undefined,
+	agentIds: string[],
+	runs: Array<{ agentId: string; stageIndex: number; status: string }>,
+) {
+	if (researchStatus !== "SUCCEEDED") {
+		return { complete: false, next: null };
+	}
+	for (const [stageIndex, agentId] of agentIds.entries()) {
+		const run = runs.find(
+			(entry) => entry.stageIndex === stageIndex && entry.agentId === agentId,
+		);
+		if (!run) return { complete: false, next: { agentId, stageIndex } };
+		if (run.status !== "SUCCEEDED") return { complete: false, next: null };
+	}
+	return { complete: true, next: null };
+}
+
 export function followUpDue(
 	previous: { sentAt: Date | null; status: string } | undefined,
 	delayDays: number,

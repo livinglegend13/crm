@@ -7,13 +7,14 @@ import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 export function GtmNav({
 	current,
 }: {
-	current: "drafts" | "prospects" | "campaigns" | "insights";
+	current: "drafts" | "prospects" | "campaigns" | "proposals" | "insights";
 }) {
 	const workspaceUrl = useWorkspaceUrl();
 	const links = [
 		{ id: "drafts", label: "Drafts", path: "/outreach" },
 		{ id: "prospects", label: "Prospecting", path: "/outreach/prospects" },
 		{ id: "campaigns", label: "Campaigns", path: "/outreach/campaigns" },
+		{ id: "proposals", label: "Proposals", path: "/outreach/proposals" },
 		{ id: "insights", label: "Insights", path: "/outreach/insights" },
 	] as const;
 	return (

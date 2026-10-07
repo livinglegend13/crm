@@ -8,4 +8,5 @@ export const GTM = {
 	minimumAverageCapacityPb: 1,
 	maxCampaigns: 100,
 	maxVisibleAgentRuns: 500,
+	maxProposalExamples: 100,
 } as const;

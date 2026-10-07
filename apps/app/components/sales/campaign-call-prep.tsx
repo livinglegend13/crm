@@ -4,12 +4,14 @@ import { Button } from "@crm/ui/components/button";
 import { Input } from "@crm/ui/components/input";
 import { Label } from "@crm/ui/components/label";
 import { Textarea } from "@crm/ui/components/textarea";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { campaignCallSubject } from "@crm/validation/gtm";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
+import { GTM_VIEW } from "./gtm-config";
 
 const QUESTIONS = {
 	FILO_STORAGE:
@@ -22,6 +24,7 @@ const QUESTIONS = {
 } as const;
 
 export function CampaignCallPrep({
+	campaignId,
 	companyId,
 	companyName,
 	contactId,
@@ -30,6 +33,7 @@ export function CampaignCallPrep({
 	serviceLine,
 	targetId,
 }: {
+	campaignId: string;
 	companyId: string;
 	companyName: string;
 	contactId: string | null;
@@ -41,6 +45,10 @@ export function CampaignCallPrep({
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const workspaceUrl = useWorkspaceUrl();
+	const existingTask = useQuery({
+		...trpc.gtm.callTask.queryOptions({ id: campaignId, targetId }),
+		refetchInterval: GTM_VIEW.poll.readyMs,
+	});
 	const [dueAt, setDueAt] = useState("");
 	const [script, setScript] = useState(
 		`Research cues to verify:\n${researchSummary?.slice(0, 1500) ?? "No research run is available. Review the account before calling."}\n\nOpening: I am calling from Terraeagle. Is now a good time for a short question?\nDiscovery: ${QUESTIONS[serviceLine]}\nClose: Agree on one next step and record the answer.`,
@@ -50,9 +58,14 @@ export function CampaignCallPrep({
 		trpc.activities.create.mutationOptions({
 			onSuccess: async () => {
 				setCreated(true);
-				await queryClient.invalidateQueries({
-					queryKey: trpc.activities.myTasks.pathKey(),
-				});
+				await Promise.all([
+					queryClient.invalidateQueries({
+						queryKey: trpc.activities.myTasks.pathKey(),
+					}),
+					queryClient.invalidateQueries({
+						queryKey: trpc.gtm.callTask.pathKey(),
+					}),
+				]);
 				toast.success("Call reminder added to My Tasks.");
 			},
 			onError: (error) => toast.error(error.message),
@@ -95,15 +108,22 @@ export function CampaignCallPrep({
 						disabled={created}
 					/>
 				</div>
-				{created ? (
-					<Link href={workspaceUrl("/")} className="text-primary underline">
-						Open My Tasks
-					</Link>
+				{created || existingTask.data ? (
+					<p>
+						Call reminder exists.{" "}
+						<Link href={workspaceUrl("/")} className="text-primary underline">
+							Open My Tasks
+						</Link>
+					</p>
 				) : (
 					<Button
 						size="sm"
 						disabled={
-							!researchSummary || !dueAt || !script.trim() || create.isPending
+							!researchSummary ||
+							!dueAt ||
+							!script.trim() ||
+							create.isPending ||
+							existingTask.isPending
 						}
 						onClick={() => {
 							const date = new Date(dueAt);
@@ -113,7 +133,7 @@ export function CampaignCallPrep({
 							}
 							create.mutate({
 								type: "TASK",
-								subject: `Call ${contactName ?? companyName} about ${companyName}`,
+								subject: campaignCallSubject(companyName, contactName),
 								body: script.trim(),
 								dueAt: date.toISOString(),
 								companyId,

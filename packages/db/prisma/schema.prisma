@@ -39,6 +39,8 @@ model User {
   initiatedAgentRuns      AgentRun[]                    @relation("AgentRunInitiator")
   outreachDrafts          OutreachDraft[]              @relation("OutreachDraftEditor")
   gtmCampaigns            GtmCampaign[]               @relation("GtmCampaignOwner")
+  createdProposalKnowledge ProposalKnowledge[]         @relation("ProposalKnowledgeCreator")
+  approvedProposalKnowledge ProposalKnowledge[]        @relation("ProposalKnowledgeApprover")
   filoReviews             FiloProspectReview[]        @relation("FiloProspectReviewer")
   agentAuditEvents        AgentAuditEvent[]             @relation("AgentAuditActor")
   conversationShares      AgentConversationShare[]      @relation("ConversationShareCreator")
@@ -915,6 +917,7 @@ model GtmCampaign {
   sourceFileName    String?
   sourceMaterial    String?  @db.Text
   serviceLine       GtmServiceLine @default(FILO_STORAGE)
+  workflowAgentIds  String[] @default([])
   ownerId           String
   owner             User     @relation("GtmCampaignOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   status            GtmCampaignStatus @default(DRAFT)
@@ -943,6 +946,31 @@ enum GtmServiceLine {
   CYBERSECURITY
   AI
   FINOPS
+}
+
+enum ProposalKnowledgeStatus {
+  DRAFT
+  APPROVED
+  ARCHIVED
+}
+
+model ProposalKnowledge {
+  id             String @id @default(cuid())
+  title          String
+  serviceLine    GtmServiceLine
+  sourceFileName String?
+  content        String @db.Text
+  status         ProposalKnowledgeStatus @default(DRAFT)
+  createdById    String
+  createdBy      User @relation("ProposalKnowledgeCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedById   String?
+  approvedBy     User? @relation("ProposalKnowledgeApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status, serviceLine, approvedAt])
+  @@map("proposalKnowledge")
 }
 
 model GtmCampaignStep {

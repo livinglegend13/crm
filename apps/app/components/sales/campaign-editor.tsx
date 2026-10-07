@@ -23,6 +23,7 @@ import { CampaignCallPrep } from "./campaign-call-prep";
 import { GTM_VIEW } from "./gtm-config";
 
 type Campaign = RouterOutputs["gtm"]["campaign"];
+type WorkflowAgents = RouterOutputs["gtm"]["workflowAgents"];
 type Step = {
 	id: string;
 	delayDays: number;
@@ -49,10 +50,24 @@ function minutesOf(value: string) {
 	return (hours ?? 0) * 60 + (minutes ?? 0);
 }
 
+function moveWorkflowAgent(ids: string[], index: number, offset: number) {
+	const other = index + offset;
+	if (other < 0 || other >= ids.length) return ids;
+	const next = [...ids];
+	const current = next[index];
+	const adjacent = next[other];
+	if (!current || !adjacent) return ids;
+	next[index] = adjacent;
+	next[other] = current;
+	return next;
+}
+
 export function CampaignEditor({
 	initialCampaign,
+	workflowAgents,
 }: {
 	initialCampaign: Campaign;
+	workflowAgents: WorkflowAgents;
 }) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
@@ -79,6 +94,9 @@ export function CampaignEditor({
 		row.sourceMaterial ?? "",
 	);
 	const [status, setStatus] = useState<Campaign["status"]>(row.status);
+	const [workflowAgentIds, setWorkflowAgentIds] = useState(
+		row.workflowAgentIds,
+	);
 	const [sendDays, setSendDays] = useState(row.schedule.sendDays);
 	const [start, setStart] = useState(clockOf(row.schedule.startMinute));
 	const [end, setEnd] = useState(clockOf(row.schedule.endMinute));
@@ -162,6 +180,90 @@ export function CampaignEditor({
 						</span>
 					</li>
 				</ol>
+				<div className="mt-4 space-y-3">
+					<h3 className="font-medium text-sm">Advisory agent sequence</h3>
+					<p className="text-muted-foreground text-sm">
+						These agents run in order after company research. Outreach waits for
+						every stage to succeed. Each stage writes a run summary only.
+					</p>
+					{workflowAgentIds.map((id, index) => (
+						<div
+							key={id}
+							className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm"
+						>
+							<span className="min-w-0 flex-1">
+								{index + 1}.{" "}
+								{workflowAgents.find((agent) => agent.id === id)?.name ?? id}
+							</span>
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={index === 0 || row.status === "READY"}
+								onClick={() => {
+									setWorkflowAgentIds(
+										moveWorkflowAgent(workflowAgentIds, index, -1),
+									);
+								}}
+							>
+								Earlier
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={
+									index === workflowAgentIds.length - 1 ||
+									row.status === "READY"
+								}
+								onClick={() => {
+									setWorkflowAgentIds(
+										moveWorkflowAgent(workflowAgentIds, index, 1),
+									);
+								}}
+							>
+								Later
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={row.status === "READY"}
+								onClick={() =>
+									setWorkflowAgentIds(
+										workflowAgentIds.filter((entry) => entry !== id),
+									)
+								}
+							>
+								Remove
+							</Button>
+						</div>
+					))}
+					<Select
+						value=""
+						onValueChange={(id) =>
+							setWorkflowAgentIds([...workflowAgentIds, id])
+						}
+						disabled={
+							row.status === "READY" ||
+							workflowAgentIds.length >= workflowAgents.length
+						}
+					>
+						<SelectTrigger aria-label="Add advisory agent">
+							<SelectValue placeholder="Add advisory agent" />
+						</SelectTrigger>
+						<SelectContent>
+							{workflowAgents
+								.filter((agent) => !workflowAgentIds.includes(agent.id))
+								.map((agent) => (
+									<SelectItem key={agent.id} value={agent.id}>
+										{agent.name}
+									</SelectItem>
+								))}
+						</SelectContent>
+					</Select>
+					<p className="text-muted-foreground text-xs">
+						Save this sequence with the plan. Pause a Ready campaign before
+						changing its agents.
+					</p>
+				</div>
 			</section>
 			<section className="rounded-lg border bg-card p-5">
 				<div className="flex flex-wrap items-center justify-between gap-3">
@@ -186,6 +288,7 @@ export function CampaignEditor({
 							id: row.id,
 							name: name.trim(),
 							serviceLine,
+							workflowAgentIds,
 							description: description.trim() || null,
 							sourceMaterial: sourceMaterial.trim() || null,
 							status,
@@ -528,6 +631,7 @@ export function CampaignEditor({
 								) : null}
 								<CampaignCallPrep
 									key={`${target.id}-${target.agentRuns.find((run) => run.agentId === "terraeagle-sales-company" && run.status === "SUCCEEDED")?.id ?? "pending"}`}
+									campaignId={row.id}
 									targetId={target.id}
 									companyId={target.companyId}
 									companyName={target.companyName}
@@ -550,7 +654,9 @@ export function CampaignEditor({
 										<summary className="cursor-pointer font-medium">
 											{run.agentId === "terraeagle-sales-company"
 												? "Company research"
-												: `Outreach step ${(run.stepPosition ?? 0) + 1}`}{" "}
+												: run.workflowStageIndex !== null
+													? `Advisory ${run.workflowStageIndex + 1}: ${workflowAgents.find((agent) => agent.id === run.agentId)?.name ?? run.agentId}`
+													: `Outreach step ${(run.stepPosition ?? 0) + 1}`}{" "}
 											· {run.status.toLowerCase().replaceAll("_", " ")}
 										</summary>
 										{run.errorMessage ? (

@@ -36,7 +36,10 @@ async function CampaignContent({
 	await connection();
 	const { id } = await params;
 	const client = getServerTrpcClient();
-	const campaign = await client.gtm.campaign.query({ id });
+	const [campaign, workflowAgents] = await Promise.all([
+		client.gtm.campaign.query({ id }),
+		client.gtm.workflowAgents.query(),
+	]);
 	return (
 		<PageShell>
 			<PageShellHeader>
@@ -50,7 +53,7 @@ async function CampaignContent({
 			</PageShellHeader>
 			<PageShellContent>
 				<GtmNav current="campaigns" />
-				<CampaignEditor initialCampaign={campaign} />
+				<CampaignEditor initialCampaign={campaign} workflowAgents={workflowAgents} />
 			</PageShellContent>
 		</PageShell>
 	);

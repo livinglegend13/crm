@@ -8,7 +8,11 @@ import {
 	parseAgentManifest,
 } from "@crm/validation/agent-manifest";
 import { agentRunResult } from "@crm/validation/agent-run-result";
-import { campaignPlanValue } from "@crm/validation/gtm";
+import {
+	campaignAgentRunInput,
+	campaignCallSubject,
+	campaignPlanValue,
+} from "@crm/validation/gtm";
 import { z } from "zod";
 import { readCompanyHistory, readDealHistory } from "./accounts";
 import { AGENT_ACTION_EXECUTORS, isAgentActionType } from "./agent-actions";
@@ -853,8 +857,79 @@ export async function finishRun(
 			},
 			update: {},
 		});
+		await scheduleCampaignCallNudge(tx, run, input.summary, finishedAt);
 
 		return { id: run.id, status: "SUCCEEDED" as const };
+	});
+}
+
+async function scheduleCampaignCallNudge(
+	tx: Prisma.TransactionClient,
+	run: LockedAgentRun,
+	summary: string,
+	finishedAt: Date,
+) {
+	if (run.agentId !== "terraeagle-sales-company" || !summary.trim()) return;
+	const source = await tx.agentRun.findUniqueOrThrow({
+		where: { id: run.id },
+		select: { input: true },
+	});
+	const parsed = campaignAgentRunInput.safeParse(source.input);
+	if (!parsed.success) return;
+	const target = await tx.gtmCampaignTarget.findFirst({
+		where: {
+			id: parsed.data.campaignTargetId,
+			campaignId: parsed.data.campaignId,
+			campaign: { status: "READY" },
+		},
+		select: {
+			id: true,
+			companyId: true,
+			contactId: true,
+			company: { select: { name: true } },
+			contact: { select: { firstName: true, lastName: true } },
+			campaign: { select: { ownerId: true, serviceLine: true } },
+		},
+	});
+	if (!target) return;
+	const contactName = target.contact
+		? [target.contact.firstName, target.contact.lastName]
+				.filter(Boolean)
+				.join(" ")
+		: null;
+	const subject = campaignCallSubject(target.company.name, contactName);
+	const existing = await tx.activity.findFirst({
+		where: {
+			type: ActivityType.TASK,
+			companyId: target.companyId,
+			createdById: target.campaign.ownerId,
+			subject,
+			completedAt: null,
+		},
+		select: { id: true },
+	});
+	if (existing) return;
+	const question =
+		target.campaign.serviceLine === "FILO_STORAGE"
+			? "Ask how the account measures average stored capacity across 12 months."
+			: "Ask which outcome needs attention and who owns the evaluation.";
+	await tx.activity.create({
+		data: {
+			id: `campaign-call:${run.id}`,
+			type: ActivityType.TASK,
+			subject,
+			body: `Research cues to verify:\n${summary.trim().slice(0, DISPATCH.campaign.callCueMaxCharacters)}\n\n${question}\nAgree on one next step and record the answer.`,
+			occurredAt: finishedAt,
+			dueAt: new Date(finishedAt.getTime() + DISPATCH.campaign.dayMs),
+			companyId: target.companyId,
+			contactId: target.contactId,
+			createdById: target.campaign.ownerId,
+			meta: {
+				source: "campaign-research",
+				campaignTargetId: target.id,
+				researchRunId: run.id,
+			},
+		},
 	});
 }
 

@@ -1,16 +1,23 @@
 import {
 	type AddCampaignTargetInput,
+	type AddProposalKnowledgeInput,
 	addCampaignTargetInput,
+	addProposalKnowledgeInput,
+	type CampaignCallTaskInput,
 	type CreateCampaignInput,
+	campaignCallTaskInput,
+	campaignCallTaskOutput,
 	campaignDetail,
 	campaignIdInput,
 	campaignPlanRunIdInput,
 	campaignPlanStatus,
 	campaignsOutput,
+	campaignWorkflowAgents,
 	createCampaignInput,
 	filoReview,
 	gtmInsights,
 	type ProspectsInput,
+	proposalKnowledgeList,
 	prospectsInput,
 	prospectsOutput,
 	type RemoveCampaignTargetInput,
@@ -25,7 +32,9 @@ import {
 	saveCampaignStepsInput,
 	saveFiloReviewInput,
 	type UpdateCampaignInput,
+	type UpdateProposalKnowledgeStatusInput,
 	updateCampaignInput,
+	updateProposalKnowledgeStatusInput,
 } from "@crm/validation/gtm";
 import { Inject } from "@nestjs/common";
 import {
@@ -82,6 +91,43 @@ export class GtmRouter {
 	})
 	campaign(@Ctx() ctx: AuthedTrpcContext, @Input("id") id: string) {
 		return this.gtm.campaign(ctx.user.id, id);
+	}
+
+	@Query({ output: proposalKnowledgeList })
+	proposalKnowledge(@Ctx() ctx: AuthedTrpcContext) {
+		return this.gtm.proposalKnowledge(ctx.user.id);
+	}
+
+	@Query({ output: campaignWorkflowAgents })
+	workflowAgents(@Ctx() ctx: AuthedTrpcContext) {
+		return this.gtm.workflowAgents(ctx.user.id);
+	}
+
+	@Mutation({ input: addProposalKnowledgeInput, output: proposalKnowledgeList })
+	addProposalKnowledge(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: AddProposalKnowledgeInput,
+	) {
+		return this.gtm.addProposalKnowledge(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: updateProposalKnowledgeStatusInput,
+		output: proposalKnowledgeList,
+	})
+	updateProposalKnowledgeStatus(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: UpdateProposalKnowledgeStatusInput,
+	) {
+		return this.gtm.updateProposalKnowledgeStatus(ctx.user.id, input);
+	}
+
+	@Query({ input: campaignCallTaskInput, output: campaignCallTaskOutput })
+	callTask(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: CampaignCallTaskInput,
+	) {
+		return this.gtm.callTask(ctx.user.id, input);
 	}
 
 	@Mutation({ input: requestCampaignPlanInput, output: runCampaignAgentOutput })

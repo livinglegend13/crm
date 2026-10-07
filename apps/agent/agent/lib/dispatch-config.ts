@@ -32,6 +32,7 @@ export const DISPATCH = {
 		page: 100,
 		queuePerTick: 1,
 		dayMs: DAY_MS,
+		callCueMaxCharacters: 1600,
 	},
 
 	task: {
