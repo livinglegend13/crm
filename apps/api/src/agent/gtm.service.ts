@@ -1007,16 +1007,22 @@ export class GtmService {
 
 	async insights(userId: string) {
 		await this.access.assertMember(userId);
-		const campaignRows = await this.db.gtmCampaign.findMany({
-			select: {
-				id: true,
-				serviceId: true,
-				serviceLine: true,
-				marketCountryCode: true,
-				service: { select: { name: true } },
-				_count: { select: { targets: true } },
-			},
-		});
+		const [campaignRows, serviceRows] = await Promise.all([
+			this.db.gtmCampaign.findMany({
+				select: {
+					id: true,
+					serviceId: true,
+					serviceLine: true,
+					marketCountryCode: true,
+					service: { select: { name: true } },
+					_count: { select: { targets: true } },
+				},
+			}),
+			this.db.gtmService.findMany({
+				where: { active: true },
+				select: { id: true, name: true, marketCountryCodes: true },
+			}),
+		]);
 		const markets = new Map<
 			string,
 			{
@@ -1029,6 +1035,19 @@ export class GtmService {
 				qualified: number;
 			}
 		>();
+		for (const service of serviceRows) {
+			for (const marketCountryCode of service.marketCountryCodes) {
+				markets.set(`${service.id}:${marketCountryCode}`, {
+					serviceId: service.id,
+					serviceName: service.name,
+					marketCountryCode,
+					companies: 0,
+					campaigns: 0,
+					campaignTargets: 0,
+					qualified: 0,
+				});
+			}
+		}
 		for (const campaign of campaignRows) {
 			const serviceId =
 				campaign.serviceId ?? LEGACY_SERVICE_IDS[campaign.serviceLine];
