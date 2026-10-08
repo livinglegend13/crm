@@ -30,8 +30,6 @@ import {
 import { useSlackChannels } from "@/components/slack/use-slack-channels";
 import { useTRPC } from "@/lib/trpc/client";
 
-const INVITE_COMMAND = "/invite @Comp AI";
-
 export function SlackChannels() {
 	const trpc = useTRPC();
 	const [asking, setAsking] = useState<PickerChannel | null>(null);
@@ -163,18 +161,6 @@ function AskDialog({
 }) {
 	if (!channel) return null;
 
-	async function copyThenConfirm() {
-		try {
-			await navigator.clipboard.writeText(INVITE_COMMAND);
-		} catch {
-			toast.error("Copying failed. Copy the command above by hand.");
-			return;
-		}
-
-		toast.success("Command copied.");
-		onConfirm();
-	}
-
 	return (
 		<AlertDialog open onOpenChange={(open) => !open && onCancel()}>
 			<AlertDialogContent>
@@ -192,8 +178,8 @@ function AskDialog({
 				</AlertDialogHeader>
 
 				{canInviteItself ? null : (
-					<div className="rounded-md bg-muted px-3 py-2.5 font-mono text-sm">
-						{INVITE_COMMAND}
+					<div className="rounded-md bg-muted px-3 py-2.5 text-sm">
+						Ask a channel member to add the connected CRM app in Slack.
 					</div>
 				)}
 
@@ -201,12 +187,9 @@ function AskDialog({
 					<AlertDialogCancel disabled={status === "pending"}>
 						Cancel
 					</AlertDialogCancel>
-					<Button
-						disabled={status === "pending"}
-						onClick={canInviteItself ? onConfirm : () => void copyThenConfirm()}
-					>
+					<Button disabled={status === "pending"} onClick={onConfirm}>
 						<AsyncButtonContent pendingLabel="Adding…" status={status}>
-							{canInviteItself ? "Add CRM bot" : "Copy and mark as asked"}
+							{canInviteItself ? "Add CRM bot" : "Mark as asked"}
 						</AsyncButtonContent>
 					</Button>
 				</AlertDialogFooter>
