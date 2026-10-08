@@ -12,6 +12,7 @@ import {
 	SelectValue,
 } from "@crm/ui/components/select";
 import { Textarea } from "@crm/ui/components/textarea";
+import { marketName } from "@crm/validation/gtm-market";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
@@ -43,15 +44,33 @@ export function ProspectBoard({
 }) {
 	const trpc = useTRPC();
 	const [searchText, setSearchText] = useState("");
+	const [selectedCampaignId, setSelectedCampaignId] = useState(
+		initialCampaigns[0]?.id ?? "",
+	);
+	const selectedCampaign = initialCampaigns.find(
+		(campaign) => campaign.id === selectedCampaignId,
+	);
+	const isFilo =
+		!selectedCampaign || selectedCampaign.serviceLine === "FILO_STORAGE";
+	const market = marketName(selectedCampaign?.marketCountryCode ?? "IN");
 	const [q, setQ] = useState("");
 	const [decision, setDecision] = useState<Decision>("ALL");
 	const [offset, setOffset] = useState(0);
 	const [editingId, setEditingId] = useState<string | null>(null);
-	const input = { q, decision, offset, limit: 25 };
+	const input = {
+		q,
+		decision: isFilo ? decision : ("ALL" as const),
+		offset,
+		limit: 25,
+		campaignId: selectedCampaignId || undefined,
+	};
 	const prospects = useQuery({
 		...trpc.gtm.prospects.queryOptions(input),
 		initialData:
-			q === "" && decision === "ALL" && offset === 0
+			q === "" &&
+			decision === "ALL" &&
+			offset === 0 &&
+			selectedCampaignId === (initialCampaigns[0]?.id ?? "")
 				? initialProspects
 				: undefined,
 	});
@@ -62,6 +81,35 @@ export function ProspectBoard({
 	const rows = prospects.data?.rows ?? [];
 	return (
 		<div className="space-y-6">
+			{initialCampaigns.length ? (
+				<div className="space-y-2">
+					<Label htmlFor="prospect-campaign">Prospect for campaign</Label>
+					<Select
+						value={selectedCampaignId}
+						onValueChange={(value: string) => {
+							setSelectedCampaignId(value);
+							setDecision("ALL");
+							setOffset(0);
+						}}
+					>
+						<SelectTrigger id="prospect-campaign">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{initialCampaigns.map((campaign) => (
+								<SelectItem key={campaign.id} value={campaign.id}>
+									{campaign.serviceName} ·{" "}
+									{marketName(campaign.marketCountryCode)} · {campaign.name}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					<p className="text-muted-foreground text-sm">
+						{selectedCampaign?.serviceGuidance ||
+							"Create a campaign to set service qualification guidance."}
+					</p>
+				</div>
+			) : null}
 			<form
 				onSubmit={(event) => {
 					event.preventDefault();
@@ -78,44 +126,51 @@ export function ProspectBoard({
 						id="prospect-search"
 						value={searchText}
 						onChange={(event) => setSearchText(event.target.value)}
-						placeholder="Search India prospects"
+						placeholder={`Search ${market} prospects`}
 					/>
 				</div>
-				<div className="w-52 space-y-2">
-					<Label htmlFor="prospect-decision">Qualification</Label>
-					<Select
-						value={decision}
-						onValueChange={(value: Decision) => {
-							setDecision(value);
-							setOffset(0);
-						}}
-					>
-						<SelectTrigger id="prospect-decision">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{(
-								["ALL", "EVIDENCE_NEEDED", "MEETS_GATE", "BELOW_GATE"] as const
-							).map((value) => (
-								<SelectItem key={value} value={value}>
-									{decisionLabel(value)}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</div>
+				{isFilo ? (
+					<div className="w-52 space-y-2">
+						<Label htmlFor="prospect-decision">Qualification</Label>
+						<Select
+							value={decision}
+							onValueChange={(value: Decision) => {
+								setDecision(value);
+								setOffset(0);
+							}}
+						>
+							<SelectTrigger id="prospect-decision">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{(
+									[
+										"ALL",
+										"EVIDENCE_NEEDED",
+										"MEETS_GATE",
+										"BELOW_GATE",
+									] as const
+								).map((value) => (
+									<SelectItem key={value} value={value}>
+										{decisionLabel(value)}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+				) : null}
 				<Button type="submit">Search</Button>
 			</form>
 			<p className="text-muted-foreground text-sm">
 				{prospects.isError
 					? `Prospect search failed: ${prospects.error.message}`
 					: prospects.isPending
-						? "Searching India companies…"
-						: `${prospects.data?.total ?? 0} India companies match. No company meets the gate without a documented 12-month average.`}
+						? `Searching ${market} companies…`
+						: `${prospects.data?.total ?? 0} ${market} companies match.${isFilo ? " Filo fit needs a documented 12-month average." : " Research each service fit before outreach."}`}
 			</p>
 			{prospects.isPending || prospects.isError ? null : rows.length === 0 ? (
 				<div className="rounded-lg border border-dashed p-6 text-sm">
-					No India companies match these filters.
+					No {market} companies match these filters.
 				</div>
 			) : (
 				<div className="space-y-3">
@@ -130,12 +185,14 @@ export function ProspectBoard({
 									<p className="mt-1 text-muted-foreground text-sm">
 										{[row.industry, row.city, row.country]
 											.filter(Boolean)
-											.join(" · ") || "India"}{" "}
+											.join(" · ") || market}{" "}
 										· {row.contactCount} contacts
 									</p>
 								</div>
 								<Badge variant="outline">
-									{decisionLabel(row.review?.decision ?? "EVIDENCE_NEEDED")}
+									{isFilo
+										? decisionLabel(row.review?.decision ?? "EVIDENCE_NEEDED")
+										: "Service research needed"}
 								</Badge>
 							</div>
 							{row.contacts.length ? (
@@ -151,28 +208,35 @@ export function ProspectBoard({
 									No linked contacts yet.
 								</p>
 							)}
-							{row.review?.evidenceSource ? (
+							{isFilo && row.review?.evidenceSource ? (
 								<p className="mt-2 text-muted-foreground text-sm">
 									Evidence: {row.review.evidenceSource}
 								</p>
 							) : null}
 							<div className="mt-4 flex flex-wrap gap-2">
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() =>
-										setEditingId(
-											editingId === row.companyId ? null : row.companyId,
-										)
-									}
-								>
-									{editingId === row.companyId
-										? "Close review"
-										: "Review evidence"}
-								</Button>
-								<AddToCampaign row={row} campaigns={campaigns.data ?? []} />
+								{isFilo ? (
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() =>
+											setEditingId(
+												editingId === row.companyId ? null : row.companyId,
+											)
+										}
+									>
+										{editingId === row.companyId
+											? "Close review"
+											: "Review evidence"}
+									</Button>
+								) : null}
+								<AddToCampaign
+									row={row}
+									campaigns={(campaigns.data ?? []).filter(
+										(campaign) => campaign.id === selectedCampaignId,
+									)}
+								/>
 							</div>
-							{editingId === row.companyId ? (
+							{isFilo && editingId === row.companyId ? (
 								<ReviewEditor key={row.companyId} row={row} />
 							) : null}
 						</section>

@@ -16,6 +16,7 @@ import type {
 	RunCampaignAgentInput,
 	SaveCampaignStepsInput,
 	SaveFiloReviewInput,
+	SaveGtmServiceInput,
 	UpdateCampaignInput,
 	UpdateProposalKnowledgeStatusInput,
 } from "@crm/validation/gtm";
@@ -26,6 +27,11 @@ import {
 	campaignPlanValue,
 	campaignWorkflowRunInput,
 } from "@crm/validation/gtm";
+import {
+	companyInMarket,
+	marketName,
+	marketTimeZone,
+} from "@crm/validation/gtm-market";
 import { draftFieldsFromRunResult } from "@crm/validation/outreach-draft";
 import {
 	BadRequestException,
@@ -46,6 +52,23 @@ const india: Prisma.CompanyWhereInput = {
 		{ country: { contains: "India", mode: "insensitive" } },
 	],
 };
+
+const LEGACY_SERVICE_IDS = {
+	FILO_STORAGE: "terraeagle-filo-storage",
+	CYBERSECURITY: "terraeagle-cybersecurity",
+	AI: "terraeagle-ai",
+	FINOPS: "terraeagle-finops",
+	CUSTOM: "terraeagle-cybersecurity",
+} as const;
+
+function marketCompanies(countryCode: string): Prisma.CompanyWhereInput {
+	return {
+		OR: [
+			{ countryCode: { equals: countryCode, mode: "insensitive" } },
+			{ country: { equals: marketName(countryCode), mode: "insensitive" } },
+		],
+	};
+}
 
 function parseCampaignRunInput(value: Prisma.JsonValue | null) {
 	const target = campaignAgentRunInput.safeParse(value);
@@ -85,9 +108,94 @@ export class GtmService {
 		@Inject(AgentRunsService) private readonly runs: AgentRunsService,
 	) {}
 
+	async services(userId: string) {
+		await this.access.assertMember(userId);
+		return this.db.gtmService.findMany({ orderBy: { name: "asc" } });
+	}
+
+	async saveService(userId: string, input: SaveGtmServiceInput) {
+		const role = await this.access.assertMember(userId);
+		if (!isWorkspaceAdmin(role)) {
+			throw new ForbiddenException(
+				"Only a workspace admin can manage services.",
+			);
+		}
+		const data = {
+			name: input.name,
+			description: input.description,
+			qualificationGuidance: input.qualificationGuidance,
+			marketCountryCodes: input.marketCountryCodes,
+			active: input.active,
+		};
+		if (input.id) {
+			const current = await this.db.gtmService.findUnique({
+				where: { id: input.id },
+			});
+			if (!current) throw new NotFoundException("Service not found.");
+			const readyCampaigns = await this.db.gtmCampaign.count({
+				where: {
+					serviceId: input.id,
+					status: "READY",
+					...(input.active
+						? { marketCountryCode: { notIn: input.marketCountryCodes } }
+						: {}),
+				},
+			});
+			if (readyCampaigns)
+				throw new BadRequestException(
+					"Pause affected campaigns before removing a country or service.",
+				);
+			await this.db.gtmService.update({ where: { id: input.id }, data });
+		} else {
+			const slug = input.name
+				.toLowerCase()
+				.normalize("NFKD")
+				.replace(/[^a-z0-9]+/g, "-")
+				.replace(/^-|-$/g, "");
+			if (!slug)
+				throw new BadRequestException(
+					"Use a service name with letters or numbers.",
+				);
+			const existing = await this.db.gtmService.findUnique({ where: { slug } });
+			if (existing)
+				throw new BadRequestException(
+					"A service with this name already exists.",
+				);
+			await this.db.gtmService.create({ data: { ...data, slug } });
+		}
+		return this.services(userId);
+	}
+
+	private async requireService(serviceId: string, countryCode: string) {
+		const service = await this.db.gtmService.findFirst({
+			where: {
+				id: serviceId,
+				active: true,
+				marketCountryCodes: { has: countryCode },
+			},
+		});
+		if (!service)
+			throw new BadRequestException(
+				"This service is unavailable in the selected country.",
+			);
+		return service;
+	}
+
 	async prospects(userId: string, input: ProspectsInput) {
 		await this.access.assertMember(userId);
-		const and: Prisma.CompanyWhereInput[] = [india, { archivedAt: null }];
+		const campaign = input.campaignId
+			? await this.db.gtmCampaign.findUnique({
+					where: { id: input.campaignId },
+					select: { marketCountryCode: true, serviceLine: true },
+				})
+			: null;
+		if (input.campaignId && !campaign)
+			throw new NotFoundException("Campaign not found.");
+		const isFilo = !campaign || campaign.serviceLine === "FILO_STORAGE";
+		const and: Prisma.CompanyWhereInput[] = [
+			marketCompanies(campaign?.marketCountryCode ?? "IN"),
+			{ archivedAt: null },
+		];
 		if (input.q) {
 			and.push({
 				OR: [
@@ -101,14 +209,14 @@ export class GtmService {
 				],
 			});
 		}
-		if (input.decision === "EVIDENCE_NEEDED") {
+		if (isFilo && input.decision === "EVIDENCE_NEEDED") {
 			and.push({
 				OR: [
 					{ filoReview: { is: null } },
 					{ filoReview: { is: { decision: "EVIDENCE_NEEDED" } } },
 				],
 			});
-		} else if (input.decision !== "ALL") {
+		} else if (isFilo && input.decision !== "ALL") {
 			and.push({ filoReview: { is: { decision: input.decision } } });
 		}
 		const where: Prisma.CompanyWhereInput = { AND: and };
@@ -245,7 +353,10 @@ export class GtmService {
 		const rows = await this.db.gtmCampaign.findMany({
 			orderBy: { updatedAt: "desc" },
 			take: GTM.maxCampaigns,
-			include: { _count: { select: { steps: true, targets: true } } },
+			include: {
+				service: true,
+				_count: { select: { steps: true, targets: true } },
+			},
 		});
 		const qualified = await Promise.all(
 			rows.map((row) =>
@@ -267,10 +378,14 @@ export class GtmService {
 			sourceLength: row.sourceMaterial?.length ?? 0,
 			status: row.status,
 			serviceLine: row.serviceLine,
+			serviceId: row.serviceId ?? LEGACY_SERVICE_IDS[row.serviceLine],
+			serviceName: row.service?.name ?? row.serviceLine,
+			serviceGuidance: row.service?.qualificationGuidance ?? "",
 			workflowAgentIds: row.workflowAgentIds,
-			marketCountryCode: "IN" as const,
+			workflowVersion: row.workflowVersion,
+			marketCountryCode: row.marketCountryCode,
 			schedule: {
-				timeZone: "Asia/Kolkata" as const,
+				timeZone: row.timeZone,
 				sendDays: row.sendDays,
 				startMinute: row.startMinute,
 				endMinute: row.endMinute,
@@ -288,6 +403,7 @@ export class GtmService {
 		const row = await this.db.gtmCampaign.findUnique({
 			where: { id },
 			include: {
+				service: true,
 				steps: { orderBy: { position: "asc" } },
 				targets: {
 					orderBy: { createdAt: "asc" },
@@ -361,10 +477,14 @@ export class GtmService {
 			sourceMaterial: row.sourceMaterial,
 			status: row.status,
 			serviceLine: row.serviceLine,
+			serviceId: row.serviceId ?? LEGACY_SERVICE_IDS[row.serviceLine],
+			serviceName: row.service?.name ?? row.serviceLine,
+			serviceGuidance: row.service?.qualificationGuidance ?? "",
 			workflowAgentIds: row.workflowAgentIds,
-			marketCountryCode: "IN" as const,
+			workflowVersion: row.workflowVersion,
+			marketCountryCode: row.marketCountryCode,
 			schedule: {
-				timeZone: "Asia/Kolkata" as const,
+				timeZone: row.timeZone,
 				sendDays: row.sendDays,
 				startMinute: row.startMinute,
 				endMinute: row.endMinute,
@@ -462,6 +582,7 @@ export class GtmService {
 		const role = await this.access.assertMember(userId);
 		const rows = await this.db.proposalKnowledge.findMany({
 			where: { status: { not: "ARCHIVED" } },
+			include: { service: { select: { name: true } } },
 			orderBy: { createdAt: "desc" },
 			take: GTM.maxProposalExamples,
 		});
@@ -471,6 +592,8 @@ export class GtmService {
 				id: row.id,
 				title: row.title,
 				serviceLine: row.serviceLine,
+				serviceId: row.serviceId ?? LEGACY_SERVICE_IDS[row.serviceLine],
+				serviceName: row.service?.name ?? row.serviceLine,
 				sourceFileName: row.sourceFileName,
 				content: row.content,
 				status: row.status,
@@ -507,10 +630,16 @@ export class GtmService {
 
 	async addProposalKnowledge(userId: string, input: AddProposalKnowledgeInput) {
 		await this.access.assertMember(userId);
+		const service = await this.db.gtmService.findUnique({
+			where: { id: input.serviceId },
+		});
+		if (!service?.active)
+			throw new BadRequestException("Select an active service.");
 		await this.db.proposalKnowledge.create({
 			data: {
 				title: input.title,
-				serviceLine: input.serviceLine,
+				serviceId: service.id,
+				serviceLine: service.legacyLine ?? "CUSTOM",
 				sourceFileName: input.sourceFileName,
 				content: input.content,
 				createdById: userId,
@@ -551,12 +680,12 @@ export class GtmService {
 			where: {
 				id: input.targetId,
 				campaignId: input.id,
-				company: { archivedAt: null, AND: [india] },
+				company: { archivedAt: null },
 			},
 			select: {
 				id: true,
 				companyId: true,
-				company: { select: { name: true } },
+				company: { select: { name: true, countryCode: true, country: true } },
 				contact: { select: { firstName: true, lastName: true, email: true } },
 				campaign: {
 					select: {
@@ -565,6 +694,9 @@ export class GtmService {
 						description: true,
 						sourceMaterial: true,
 						serviceLine: true,
+						serviceId: true,
+						marketCountryCode: true,
+						service: { select: { name: true, qualificationGuidance: true } },
 						steps: {
 							orderBy: { position: "asc" },
 							select: {
@@ -579,6 +711,11 @@ export class GtmService {
 			},
 		});
 		if (!target) throw new NotFoundException("Campaign target not found.");
+		if (!companyInMarket(target.company, target.campaign.marketCountryCode)) {
+			throw new BadRequestException(
+				"The company is outside this campaign country.",
+			);
+		}
 		const recipientEmail = z.email().safeParse(target.contact?.email);
 		if (
 			input.agentId === "terraeagle-sales-outbound-strategist" &&
@@ -603,6 +740,12 @@ export class GtmService {
 			campaignName: target.campaign.name,
 			campaignBrief: target.campaign.description,
 			serviceLine: target.campaign.serviceLine,
+			serviceId:
+				target.campaign.serviceId ??
+				LEGACY_SERVICE_IDS[target.campaign.serviceLine],
+			serviceName: target.campaign.service?.name ?? target.campaign.serviceLine,
+			serviceGuidance: target.campaign.service?.qualificationGuidance ?? "",
+			marketCountryCode: target.campaign.marketCountryCode,
 			stepPosition: 0,
 			campaignMaterial: target.campaign.sourceMaterial,
 			steps: target.campaign.steps,
@@ -617,13 +760,23 @@ export class GtmService {
 
 	async requestCampaignPlan(userId: string, input: RequestCampaignPlanInput) {
 		await this.access.assertMember(userId);
+		const service = await this.requireService(
+			input.serviceId,
+			input.marketCountryCode,
+		);
 		const run = await this.runs.runNow(
 			{
 				id: "terraeagle-marketing-campaign-planner",
 				clientRequestId: input.clientRequestId,
 			},
 			userId,
-			campaignPlanRunInput.parse({ kind: "campaign-plan", ...input }),
+			campaignPlanRunInput.parse({
+				kind: "campaign-plan",
+				...input,
+				serviceLine: service.legacyLine ?? "CUSTOM",
+				serviceName: service.name,
+				serviceGuidance: service.qualificationGuidance,
+			}),
 		);
 		return { runId: run.id };
 	}
@@ -658,10 +811,17 @@ export class GtmService {
 
 	async createCampaign(userId: string, input: CreateCampaignInput) {
 		await this.access.assertMember(userId);
+		const service = await this.requireService(
+			input.serviceId,
+			input.marketCountryCode,
+		);
 		const row = await this.db.gtmCampaign.create({
 			data: {
 				name: input.name,
-				serviceLine: input.serviceLine,
+				serviceLine: service.legacyLine ?? "CUSTOM",
+				serviceId: service.id,
+				marketCountryCode: input.marketCountryCode,
+				timeZone: marketTimeZone(input.marketCountryCode),
 				description: input.description,
 				sourceFileName: input.sourceFileName,
 				sourceMaterial: input.sourceMaterial,
@@ -681,6 +841,15 @@ export class GtmService {
 
 	async updateCampaign(userId: string, input: UpdateCampaignInput) {
 		await this.access.assertMember(userId);
+		const service = await this.requireService(
+			input.serviceId,
+			input.marketCountryCode,
+		);
+		try {
+			new Intl.DateTimeFormat("en", { timeZone: input.schedule.timeZone });
+		} catch {
+			throw new BadRequestException("Choose a valid time zone.");
+		}
 		const eligible = new Set(
 			(await this.workflowAgents(userId)).map((agent) => agent.id),
 		);
@@ -700,10 +869,30 @@ export class GtmService {
 		});
 		if (!existing) throw new NotFoundException("Campaign not found.");
 		if (
+			existing._count.targets > 0 &&
+			(existing.serviceId !== service.id ||
+				existing.marketCountryCode !== input.marketCountryCode)
+		) {
+			throw new BadRequestException(
+				"Create a new campaign for another service or country. Existing targets keep their history.",
+			);
+		}
+		if (
+			existing.status === "READY" &&
+			(existing.serviceId !== service.id ||
+				existing.marketCountryCode !== input.marketCountryCode)
+		) {
+			throw new BadRequestException(
+				"Pause the campaign before changing its service or country.",
+			);
+		}
+		const sequenceChanged =
+			JSON.stringify(existing.workflowAgentIds) !==
+			JSON.stringify(input.workflowAgentIds);
+		if (
 			existing.status === "READY" &&
 			input.status === "READY" &&
-			JSON.stringify(existing.workflowAgentIds) !==
-				JSON.stringify(input.workflowAgentIds)
+			sequenceChanged
 		) {
 			throw new BadRequestException(
 				"Pause the campaign before changing its agent sequence.",
@@ -721,8 +910,12 @@ export class GtmService {
 			where: { id: input.id },
 			data: {
 				name: input.name,
-				serviceLine: input.serviceLine,
+				serviceLine: service.legacyLine ?? "CUSTOM",
+				serviceId: service.id,
+				marketCountryCode: input.marketCountryCode,
+				timeZone: input.schedule.timeZone,
 				workflowAgentIds: input.workflowAgentIds,
+				workflowVersion: sequenceChanged ? { increment: 1 } : undefined,
 				description: input.description,
 				sourceMaterial: input.sourceMaterial,
 				status: input.status,
@@ -767,15 +960,21 @@ export class GtmService {
 		await this.access.assertMember(userId);
 		const campaign = await this.db.gtmCampaign.findUnique({
 			where: { id: input.id },
-			select: { id: true },
+			select: { id: true, marketCountryCode: true },
 		});
 		if (!campaign) throw new NotFoundException("Campaign not found.");
 		const company = await this.db.company.findFirst({
-			where: { id: input.companyId, archivedAt: null, AND: [india] },
+			where: {
+				id: input.companyId,
+				archivedAt: null,
+				AND: [marketCompanies(campaign.marketCountryCode)],
+			},
 			select: { id: true },
 		});
 		if (!company)
-			throw new NotFoundException("This India company is unavailable.");
+			throw new NotFoundException(
+				"This company is unavailable in the campaign country.",
+			);
 		if (input.contactId) {
 			const contact = await this.db.contact.findFirst({
 				where: { id: input.contactId, companyId: company.id, archivedAt: null },
@@ -808,6 +1007,64 @@ export class GtmService {
 
 	async insights(userId: string) {
 		await this.access.assertMember(userId);
+		const campaignRows = await this.db.gtmCampaign.findMany({
+			select: {
+				id: true,
+				serviceId: true,
+				serviceLine: true,
+				marketCountryCode: true,
+				service: { select: { name: true } },
+				_count: { select: { targets: true } },
+			},
+		});
+		const markets = new Map<
+			string,
+			{
+				serviceId: string;
+				serviceName: string;
+				marketCountryCode: string;
+				companies: number;
+				campaigns: number;
+				campaignTargets: number;
+				qualified: number;
+			}
+		>();
+		for (const campaign of campaignRows) {
+			const serviceId =
+				campaign.serviceId ?? LEGACY_SERVICE_IDS[campaign.serviceLine];
+			const key = `${serviceId}:${campaign.marketCountryCode}`;
+			const current = markets.get(key) ?? {
+				serviceId,
+				serviceName: campaign.service?.name ?? campaign.serviceLine,
+				marketCountryCode: campaign.marketCountryCode,
+				companies: 0,
+				campaigns: 0,
+				campaignTargets: 0,
+				qualified: 0,
+			};
+			current.campaigns += 1;
+			current.campaignTargets += campaign._count.targets;
+			if (campaign.serviceLine === "FILO_STORAGE") {
+				current.qualified += await this.db.gtmCampaignTarget.count({
+					where: {
+						campaignId: campaign.id,
+						company: { filoReview: { is: { decision: "MEETS_GATE" } } },
+					},
+				});
+			}
+			markets.set(key, current);
+		}
+		const marketRows = await Promise.all(
+			[...markets.values()].map(async (market) => ({
+				...market,
+				companies: await this.db.company.count({
+					where: {
+						archivedAt: null,
+						AND: [marketCompanies(market.marketCountryCode)],
+					},
+				}),
+			})),
+		);
 		const companyWhere: Prisma.CompanyWhereInput = {
 			archivedAt: null,
 			AND: [india],
@@ -838,6 +1095,7 @@ export class GtmService {
 			this.db.outreachReplyAlert.count({ where: { userId } }),
 		]);
 		return {
+			marketRows,
 			indiaCompanies,
 			reviewsNeeded: indiaCompanies - qualified - belowGate,
 			qualified,

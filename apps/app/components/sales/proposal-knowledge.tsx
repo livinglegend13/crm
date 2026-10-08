@@ -21,12 +21,14 @@ import { GTM_VIEW } from "./gtm-config";
 import { readSalesMaterial } from "./read-sales-material";
 
 type Knowledge = RouterOutputs["gtm"]["proposalKnowledge"];
-type ServiceLine = Knowledge["rows"][number]["serviceLine"];
+type Services = RouterOutputs["gtm"]["services"];
 
 export function ProposalKnowledge({
 	initialKnowledge,
+	services,
 }: {
 	initialKnowledge: Knowledge;
+	services: Services;
 }) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
@@ -35,7 +37,9 @@ export function ProposalKnowledge({
 		initialData: initialKnowledge,
 	});
 	const [title, setTitle] = useState("");
-	const [serviceLine, setServiceLine] = useState<ServiceLine>("FILO_STORAGE");
+	const [serviceId, setServiceId] = useState(
+		services.find((service) => service.active)?.id ?? "",
+	);
 	const [sourceFileName, setSourceFileName] = useState<string | null>(null);
 	const [content, setContent] = useState("");
 	const [readingFile, setReadingFile] = useState(false);
@@ -72,7 +76,7 @@ export function ProposalKnowledge({
 					event.preventDefault();
 					add.mutate({
 						title: title.trim(),
-						serviceLine,
+						serviceId,
 						sourceFileName,
 						content: content.trim(),
 					});
@@ -96,18 +100,18 @@ export function ProposalKnowledge({
 				</div>
 				<div className="space-y-2">
 					<Label htmlFor="proposal-service">Service</Label>
-					<Select
-						value={serviceLine}
-						onValueChange={(value: ServiceLine) => setServiceLine(value)}
-					>
+					<Select value={serviceId} onValueChange={setServiceId}>
 						<SelectTrigger id="proposal-service">
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="FILO_STORAGE">Filo storage</SelectItem>
-							<SelectItem value="CYBERSECURITY">Cybersecurity</SelectItem>
-							<SelectItem value="AI">AI services</SelectItem>
-							<SelectItem value="FINOPS">FinOps</SelectItem>
+							{services
+								.filter((service) => service.active)
+								.map((service) => (
+									<SelectItem key={service.id} value={service.id}>
+										{service.name}
+									</SelectItem>
+								))}
 						</SelectContent>
 					</Select>
 				</div>
@@ -159,7 +163,8 @@ export function ProposalKnowledge({
 						add.isPending ||
 						readingFile ||
 						title.trim().length < 3 ||
-						content.trim().length < 100
+						content.trim().length < 100 ||
+						!serviceId
 					}
 				>
 					{add.isPending ? "Saving…" : "Save draft example"}
@@ -177,8 +182,7 @@ export function ProposalKnowledge({
 								<Badge variant="outline">{row.status.toLowerCase()}</Badge>
 							</div>
 							<p className="mt-1 text-muted-foreground text-sm">
-								{row.serviceLine.replaceAll("_", " ")} ·{" "}
-								{row.sourceFileName ?? "Pasted text"}
+								{row.serviceName} · {row.sourceFileName ?? "Pasted text"}
 							</p>
 							<details className="mt-3">
 								<summary className="cursor-pointer text-sm">

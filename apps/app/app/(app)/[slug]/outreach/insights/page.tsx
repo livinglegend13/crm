@@ -37,8 +37,8 @@ async function InsightsContent() {
 				<PageShellHeading>
 					<PageShellTitle>GTM insights</PageShellTitle>
 					<PageShellDescription>
-						Track Filo qualification, campaign planning, draft approval, sent
-						mail, and replies.
+						Track campaigns by Terraeagle service and country, with outreach
+						activity and approval status.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { marketName } from "@crm/validation/gtm-market";
 import {
 	PageShell,
 	PageShellContent,
@@ -35,7 +36,11 @@ async function ResearchContent({
 	await connection();
 	const { slug } = await params;
 	const client = getServerTrpcClient();
-	const agents = (await client.agents.list.query()).filter((agent) =>
+	const [agentList, campaigns] = await Promise.all([
+		client.agents.list.query(),
+		client.gtm.campaigns.query(),
+	]);
+	const agents = agentList.filter((agent) =>
 		/research|qualif/i.test(agent.name),
 	);
 	const rows = await Promise.all(
@@ -74,12 +79,39 @@ async function ResearchContent({
 				<PageShellHeading>
 					<PageShellTitle>Research</PageShellTitle>
 					<PageShellDescription>
-						Review saved evidence before changing a company’s Filo fit. The
-						qualification gate uses 1 PB average stored capacity over 12 months.
+						Review research output for every Terraeagle service. Check sources
+						and unknowns before outreach.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>
 			<PageShellContent>
+				<section className="mb-5 rounded-lg border bg-card p-5">
+					<h2 className="font-medium">Campaign research</h2>
+					<p className="mt-1 text-muted-foreground text-sm">
+						Open a campaign to view each target’s research and agent handoffs.
+					</p>
+					<div className="mt-3 grid gap-2 sm:grid-cols-2">
+						{campaigns.map((campaign) => (
+							<Link
+								key={campaign.id}
+								href={`/${slug}/outreach/campaigns/${campaign.id}`}
+								className="rounded-md border p-3 text-sm hover:bg-muted/50"
+							>
+								<strong>{campaign.name}</strong>
+								<span className="mt-1 block text-muted-foreground">
+									{campaign.serviceName} ·{" "}
+									{marketName(campaign.marketCountryCode)} ·{" "}
+									{campaign.targetCount} targets
+								</span>
+							</Link>
+						))}
+					</div>
+					{campaigns.length === 0 ? (
+						<p className="mt-3 text-muted-foreground text-sm">
+							Create a campaign to start service-specific research.
+						</p>
+					) : null}
+				</section>
 				<Link
 					href={`/${slug}/companies?contactCoverage=none`}
 					className="mb-5 inline-block text-primary text-sm hover:underline"

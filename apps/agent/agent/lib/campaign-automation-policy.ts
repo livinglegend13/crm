@@ -2,19 +2,34 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 import { DISPATCH } from "./dispatch-config";
 
-const INDIA_CLOCK = new Intl.DateTimeFormat("en-US", {
-	timeZone: "Asia/Kolkata",
-	weekday: "short",
-	hour: "2-digit",
-	minute: "2-digit",
-	hourCycle: "h23",
-});
+const CLOCKS = new Map<string, Intl.DateTimeFormat>();
+
+function marketClock(timeZone: string) {
+	const existing = CLOCKS.get(timeZone);
+	if (existing) return existing;
+	const formatter = new Intl.DateTimeFormat("en-US", {
+		timeZone,
+		weekday: "short",
+		hour: "2-digit",
+		minute: "2-digit",
+		hourCycle: "h23",
+	});
+	CLOCKS.set(timeZone, formatter);
+	return formatter;
+}
 
 export function campaignWindowOpen(
-	schedule: { sendDays: number[]; startMinute: number; endMinute: number },
+	schedule: {
+		sendDays: number[];
+		startMinute: number;
+		endMinute: number;
+		timeZone?: string;
+	},
 	now: Date,
 ) {
-	const parts = INDIA_CLOCK.formatToParts(now);
+	const parts = marketClock(schedule.timeZone ?? "Asia/Kolkata").formatToParts(
+		now,
+	);
 	const weekday = parts.find((part) => part.type === "weekday")?.value ?? "";
 	const day = WEEKDAYS.indexOf(weekday) || 7;
 	const minute =

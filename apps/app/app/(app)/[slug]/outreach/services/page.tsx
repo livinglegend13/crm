@@ -10,41 +10,37 @@ import {
 	PageShellHeading,
 	PageShellTitle,
 } from "@/components/page-shell";
-import { CampaignList } from "@/components/sales/campaign-list";
 import { GtmNav } from "@/components/sales/gtm-nav";
+import { ServiceCatalog } from "@/components/sales/service-catalog";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 
-export const metadata: Metadata = { title: "GTM campaigns" };
+export const metadata: Metadata = { title: "Terraeagle services" };
 
-export default function CampaignsPage() {
+export default function ServicesPage() {
 	return (
 		<Suspense fallback={<PageShellFallback />}>
-			<CampaignsContent />
+			<ServicesContent />
 		</Suspense>
 	);
 }
 
-async function CampaignsContent() {
+async function ServicesContent() {
 	await connection();
 	const client = getServerTrpcClient();
-	const [campaigns, services] = await Promise.all([
-		client.gtm.campaigns.query(),
-		client.gtm.services.query(),
-	]);
+	const services = await client.gtm.services.query();
 	return (
 		<PageShell>
 			<PageShellHeader>
 				<PageShellHeading>
-					<PageShellTitle>Campaigns</PageShellTitle>
+					<PageShellTitle>Services and countries</PageShellTitle>
 					<PageShellDescription>
-						Plan targets, email steps, and work windows. Every customer email
-						still needs approval.
+						Set the offerings and markets for Terraeagle campaigns.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>
 			<PageShellContent>
-				<GtmNav current="campaigns" />
-				<CampaignList initialCampaigns={campaigns} initialServices={services} />
+				<GtmNav current="services" />
+				<ServiceCatalog initialServices={services} />
 			</PageShellContent>
 		</PageShell>
 	);

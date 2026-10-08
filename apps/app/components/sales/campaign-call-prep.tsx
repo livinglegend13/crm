@@ -21,6 +21,8 @@ const QUESTIONS = {
 	AI: "Which workflow takes the most manual effort? What result would make an AI pilot useful?",
 	FINOPS:
 		"Which cloud spend category needs attention? How do you measure savings and assign ownership?",
+	CUSTOM:
+		"What outcome needs attention? Who owns the decision and what evidence supports it?",
 } as const;
 
 export function CampaignCallPrep({
@@ -31,6 +33,7 @@ export function CampaignCallPrep({
 	contactName,
 	researchSummary,
 	serviceLine,
+	serviceGuidance,
 	targetId,
 }: {
 	campaignId: string;
@@ -40,6 +43,7 @@ export function CampaignCallPrep({
 	contactName: string | null;
 	researchSummary: string | null;
 	serviceLine: keyof typeof QUESTIONS;
+	serviceGuidance: string;
 	targetId: string;
 }) {
 	const trpc = useTRPC();
@@ -51,7 +55,7 @@ export function CampaignCallPrep({
 	});
 	const [dueAt, setDueAt] = useState("");
 	const [script, setScript] = useState(
-		`Research cues to verify:\n${researchSummary?.slice(0, 1500) ?? "No research run is available. Review the account before calling."}\n\nOpening: I am calling from Terraeagle. Is now a good time for a short question?\nDiscovery: ${QUESTIONS[serviceLine]}\nClose: Agree on one next step and record the answer.`,
+		`Research cues to verify:\n${researchSummary?.slice(0, 1500) ?? "No research run is available. Review the account before calling."}\n\nOpening: I am calling from Terraeagle. Is now a good time for a short question?\nDiscovery: ${serviceGuidance || QUESTIONS[serviceLine]}\nClose: Agree on one next step and record the answer.`,
 	);
 	const [created, setCreated] = useState(false);
 	const create = useMutation(

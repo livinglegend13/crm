@@ -917,7 +917,10 @@ model GtmCampaign {
   sourceFileName    String?
   sourceMaterial    String?  @db.Text
   serviceLine       GtmServiceLine @default(FILO_STORAGE)
+  serviceId         String?
+  service           GtmService? @relation(fields: [serviceId], references: [id], onDelete: Restrict)
   workflowAgentIds  String[] @default([])
+  workflowVersion   Int @default(1)
   ownerId           String
   owner             User     @relation("GtmCampaignOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   status            GtmCampaignStatus @default(DRAFT)
@@ -932,7 +935,25 @@ model GtmCampaign {
   updatedAt         DateTime @updatedAt
 
   @@index([ownerId, createdAt])
+  @@index([serviceId, marketCountryCode])
   @@map("gtmCampaign")
+}
+
+model GtmService {
+  id                    String @id @default(cuid())
+  slug                  String @unique
+  name                  String
+  description           String @default("") @db.Text
+  qualificationGuidance String @default("") @db.Text
+  marketCountryCodes    String[] @default(["IN"])
+  legacyLine            GtmServiceLine?
+  active                Boolean @default(true)
+  campaigns             GtmCampaign[]
+  proposals             ProposalKnowledge[]
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("gtmService")
 }
 
 enum GtmCampaignStatus {
@@ -946,6 +967,7 @@ enum GtmServiceLine {
   CYBERSECURITY
   AI
   FINOPS
+  CUSTOM
 }
 
 enum ProposalKnowledgeStatus {
@@ -958,6 +980,8 @@ model ProposalKnowledge {
   id             String @id @default(cuid())
   title          String
   serviceLine    GtmServiceLine
+  serviceId      String?
+  service        GtmService? @relation(fields: [serviceId], references: [id], onDelete: Restrict)
   sourceFileName String?
   content        String @db.Text
   status         ProposalKnowledgeStatus @default(DRAFT)

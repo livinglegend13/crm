@@ -12,6 +12,7 @@ import {
 	SelectValue,
 } from "@crm/ui/components/select";
 import { Textarea } from "@crm/ui/components/textarea";
+import { marketName } from "@crm/validation/gtm-market";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,6 +25,7 @@ import { GTM_VIEW } from "./gtm-config";
 import { readSalesMaterial } from "./read-sales-material";
 
 type Campaigns = RouterOutputs["gtm"]["campaigns"];
+type Services = RouterOutputs["gtm"]["services"];
 
 const DRIP_STEPS = [
 	{
@@ -50,8 +52,10 @@ const DRIP_STEPS = [
 
 export function CampaignList({
 	initialCampaigns,
+	initialServices,
 }: {
 	initialCampaigns: Campaigns;
+	initialServices: Services;
 }) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
@@ -61,10 +65,19 @@ export function CampaignList({
 		...trpc.gtm.campaigns.queryOptions(),
 		initialData: initialCampaigns,
 	});
+	const services = useQuery({
+		...trpc.gtm.services.queryOptions(),
+		initialData: initialServices,
+	});
 	const [name, setName] = useState("");
-	const [serviceLine, setServiceLine] = useState<
-		"FILO_STORAGE" | "CYBERSECURITY" | "AI" | "FINOPS"
-	>("FILO_STORAGE");
+	const [serviceId, setServiceId] = useState(
+		initialServices.find((service) => service.active)?.id ?? "",
+	);
+	const [marketCountryCode, setMarketCountryCode] = useState("IN");
+	const selectedService = services.data?.find(
+		(service) => service.id === serviceId,
+	);
+	const serviceLine = selectedService?.legacyLine ?? "CUSTOM";
 	const [description, setDescription] = useState("");
 	const [material, setMaterial] = useState("");
 	const [sourceFileName, setSourceFileName] = useState<string | null>(null);
@@ -133,6 +146,8 @@ export function CampaignList({
 					create.mutate({
 						name: name.trim(),
 						serviceLine,
+						serviceId,
+						marketCountryCode,
 						description:
 							(planStatus.data?.plan
 								? (planBriefOverride ?? planStatus.data.plan.brief).trim()
@@ -144,7 +159,7 @@ export function CampaignList({
 					});
 				}}
 			>
-				<h2 className="font-medium">Create another India campaign</h2>
+				<h2 className="font-medium">Create a campaign</h2>
 				<p className="text-sm text-muted-foreground">
 					Upload sales material, generate a plan, and review every step before
 					activation.
@@ -152,9 +167,13 @@ export function CampaignList({
 				<div className="space-y-2">
 					<Label htmlFor="campaign-service">Service</Label>
 					<Select
-						value={serviceLine}
-						onValueChange={(value: typeof serviceLine) => {
-							setServiceLine(value);
+						value={serviceId}
+						onValueChange={(value: string) => {
+							setServiceId(value);
+							setMarketCountryCode(
+								services.data?.find((service) => service.id === value)
+									?.marketCountryCodes[0] ?? "IN",
+							);
 							setPlanRunId(null);
 						}}
 					>
@@ -162,10 +181,40 @@ export function CampaignList({
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="FILO_STORAGE">Filo storage</SelectItem>
-							<SelectItem value="CYBERSECURITY">Cybersecurity</SelectItem>
-							<SelectItem value="AI">AI services</SelectItem>
-							<SelectItem value="FINOPS">FinOps</SelectItem>
+							{services.data
+								?.filter((service) => service.active)
+								.map((service) => (
+									<SelectItem key={service.id} value={service.id}>
+										{service.name}
+									</SelectItem>
+								))}
+						</SelectContent>
+					</Select>
+					<Link
+						href={workspaceUrl("/outreach/services")}
+						className="text-sm underline"
+					>
+						Manage services and countries
+					</Link>
+				</div>
+				<div className="space-y-2">
+					<Label htmlFor="campaign-country">Country</Label>
+					<Select
+						value={marketCountryCode}
+						onValueChange={(value: string) => {
+							setMarketCountryCode(value);
+							setPlanRunId(null);
+						}}
+					>
+						<SelectTrigger id="campaign-country">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{selectedService?.marketCountryCodes.map((code) => (
+								<SelectItem key={code} value={code}>
+									{marketName(code)}
+								</SelectItem>
+							))}
 						</SelectContent>
 					</Select>
 				</div>
@@ -178,7 +227,7 @@ export function CampaignList({
 							setName(event.target.value);
 							setPlanRunId(null);
 						}}
-						placeholder="Filo Storage · India BFSI"
+						placeholder="Service · country · target audience"
 						minLength={3}
 						maxLength={120}
 						required
@@ -251,6 +300,8 @@ export function CampaignList({
 								onClick={() =>
 									requestPlan.mutate({
 										serviceLine,
+										serviceId,
+										marketCountryCode,
 										campaignName: name.trim(),
 										campaignBrief: description.trim() || null,
 										campaignMaterial: source,
@@ -315,6 +366,7 @@ export function CampaignList({
 					type="submit"
 					disabled={
 						create.isPending ||
+						!serviceId ||
 						readingFile ||
 						(planRunId !== null && !planStatus.data?.plan)
 					}
@@ -359,7 +411,8 @@ export function CampaignList({
 								{campaign.serviceLine === "FILO_STORAGE"
 									? `${campaign.qualifiedCount} meet Filo gate · `
 									: ""}
-								{campaign.stepCount} email steps · India
+								{campaign.stepCount} email steps · {campaign.serviceName} ·{" "}
+								{marketName(campaign.marketCountryCode)}
 							</p>
 						</Link>
 					))

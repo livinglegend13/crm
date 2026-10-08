@@ -14,7 +14,7 @@ import { GtmNav } from "@/components/sales/gtm-nav";
 import { ProspectBoard } from "@/components/sales/prospect-board";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 
-export const metadata: Metadata = { title: "Filo prospecting" };
+export const metadata: Metadata = { title: "Prospecting" };
 
 export default function ProspectsPage() {
 	return (
@@ -27,23 +27,22 @@ export default function ProspectsPage() {
 async function ProspectsContent() {
 	await connection();
 	const client = getServerTrpcClient();
-	const [prospects, campaigns] = await Promise.all([
-		client.gtm.prospects.query({
-			q: "",
-			decision: "ALL",
-			offset: 0,
-			limit: 25,
-		}),
-		client.gtm.campaigns.query(),
-	]);
+	const campaigns = await client.gtm.campaigns.query();
+	const prospects = await client.gtm.prospects.query({
+		campaignId: campaigns[0]?.id,
+		q: "",
+		decision: "ALL",
+		offset: 0,
+		limit: 25,
+	});
 	return (
 		<PageShell>
 			<PageShellHeader>
 				<PageShellHeading>
-					<PageShellTitle>Filo prospecting</PageShellTitle>
+					<PageShellTitle>Prospecting</PageShellTitle>
 					<PageShellDescription>
-						Review India companies against Filo’s 1 PB average-capacity gate.
-						Record evidence before qualification.
+						Find companies for a service campaign. Review evidence before
+						qualification and outreach.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>

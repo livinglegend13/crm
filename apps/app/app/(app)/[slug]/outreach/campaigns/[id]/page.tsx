@@ -36,9 +36,10 @@ async function CampaignContent({
 	await connection();
 	const { id } = await params;
 	const client = getServerTrpcClient();
-	const [campaign, workflowAgents] = await Promise.all([
+	const [campaign, workflowAgents, services] = await Promise.all([
 		client.gtm.campaign.query({ id }),
 		client.gtm.workflowAgents.query(),
+		client.gtm.services.query(),
 	]);
 	return (
 		<PageShell>
@@ -46,14 +47,18 @@ async function CampaignContent({
 				<PageShellHeading>
 					<PageShellTitle>{campaign.name}</PageShellTitle>
 					<PageShellDescription>
-						Configure this India campaign plan. The plan does not send email
+						Configure this service campaign plan. The plan does not send email
 						automatically.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>
 			<PageShellContent>
 				<GtmNav current="campaigns" />
-				<CampaignEditor initialCampaign={campaign} workflowAgents={workflowAgents} />
+				<CampaignEditor
+					initialCampaign={campaign}
+					workflowAgents={workflowAgents}
+					services={services}
+				/>
 			</PageShellContent>
 		</PageShell>
 	);

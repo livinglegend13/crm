@@ -49,8 +49,8 @@ export function DraftWorkspace({
 			<div className="flex flex-col gap-6">
 				<MailboxConnections status={senders.data} />
 				<div className="rounded-lg border border-dashed p-6 text-sm">
-					No outreach drafts exist yet. Run the Filo Outreach Draft Assistant
-					for an approved contact.
+					No outreach drafts exist yet. Run an outreach agent for an approved
+					contact.
 				</div>
 			</div>
 		);

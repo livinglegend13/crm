@@ -37,6 +37,7 @@ export const prospectRow = z.object({
 });
 
 export const prospectsInput = z.object({
+	campaignId: z.string().optional(),
 	q: z.string().trim().max(100).default(""),
 	decision: z.union([filoDecision, z.literal("ALL")]).default("ALL"),
 	offset: z.number().int().min(0).default(0),
@@ -65,7 +66,38 @@ export const campaignServiceLine = z.enum([
 	"CYBERSECURITY",
 	"AI",
 	"FINOPS",
+	"CUSTOM",
 ]);
+
+export const marketCountryCode = z
+	.string()
+	.trim()
+	.toUpperCase()
+	.regex(/^[A-Z]{2}$/);
+export const gtmServiceEntry = z.object({
+	id: z.string(),
+	slug: z.string(),
+	name: z.string(),
+	description: z.string(),
+	qualificationGuidance: z.string(),
+	marketCountryCodes: z.array(marketCountryCode),
+	legacyLine: campaignServiceLine.nullable(),
+	active: z.boolean(),
+});
+export const gtmServices = z.array(gtmServiceEntry);
+export const saveGtmServiceInput = z.object({
+	id: z.string().optional(),
+	name: z.string().trim().min(2).max(120),
+	description: z.string().trim().max(3000),
+	qualificationGuidance: z.string().trim().max(3000),
+	marketCountryCodes: z
+		.array(marketCountryCode)
+		.min(1)
+		.max(30)
+		.refine((codes) => new Set(codes).size === codes.length),
+	active: z.boolean(),
+});
+export type SaveGtmServiceInput = z.infer<typeof saveGtmServiceInput>;
 
 export function campaignCallSubject(
 	companyName: string,
@@ -75,7 +107,7 @@ export function campaignCallSubject(
 }
 
 export const campaignSchedule = z.object({
-	timeZone: z.literal("Asia/Kolkata"),
+	timeZone: z.string().trim().min(3).max(80),
 	sendDays: z.array(z.number().int().min(1).max(7)).min(1).max(7),
 	startMinute: z.number().int().min(0).max(1439),
 	endMinute: z.number().int().min(1).max(1440),
@@ -89,8 +121,12 @@ export const campaignSummary = z.object({
 	sourceLength: z.number().int(),
 	status: campaignStatus,
 	serviceLine: campaignServiceLine,
+	serviceId: z.string(),
+	serviceName: z.string(),
+	serviceGuidance: z.string(),
 	workflowAgentIds: z.array(z.string()),
-	marketCountryCode: z.literal("IN"),
+	workflowVersion: z.number().int().min(1),
+	marketCountryCode,
 	schedule: campaignSchedule,
 	targetCount: z.number().int(),
 	qualifiedCount: z.number().int(),
@@ -166,6 +202,10 @@ export const campaignAgentRunInput = z.object({
 	campaignName: z.string(),
 	campaignBrief: z.string().nullable(),
 	serviceLine: campaignServiceLine.default("FILO_STORAGE"),
+	serviceId: z.string().optional(),
+	serviceName: z.string().optional(),
+	serviceGuidance: z.string().optional(),
+	marketCountryCode: marketCountryCode.optional(),
 	stepPosition: z.number().int().min(0).default(0),
 	previousEmail: z
 		.object({ subject: z.string(), body: z.string() })
@@ -191,6 +231,11 @@ export const campaignWorkflowRunInput = z.object({
 	companyId: z.string(),
 	focus: z.string(),
 	serviceLine: campaignServiceLine,
+	serviceId: z.string().optional(),
+	serviceName: z.string().optional(),
+	serviceGuidance: z.string().optional(),
+	marketCountryCode: marketCountryCode.optional(),
+	workflowVersion: z.number().int().min(1).optional(),
 	campaignBrief: z.string().nullable(),
 	campaignMaterial: z.string().nullable(),
 	stageIndex: z.number().int().min(0),
@@ -204,6 +249,9 @@ export const campaignWorkflowAgents = z.array(
 export const campaignPlanRunInput = z.object({
 	kind: z.literal("campaign-plan"),
 	serviceLine: campaignServiceLine,
+	serviceName: z.string().optional(),
+	serviceGuidance: z.string().optional(),
+	marketCountryCode: marketCountryCode.optional(),
 	campaignName: z.string().trim().min(3).max(120),
 	campaignBrief: z.string().trim().max(1000).nullable(),
 	campaignMaterial: z.string().trim().min(100).max(100000),
@@ -244,8 +292,12 @@ export const campaignPlanValue = z.union([
 ]);
 
 export const requestCampaignPlanInput = campaignPlanRunInput
-	.omit({ kind: true })
-	.extend({ clientRequestId: z.uuid() });
+	.omit({ kind: true, serviceName: true, serviceGuidance: true })
+	.extend({
+		serviceId: z.string().min(1),
+		marketCountryCode,
+		clientRequestId: z.uuid(),
+	});
 export type RequestCampaignPlanInput = z.infer<typeof requestCampaignPlanInput>;
 export const campaignPlanRunIdInput = z.object({ runId: z.string().min(1) });
 export const campaignPlanStatus = z.object({
@@ -279,6 +331,8 @@ export const proposalKnowledgeEntry = z.object({
 	id: z.string(),
 	title: z.string(),
 	serviceLine: campaignServiceLine,
+	serviceId: z.string(),
+	serviceName: z.string(),
 	sourceFileName: z.string().nullable(),
 	content: z.string(),
 	status: z.enum(["DRAFT", "APPROVED", "ARCHIVED"]),
@@ -291,7 +345,7 @@ export const proposalKnowledgeList = z.object({
 });
 export const addProposalKnowledgeInput = z.object({
 	title: z.string().trim().min(3).max(120),
-	serviceLine: campaignServiceLine,
+	serviceId: z.string().min(1),
 	sourceFileName: z.string().trim().max(255).nullable(),
 	content: z.string().trim().min(100).max(100000),
 });
@@ -310,6 +364,8 @@ export const campaignsOutput = z.array(campaignSummary);
 export const createCampaignInput = z.object({
 	name: z.string().trim().min(3).max(120),
 	serviceLine: campaignServiceLine.default("FILO_STORAGE"),
+	serviceId: z.string().min(1),
+	marketCountryCode,
 	description: z.string().trim().max(3000).nullable(),
 	sourceFileName: z.string().trim().max(255).nullable().default(null),
 	sourceMaterial: z.string().trim().max(100000).nullable().default(null),
@@ -328,6 +384,8 @@ export const createCampaignInput = z.object({
 export const updateCampaignInput = campaignIdInput.extend({
 	name: z.string().trim().min(3).max(120),
 	serviceLine: campaignServiceLine,
+	serviceId: z.string().min(1),
+	marketCountryCode,
 	workflowAgentIds: z
 		.array(z.string().min(1))
 		.max(19)
@@ -360,6 +418,17 @@ export const removeCampaignTargetInput = campaignIdInput.extend({
 });
 
 export const gtmInsights = z.object({
+	marketRows: z.array(
+		z.object({
+			serviceId: z.string(),
+			serviceName: z.string(),
+			marketCountryCode,
+			companies: z.number().int(),
+			campaigns: z.number().int(),
+			campaignTargets: z.number().int(),
+			qualified: z.number().int(),
+		}),
+	),
 	indiaCompanies: z.number().int(),
 	reviewsNeeded: z.number().int(),
 	qualified: z.number().int(),

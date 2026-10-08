@@ -888,7 +888,13 @@ async function scheduleCampaignCallNudge(
 			contactId: true,
 			company: { select: { name: true } },
 			contact: { select: { firstName: true, lastName: true } },
-			campaign: { select: { ownerId: true, serviceLine: true } },
+			campaign: {
+				select: {
+					ownerId: true,
+					serviceLine: true,
+					service: { select: { qualificationGuidance: true } },
+				},
+			},
 		},
 	});
 	if (!target) return;
@@ -912,7 +918,8 @@ async function scheduleCampaignCallNudge(
 	const question =
 		target.campaign.serviceLine === "FILO_STORAGE"
 			? "Ask how the account measures average stored capacity across 12 months."
-			: "Ask which outcome needs attention and who owns the evaluation.";
+			: target.campaign.service?.qualificationGuidance ||
+				"Ask which outcome needs attention and who owns the evaluation.";
 	await tx.activity.create({
 		data: {
 			id: `campaign-call:${run.id}`,

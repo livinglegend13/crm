@@ -27,20 +27,24 @@ export default function ProposalsPage() {
 async function ProposalsContent() {
 	await connection();
 	const client = getServerTrpcClient();
-	const knowledge = await client.gtm.proposalKnowledge.query();
+	const [knowledge, services] = await Promise.all([
+		client.gtm.proposalKnowledge.query(),
+		client.gtm.services.query(),
+	]);
 	return (
 		<PageShell>
 			<PageShellHeader>
 				<PageShellHeading>
 					<PageShellTitle>Proposal knowledge</PageShellTitle>
 					<PageShellDescription>
-						Review Terraeagle proposal examples before the Proposal Strategist uses them.
+						Review Terraeagle proposal examples before the Proposal Strategist
+						uses them.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>
 			<PageShellContent>
 				<GtmNav current="proposals" />
-				<ProposalKnowledge initialKnowledge={knowledge} />
+				<ProposalKnowledge initialKnowledge={knowledge} services={services} />
 			</PageShellContent>
 		</PageShell>
 	);

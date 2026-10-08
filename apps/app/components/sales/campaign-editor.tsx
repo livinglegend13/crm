@@ -12,6 +12,7 @@ import {
 	SelectValue,
 } from "@crm/ui/components/select";
 import { Textarea } from "@crm/ui/components/textarea";
+import { marketName, marketTimeZone } from "@crm/validation/gtm-market";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
@@ -24,6 +25,7 @@ import { GTM_VIEW } from "./gtm-config";
 
 type Campaign = RouterOutputs["gtm"]["campaign"];
 type WorkflowAgents = RouterOutputs["gtm"]["workflowAgents"];
+type Services = RouterOutputs["gtm"]["services"];
 type Step = {
 	id: string;
 	delayDays: number;
@@ -65,9 +67,11 @@ function moveWorkflowAgent(ids: string[], index: number, offset: number) {
 export function CampaignEditor({
 	initialCampaign,
 	workflowAgents,
+	services,
 }: {
 	initialCampaign: Campaign;
 	workflowAgents: WorkflowAgents;
+	services: Services;
 }) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
@@ -88,7 +92,13 @@ export function CampaignEditor({
 	});
 	const row = campaign.data ?? initialCampaign;
 	const [name, setName] = useState(row.name);
-	const [serviceLine, setServiceLine] = useState(row.serviceLine);
+	const [serviceId, setServiceId] = useState(row.serviceId);
+	const [marketCountryCode, setMarketCountryCode] = useState(
+		row.marketCountryCode,
+	);
+	const [timeZone, setTimeZone] = useState(row.schedule.timeZone);
+	const selectedService = services.find((service) => service.id === serviceId);
+	const serviceLine = selectedService?.legacyLine ?? "CUSTOM";
 	const [description, setDescription] = useState(row.description ?? "");
 	const [sourceMaterial, setSourceMaterial] = useState(
 		row.sourceMaterial ?? "",
@@ -277,7 +287,7 @@ export function CampaignEditor({
 					</Badge>
 				</div>
 				<p className="mt-2 text-muted-foreground text-sm">
-					Time zone: Asia/Kolkata. Ready plans run research and create drafts
+					Time zone: {timeZone}. Ready plans run research and create drafts
 					during this window. Every email needs individual approval.
 				</p>
 				<form
@@ -288,12 +298,14 @@ export function CampaignEditor({
 							id: row.id,
 							name: name.trim(),
 							serviceLine,
+							serviceId,
+							marketCountryCode,
 							workflowAgentIds,
 							description: description.trim() || null,
 							sourceMaterial: sourceMaterial.trim() || null,
 							status,
 							schedule: {
-								timeZone: "Asia/Kolkata",
+								timeZone,
 								sendDays,
 								startMinute: minutesOf(start),
 								endMinute: minutesOf(end),
@@ -304,21 +316,63 @@ export function CampaignEditor({
 					<div className="space-y-2">
 						<Label htmlFor="edit-campaign-service">Service</Label>
 						<Select
-							value={serviceLine}
-							onValueChange={(value: Campaign["serviceLine"]) =>
-								setServiceLine(value)
-							}
+							value={serviceId}
+							onValueChange={(value: string) => {
+								setServiceId(value);
+								const nextCountry =
+									services.find((service) => service.id === value)
+										?.marketCountryCodes[0] ?? "IN";
+								setMarketCountryCode(nextCountry);
+								setTimeZone(marketTimeZone(nextCountry));
+							}}
 						>
 							<SelectTrigger id="edit-campaign-service">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value="FILO_STORAGE">Filo storage</SelectItem>
-								<SelectItem value="CYBERSECURITY">Cybersecurity</SelectItem>
-								<SelectItem value="AI">AI services</SelectItem>
-								<SelectItem value="FINOPS">FinOps</SelectItem>
+								{services
+									.filter(
+										(service) => service.active || service.id === serviceId,
+									)
+									.map((service) => (
+										<SelectItem key={service.id} value={service.id}>
+											{service.name}
+										</SelectItem>
+									))}
 							</SelectContent>
 						</Select>
+					</div>
+					<div className="grid gap-4 sm:grid-cols-2">
+						<div className="space-y-2">
+							<Label htmlFor="edit-campaign-country">Country</Label>
+							<Select
+								value={marketCountryCode}
+								onValueChange={(value: string) => {
+									setMarketCountryCode(value);
+									setTimeZone(marketTimeZone(value));
+								}}
+							>
+								<SelectTrigger id="edit-campaign-country">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{selectedService?.marketCountryCodes.map((code) => (
+										<SelectItem key={code} value={code}>
+											{marketName(code)}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="edit-campaign-time-zone">Time zone</Label>
+							<Input
+								id="edit-campaign-time-zone"
+								value={timeZone}
+								onChange={(event) => setTimeZone(event.target.value)}
+								required
+							/>
+						</div>
 					</div>
 					<div className="space-y-2">
 						<Label htmlFor="edit-campaign-name">Name</Label>
@@ -645,6 +699,7 @@ export function CampaignEditor({
 										)?.summary ?? null
 									}
 									serviceLine={row.serviceLine}
+									serviceGuidance={row.serviceGuidance}
 								/>
 								{target.agentRuns.map((run) => (
 									<details

@@ -16,6 +16,7 @@
 		"./field-backfill": "./src/field-backfill.ts",
 		"./field-templates": "./src/field-templates.ts",
 		"./gtm": "./src/gtm.ts",
+		"./gtm-market": "./src/gtm-market.ts",
 		"./inbox": "./src/inbox.ts",
 		"./outreach-draft": "./src/outreach-draft.ts",
 		"./saved-view": "./src/saved-view.ts"

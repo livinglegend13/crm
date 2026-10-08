@@ -16,6 +16,7 @@ import {
 	createCampaignInput,
 	filoReview,
 	gtmInsights,
+	gtmServices,
 	type ProspectsInput,
 	proposalKnowledgeList,
 	prospectsInput,
@@ -29,8 +30,10 @@ import {
 	runCampaignAgentOutput,
 	type SaveCampaignStepsInput,
 	type SaveFiloReviewInput,
+	type SaveGtmServiceInput,
 	saveCampaignStepsInput,
 	saveFiloReviewInput,
+	saveGtmServiceInput,
 	type UpdateCampaignInput,
 	type UpdateProposalKnowledgeStatusInput,
 	updateCampaignInput,
@@ -54,6 +57,19 @@ import { GtmService } from "./gtm.service";
 @UseMiddlewares(AuthMiddleware)
 export class GtmRouter {
 	constructor(@Inject(GtmService) private readonly gtm: GtmService) {}
+
+	@Query({ output: gtmServices })
+	services(@Ctx() ctx: AuthedTrpcContext) {
+		return this.gtm.services(ctx.user.id);
+	}
+
+	@Mutation({ input: saveGtmServiceInput, output: gtmServices })
+	saveService(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: SaveGtmServiceInput,
+	) {
+		return this.gtm.saveService(ctx.user.id, input);
+	}
 
 	@Query({
 		input: prospectsInput,
