@@ -22,13 +22,13 @@ export default function AgentsPage() {
 				<PageShellHeading>
 					<PageShellTitle>Team agents</PageShellTitle>
 					<PageShellDescription>
-						Open an agent to configure its access, actions, and code. Create
-						more agents from Chat.
+						Follow campaign agents, approvals, replies, and call handoffs. Open
+						an agent to edit its configuration.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>
 
-			<PageShellContent className="min-h-0">
+			<PageShellContent className="min-h-0 overflow-y-auto">
 				<Suspense fallback={<PageShellLoading />}>
 					<PrefetchedTeamAgents />
 				</Suspense>
@@ -40,11 +40,14 @@ export default function AgentsPage() {
 async function PrefetchedTeamAgents() {
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
-	const agents = await queryClient.fetchQuery(trpc.agents.list.queryOptions());
+	const [agents, campaigns] = await Promise.all([
+		queryClient.fetchQuery(trpc.agents.list.queryOptions()),
+		queryClient.fetchQuery(trpc.gtm.campaigns.queryOptions()),
+	]);
 
 	return (
 		<HydrateClient>
-			<TeamAgentsIndex initialAgents={agents} />
+			<TeamAgentsIndex initialAgents={agents} initialCampaigns={campaigns} />
 		</HydrateClient>
 	);
 }

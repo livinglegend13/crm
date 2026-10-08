@@ -922,3 +922,22 @@
 		animation: alert-attention-ring 1.4s ease-out;
 	}
 }
+
+@keyframes workflow-packet-travel {
+	from {
+		transform: translate(0, -50%);
+	}
+	to {
+		transform: translate(2rem, -50%);
+	}
+}
+
+.workflow-connector-packet {
+	animation: workflow-packet-travel 1.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.workflow-connector-packet {
+		animation: none;
+	}
+}

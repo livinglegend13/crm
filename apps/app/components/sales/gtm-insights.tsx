@@ -43,20 +43,24 @@ export function GtmInsights({
 			(serviceId === "ALL" || row.serviceId === serviceId) &&
 			(countryCode === "ALL" || row.marketCountryCode === countryCode),
 	);
-	const sum = (key: "campaigns" | "campaignTargets" | "qualified") =>
-		selected.reduce((total, row) => total + row[key], 0);
+	const sum = (
+		key:
+			| "campaigns"
+			| "campaignTargets"
+			| "qualified"
+			| "drafts"
+			| "approved"
+			| "sent"
+			| "replies",
+	) => selected.reduce((total, row) => total + row[key], 0);
 	const cards = [
 		["Campaigns", sum("campaigns")],
 		["Campaign targets", sum("campaignTargets")],
 		["Verified Filo fit", sum("qualified")],
-		...(serviceId === "ALL" && countryCode === "ALL"
-			? [
-					["Saved drafts across all services", data.drafts],
-					["Approved drafts across all services", data.approved],
-					["Sent emails across all services", data.sent],
-					["Matched replies across all services", data.replies],
-				]
-			: []),
+		["Campaign drafts", sum("drafts")],
+		["Campaign approvals", sum("approved")],
+		["Campaign emails sent", sum("sent")],
+		["Campaign replies", sum("replies")],
 	] as Array<[string, number]>;
 	const serviceOptions = [
 		...new Map(
@@ -129,6 +133,8 @@ export function GtmInsights({
 									{row.companies} companies · {row.campaigns} campaigns ·{" "}
 									{row.campaignTargets} targets
 									{row.qualified ? ` · ${row.qualified} meet Filo gate` : ""}
+									{" · "}
+									{row.drafts} drafts · {row.sent} sent · {row.replies} replies
 								</p>
 							</div>
 						))}

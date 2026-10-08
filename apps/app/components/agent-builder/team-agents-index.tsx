@@ -10,10 +10,18 @@ import { useState } from "react";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
+import { CampaignWorkflowGraph } from "./campaign-workflow-graph";
 
 type Agents = RouterOutputs["agents"]["list"];
+type Campaigns = RouterOutputs["gtm"]["campaigns"];
 
-export function TeamAgentsIndex({ initialAgents }: { initialAgents: Agents }) {
+export function TeamAgentsIndex({
+	initialAgents,
+	initialCampaigns,
+}: {
+	initialAgents: Agents;
+	initialCampaigns: Campaigns;
+}) {
 	const trpc = useTRPC();
 	const workspaceUrl = useWorkspaceUrl();
 	const [search, setSearch] = useState("");
@@ -30,6 +38,10 @@ export function TeamAgentsIndex({ initialAgents }: { initialAgents: Agents }) {
 
 	return (
 		<>
+			<CampaignWorkflowGraph
+				initialCampaigns={initialCampaigns}
+				agents={rows}
+			/>
 			<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 				<div>
 					<h2 className="font-medium">All {rows.length} team agents</h2>

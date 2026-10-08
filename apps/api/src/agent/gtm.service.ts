@@ -32,7 +32,10 @@ import {
 	marketName,
 	marketTimeZone,
 } from "@crm/validation/gtm-market";
-import { draftFieldsFromRunResult } from "@crm/validation/outreach-draft";
+import {
+	draftFieldsFromRunResult,
+	outreachRevisionRequest,
+} from "@crm/validation/outreach-draft";
 import {
 	BadRequestException,
 	ForbiddenException,
@@ -60,6 +63,27 @@ const LEGACY_SERVICE_IDS = {
 	FINOPS: "terraeagle-finops",
 	CUSTOM: "terraeagle-cybersecurity",
 } as const;
+
+type MarketInsight = {
+	serviceId: string;
+	serviceName: string;
+	marketCountryCode: string;
+	companies: number;
+	campaigns: number;
+	campaignTargets: number;
+	qualified: number;
+	drafts: number;
+	approved: number;
+	sent: number;
+	replies: number;
+};
+
+type CampaignInsightSource = {
+	id: string;
+	serviceId: string | null;
+	serviceLine: keyof typeof LEGACY_SERVICE_IDS;
+	marketCountryCode: string;
+};
 
 function marketCompanies(countryCode: string): Prisma.CompanyWhereInput {
 	return {
@@ -444,8 +468,27 @@ export class GtmService {
 				errorMessage: true,
 				createdAt: true,
 				input: true,
+				outreachDrafts: {
+					where: { userId },
+					select: { id: true, status: true },
+				},
 			},
 		});
+		const replyAlerts = await this.db.outreachReplyAlert.findMany({
+			where: {
+				userId,
+				draftId: {
+					in: recentRuns.flatMap((run) =>
+						run.outreachDrafts.map((draft) => draft.id),
+					),
+				},
+			},
+			select: { draftId: true },
+		});
+		const replyCounts = new Map<string, number>();
+		for (const alert of replyAlerts) {
+			replyCounts.set(alert.draftId, (replyCounts.get(alert.draftId) ?? 0) + 1);
+		}
 		const runsByTarget = new Map<string, Array<(typeof recentRuns)[number]>>();
 		for (const run of recentRuns) {
 			const input = parseCampaignRunInput(run.input);
@@ -532,6 +575,11 @@ export class GtmService {
 					hasDraft:
 						run.result !== null &&
 						draftFieldsFromRunResult(run.result) !== null,
+					draftStatus: run.outreachDrafts[0]?.status ?? null,
+					replyCount: run.outreachDrafts.reduce(
+						(count, draft) => count + (replyCounts.get(draft.id) ?? 0),
+						0,
+					),
 					createdAt: run.createdAt.toISOString(),
 					stepPosition:
 						parseCampaignRunInput(run.input).kind === "campaign-target" &&
@@ -541,6 +589,9 @@ export class GtmService {
 					workflowStageIndex:
 						campaignWorkflowRunInput.safeParse(run.input).data?.stageIndex ??
 						null,
+					workflowVersion:
+						campaignWorkflowRunInput.safeParse(run.input).data
+							?.workflowVersion ?? null,
 				})),
 			})),
 		};
@@ -1005,6 +1056,87 @@ export class GtmService {
 		return this.campaign(userId, input.id);
 	}
 
+	private async addOutreachMarketMetrics(
+		userId: string,
+		markets: Map<string, MarketInsight>,
+		campaignRows: CampaignInsightSource[],
+	) {
+		const draftsByRun = await this.db.outreachDraft.findMany({
+			where: { userId },
+			select: {
+				id: true,
+				status: true,
+				runId: true,
+				run: { select: { input: true } },
+			},
+		});
+		const runInputs = new Map(
+			draftsByRun.map((draft) => [draft.runId, draft.run.input]),
+		);
+		const pending = new Set<string>();
+		for (const input of runInputs.values()) {
+			const revision = outreachRevisionRequest.safeParse(input);
+			if (revision.success) pending.add(revision.data.sourceRunId);
+		}
+		while (pending.size) {
+			const ids = [...pending].filter((id) => !runInputs.has(id));
+			pending.clear();
+			if (!ids.length) break;
+			const sources = await this.db.agentRun.findMany({
+				where: { id: { in: ids } },
+				select: { id: true, input: true },
+			});
+			for (const source of sources) {
+				runInputs.set(source.id, source.input);
+				const revision = outreachRevisionRequest.safeParse(source.input);
+				if (revision.success) pending.add(revision.data.sourceRunId);
+			}
+		}
+		const campaignById = new Map(
+			campaignRows.map((campaign) => [campaign.id, campaign]),
+		);
+		const marketByDraft = new Map<string, string>();
+		for (const draft of draftsByRun) {
+			let runId: string | undefined = draft.runId;
+			const seen = new Set<string>();
+			while (runId && !seen.has(runId)) {
+				seen.add(runId);
+				const input = runInputs.get(runId);
+				const revision = outreachRevisionRequest.safeParse(input);
+				if (revision.success) {
+					runId = revision.data.sourceRunId;
+					continue;
+				}
+				const campaignRun = campaignAgentRunInput.safeParse(input);
+				if (campaignRun.success) {
+					const campaign = campaignById.get(campaignRun.data.campaignId);
+					if (campaign) {
+						const key = `${campaign.serviceId ?? LEGACY_SERVICE_IDS[campaign.serviceLine]}:${campaign.marketCountryCode}`;
+						const market = markets.get(key);
+						if (market) {
+							marketByDraft.set(draft.id, key);
+							if (draft.status === "DRAFT") market.drafts += 1;
+							if (draft.status === "APPROVED") market.approved += 1;
+							if (draft.status === "SENT") market.sent += 1;
+						}
+					}
+				}
+				break;
+			}
+		}
+		const replyRows = marketByDraft.size
+			? await this.db.outreachReplyAlert.findMany({
+					where: { userId, draftId: { in: [...marketByDraft.keys()] } },
+					select: { draftId: true },
+				})
+			: [];
+		for (const reply of replyRows) {
+			const key = marketByDraft.get(reply.draftId);
+			const market = key ? markets.get(key) : null;
+			if (market) market.replies += 1;
+		}
+	}
+
 	async insights(userId: string) {
 		await this.access.assertMember(userId);
 		const [campaignRows, serviceRows] = await Promise.all([
@@ -1023,18 +1155,7 @@ export class GtmService {
 				select: { id: true, name: true, marketCountryCodes: true },
 			}),
 		]);
-		const markets = new Map<
-			string,
-			{
-				serviceId: string;
-				serviceName: string;
-				marketCountryCode: string;
-				companies: number;
-				campaigns: number;
-				campaignTargets: number;
-				qualified: number;
-			}
-		>();
+		const markets = new Map<string, MarketInsight>();
 		for (const service of serviceRows) {
 			for (const marketCountryCode of service.marketCountryCodes) {
 				markets.set(`${service.id}:${marketCountryCode}`, {
@@ -1045,6 +1166,10 @@ export class GtmService {
 					campaigns: 0,
 					campaignTargets: 0,
 					qualified: 0,
+					drafts: 0,
+					approved: 0,
+					sent: 0,
+					replies: 0,
 				});
 			}
 		}
@@ -1060,6 +1185,10 @@ export class GtmService {
 				campaigns: 0,
 				campaignTargets: 0,
 				qualified: 0,
+				drafts: 0,
+				approved: 0,
+				sent: 0,
+				replies: 0,
 			};
 			current.campaigns += 1;
 			current.campaignTargets += campaign._count.targets;
@@ -1073,6 +1202,7 @@ export class GtmService {
 			}
 			markets.set(key, current);
 		}
+		await this.addOutreachMarketMetrics(userId, markets, campaignRows);
 		const marketRows = await Promise.all(
 			[...markets.values()].map(async (market) => ({
 				...market,

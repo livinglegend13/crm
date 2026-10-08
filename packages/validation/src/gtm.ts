@@ -168,9 +168,14 @@ export const campaignTarget = z.object({
 			result: z.record(z.string(), z.json()).nullable(),
 			errorMessage: z.string().nullable(),
 			hasDraft: z.boolean(),
+			draftStatus: z
+				.enum(["DRAFT", "APPROVED", "SENDING", "SENT", "SEND_UNKNOWN"])
+				.nullable(),
+			replyCount: z.number().int(),
 			createdAt: z.string(),
 			stepPosition: z.number().int().nullable(),
 			workflowStageIndex: z.number().int().nullable(),
+			workflowVersion: z.number().int().nullable(),
 		}),
 	),
 });
@@ -427,6 +432,10 @@ export const gtmInsights = z.object({
 			campaigns: z.number().int(),
 			campaignTargets: z.number().int(),
 			qualified: z.number().int(),
+			drafts: z.number().int(),
+			approved: z.number().int(),
+			sent: z.number().int(),
+			replies: z.number().int(),
 		}),
 	),
 	indiaCompanies: z.number().int(),

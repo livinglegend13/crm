@@ -611,7 +611,11 @@ export function CampaignEditor({
 				{row.targets.length ? (
 					<div className="mt-4 space-y-3">
 						{row.targets.map((target) => (
-							<div key={target.id} className="rounded-lg border p-3">
+							<div
+								id={`campaign-target-${target.id}`}
+								key={target.id}
+								className="rounded-lg border p-3"
+							>
 								<div className="flex flex-wrap items-center justify-between gap-3">
 									<div>
 										<p className="font-medium text-sm">{target.companyName}</p>
