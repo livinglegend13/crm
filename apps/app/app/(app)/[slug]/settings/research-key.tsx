@@ -1,6 +1,5 @@
 "use client";
 
-import { CONTEXT_DEV_SIGNUP_URL } from "@crm/db/settings";
 import { Button } from "@crm/ui/components/button";
 import {
 	Card,
@@ -44,6 +43,16 @@ export function ResearchKey() {
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const clear = useMutation(
+		trpc.settings.clearResearchKey.mutationOptions({
+			onSuccess: async () => {
+				await cache.settings();
+				setDraft("");
+				toast.success("Context enrichment disabled.");
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
 
 	if (!key.data) return null;
 
@@ -54,15 +63,25 @@ export function ResearchKey() {
 			<CardHeader>
 				<CardTitle>Company research</CardTitle>
 				<CardDescription>
-					Enter your Context API key so our agents can research every company in
-					the CRM.
+					Azure research reads public company pages without Context. Add an
+					optional Context key for brand and LinkedIn enrichment.
 				</CardDescription>
 
-				<CardAction>
+				<CardAction className="flex gap-2">
+					{configured ? (
+						<Button
+							type="button"
+							variant="outline"
+							disabled={clear.isPending || save.isPending}
+							onClick={() => clear.mutate()}
+						>
+							Disable Context
+						</Button>
+					) : null}
 					<Button
 						type="submit"
 						form="research-key"
-						disabled={save.isPending || draft.trim() === ""}
+						disabled={save.isPending || clear.isPending || draft.trim() === ""}
 					>
 						{save.isPending ? <Spinner data-icon="inline-start" /> : null}
 						{configured ? "Replace key" : "Save key"}
@@ -101,15 +120,7 @@ export function ResearchKey() {
 								disabled={save.isPending}
 							/>
 							<FieldDescription>
-								Don't have a Context API key?{" "}
-								<a
-									href={CONTEXT_DEV_SIGNUP_URL}
-									target="_blank"
-									rel="noreferrer"
-									className="underline underline-offset-4 hover:text-foreground"
-								>
-									Sign up here
-								</a>
+								Public-page company research continues without this key.
 							</FieldDescription>
 						</Field>
 					</FieldGroup>

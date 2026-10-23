@@ -220,6 +220,10 @@ missing key removes a place to look. **Never an error, never throws.**
 **`capabilities()` is async** because the Context key is a row;
 `capabilitiesFrom()`/`markdownFor()` are the pure halves. `contextDevKey()` is the only
 resolver, and `lib/context-dev.ts` memoises its client on the key string.
+`research_company` reads bounded public HTTPS pages and asks the configured Azure
+model for a cited brief. It does not call Context. The stored Context key only enables
+optional brand and LinkedIn enrichment. Without it, contact work history reports the
+CRM role and labels earlier roles unverified.
 
 ## Budget and scheduling
 

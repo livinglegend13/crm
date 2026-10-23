@@ -52,6 +52,17 @@ export function capabilitiesFrom(
 				"open-web context with citations, and the search that finds a LinkedIn slug in the first place",
 		},
 		{
+			id: "PUBLIC_COMPANY_RESEARCH",
+			from: "Azure OpenAI and public HTTPS pages",
+			label: "Cited company research",
+			gives:
+				"a sales brief from readable public company pages with source URLs",
+			enabled: Boolean(
+				process.env.AZURE_RESOURCE_NAME?.trim() &&
+					process.env.AZURE_MODEL_DEPLOYMENT?.trim(),
+			),
+		},
+		{
 			id: CONTEXT_DEV,
 			from: "Settings → General",
 			label: "Company brand data",

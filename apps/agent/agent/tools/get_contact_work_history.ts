@@ -6,7 +6,7 @@ import {
 	enabled,
 	unavailable,
 } from "../lib/capabilities";
-import { contactProfileSlug } from "../lib/crm";
+import { contactProfileSlug, readCrmHistory } from "../lib/crm";
 import { spend } from "../lib/focus";
 import { personByProfileUrl } from "../lib/people";
 
@@ -18,7 +18,22 @@ export default defineTool({
 	}),
 	async execute({ contactId }) {
 		if (!(await enabled(CONTEXT_DEV_PEOPLE))) {
-			return { found: false as const, ...unavailable(CONTEXT_DEV_SOURCE) };
+			const history = await readCrmHistory(contactId, { threads: 5 });
+			if (!history)
+				return { found: false as const, reason: "No such contact." };
+			return {
+				found: false as const,
+				...unavailable(CONTEXT_DEV_SOURCE),
+				crmRole: {
+					title: history.contact.title,
+					companyName: history.contact.companyName,
+					source:
+						"CRM contact record; check email signatures before relying on it",
+				},
+				pastRoles: [],
+				unknown: "Earlier roles and LinkedIn profile details are unverified.",
+				next: "Use read_crm_history for direct email evidence. Use public company pages only for claims they state.",
+			};
 		}
 
 		const profileRef = await contactProfileSlug(contactId);

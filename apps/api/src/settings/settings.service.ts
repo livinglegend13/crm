@@ -130,6 +130,12 @@ export class SettingsService {
 		return this.researchKey();
 	}
 
+	async clearResearchKey(): Promise<ResearchKeySettings> {
+		await writeContextDevKey(this.db, "");
+		this.logger.log({ message: "Context key removed" });
+		return this.researchKey();
+	}
+
 	async archiveRetention(): Promise<ArchiveRetentionSettings> {
 		return { days: await readArchiveRetentionDays(this.db) };
 	}

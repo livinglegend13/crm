@@ -20,6 +20,7 @@
 	},
 	"dependencies": {
 		"@ai-sdk/azure": "4.0.28",
+		"ai": "7.0.47",
 		"@azure/identity": "^4.13.3",
 		"@crm/db": "workspace:*",
 		"@crm/env": "workspace:*",

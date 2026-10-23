@@ -135,17 +135,18 @@ single place that knows what is set.
 because the API and the seed write pictures too. The Next.js app is deliberately
 excluded — recognising our URL for the image optimizer needs no token.
 
-### The Context key is asked for, not configured
+### Context is optional
 
 **`CONTEXT_DEV_API_KEY` is not a variable here and must not become one.** The key lives
-in `AppSetting`, is asked for at `/onboarding/research`, and changes on Settings →
-General — an admin who cannot redeploy cannot set a variable.
+in `AppSetting`. Settings → General adds or removes it. Sign-in does not require it.
+The self-hosted agent uses Azure OpenAI and public HTTPS company pages for cited
+research briefs when the Azure model is configured.
 
 - **It buys two places to look, not one.** Company brand data by domain, and a person
   read back from a LinkedIn URL already on their record. Both capabilities in
   `agent/lib/capabilities.ts` turn on and off with this one key.
-- **An install that had the variable is asked again**: no migration, no fallback, and
-  **the gate cannot be dismissed**.
+- **Removing the key turns off Context lookups immediately.** It does not remove
+  existing CRM facts or research notes. Past LinkedIn roles remain unverified.
 - **Nothing is lost while waiting.** A keyless `brand` task settles `SKIPPED` *before*
   anything marks the row `RUNNING`, and `settle` only overwrites `RUNNING` — so the
   company stays `PENDING`, which the sweep re-queues
