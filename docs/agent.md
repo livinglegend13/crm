@@ -221,9 +221,11 @@ missing key removes a place to look. **Never an error, never throws.**
 `capabilitiesFrom()`/`markdownFor()` are the pure halves. `contextDevKey()` is the only
 resolver, and `lib/context-dev.ts` memoises its client on the key string.
 `research_company` reads bounded public HTTPS pages and asks the configured Azure
-model for a cited brief. It does not call Context. The stored Context key only enables
-optional brand and LinkedIn enrichment. Without it, contact work history reports the
-CRM role and labels earlier roles unverified.
+model for a cited brief. It does not call Context. Without a Context key, the direct
+brand lane reads homepage metadata from the company's HTTPS domain. It fills blank
+descriptions and same-site logos or icons. Contact work history reads the saved
+LinkedIn URL and employer team pages when public access permits it. The Azure model
+extracts only roles backed by exact page quotes. Other roles remain unverified.
 
 ## Budget and scheduling
 

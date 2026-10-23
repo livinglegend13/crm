@@ -4,19 +4,6 @@ import { readContextDevKey, writeContextDevKey } from "@crm/db/settings";
 import { runBrand } from "../agent/lib/brand";
 import { settle } from "../agent/lib/enrichment";
 
-/**
- * An install with no Context key still creates companies, and a `brand` task
- * with nowhere to look is consumed and marked done. What must survive that is
- * the *record*: the sign-in sweep re-queues companies whose enrichment never
- * succeeded, and it decides that on `enrichmentStatus` being PENDING or FAILED.
- *
- * `runBrand` settles SKIPPED before anything marks the row RUNNING, and
- * `settle` only writes over a RUNNING row — so the row stays PENDING and the
- * sweep picks it up once a key exists. That is load bearing and entirely
- * implicit, which is why it is pinned here: a `settle` that wrote
- * unconditionally would strand every company added before the key, with
- * nothing to say so.
- */
 const created: string[] = [];
 const tasks: string[] = [];
 
@@ -169,13 +156,13 @@ describe("a brand task on a company with no domain", () => {
 		expect(await statusOf(id)).toBe(EnrichmentStatus.SKIPPED);
 	});
 
-	it("still leaves a keyless install's company pending for the sweep", async () => {
+	it("skips a domainless company without Context", async () => {
 		await writeContextDevKey(db, "");
 		const id = await domainlessCompany(EnrichmentStatus.PENDING);
 
 		const result = await runBrand({ companyId: id });
 
 		expect(result.enriched).toBe(false);
-		expect(await statusOf(id)).toBe(EnrichmentStatus.PENDING);
+		expect(await statusOf(id)).toBe(EnrichmentStatus.SKIPPED);
 	});
 });

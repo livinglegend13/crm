@@ -3,6 +3,7 @@ import { mirrorBrandImages } from "./brand-images";
 import { brandToUpdate, filledFields, stillFillable } from "./brand-mapping";
 import { brandByDomain, contextDevEnabled } from "./context-dev";
 import { UNLESS_COMPLETE } from "./enrichment";
+import { publicBrandByDomain } from "./public-brand";
 
 export type BrandResult = {
 	enriched: boolean;
@@ -58,13 +59,6 @@ export async function runBrand({
 
 	if (!company) return { enriched: false, reason: "No such company." };
 
-	if (!(await contextDevEnabled())) {
-		const reason =
-			"Context.dev is not configured, so there is nowhere to look.";
-		await settle(companyId, EnrichmentStatus.SKIPPED, reason);
-		return { enriched: false, reason };
-	}
-
 	if (!company.domain) {
 		await settle(
 			companyId,
@@ -75,8 +69,11 @@ export async function runBrand({
 		return { enriched: false, reason: "No domain on this company." };
 	}
 
-	const charge = spend(2);
-	if (!charge.ok) return { enriched: false, reason: charge.reason };
+	const useContext = await contextDevEnabled();
+	if (useContext) {
+		const charge = spend(2);
+		if (!charge.ok) return { enriched: false, reason: charge.reason };
+	}
 
 	await db.company.updateMany({
 		where: { id: companyId, ...UNLESS_COMPLETE },
@@ -86,7 +83,9 @@ export async function runBrand({
 		},
 	});
 
-	const result = await brandByDomain(company.domain, fresh ? 0 : undefined);
+	const result = useContext
+		? await brandByDomain(company.domain, fresh ? 0 : undefined)
+		: await publicBrandByDomain(company.domain);
 
 	if (result.outcome === "skipped") {
 		await settle(companyId, EnrichmentStatus.SKIPPED, result.reason);
@@ -157,7 +156,7 @@ export function brandOutcome(result: BrandResult): string {
 	const mirrored = result.mirrored ?? [];
 
 	if (filled.length === 0) {
-		return "Everything Context.dev returned was already on the record.";
+		return "All found brand fields were already on the record.";
 	}
 
 	return `Filled ${filled.join(", ")}.${mirrored.length > 0 ? ` Copied ${mirrored.length} image(s) in-house.` : ""}`;

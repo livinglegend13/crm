@@ -7,6 +7,16 @@ export const RESEARCH = {
 		maxOutputTokens: 2_000,
 		paths: ["/", "/about", "/services", "/news"],
 	},
+	brand: {
+		maxHtmlChars: 80_000,
+		maxDescriptionChars: 320,
+	},
+	person: {
+		maxPageChars: 8_000,
+		maxOutputTokens: 1_500,
+		nameContextChars: 700,
+		paths: ["/team", "/about/team", "/leadership"],
+	},
 	web: {
 		maxUrlChars: 2000,
 		timeoutMs: 10_000,

@@ -63,6 +63,24 @@ export function capabilitiesFrom(
 			),
 		},
 		{
+			id: "PUBLIC_BRAND_METADATA",
+			from: "Public company homepage",
+			label: "Public brand metadata",
+			gives:
+				"a description and same-site logo or icon from a readable HTTPS homepage",
+			enabled: true,
+		},
+		{
+			id: "PUBLIC_PERSON_HISTORY",
+			from: "Azure OpenAI and public profile or employer pages",
+			label: "Cited person history",
+			gives: "employment roles tied to a known contact by exact page quotes",
+			enabled: Boolean(
+				process.env.AZURE_RESOURCE_NAME?.trim() &&
+					process.env.AZURE_MODEL_DEPLOYMENT?.trim(),
+			),
+		},
+		{
 			id: CONTEXT_DEV,
 			from: "Settings → General",
 			label: "Company brand data",

@@ -1,18 +1,14 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import {
-	CONTEXT_DEV_PEOPLE,
-	CONTEXT_DEV_SOURCE,
-	enabled,
-	unavailable,
-} from "../lib/capabilities";
+import { CONTEXT_DEV_PEOPLE, enabled } from "../lib/capabilities";
 import { contactProfileSlug, readCrmHistory } from "../lib/crm";
 import { spend } from "../lib/focus";
 import { personByProfileUrl } from "../lib/people";
+import { researchPublicPerson } from "../lib/public-person";
 
 export default defineTool({
 	description:
-		"Read the LinkedIn profile already on a CRM contact — bio, current role and full work history. For writing a summary of somebody already identified. Cannot be used to identify anyone: use resolve_linkedin_profile and get_linkedin_profile for that.",
+		"Read work history for an identified CRM contact. Context supplies structured LinkedIn history when available. Otherwise, inspect public pages tied to the saved profile or employer. Return only source-backed roles.",
 	inputSchema: z.object({
 		contactId: z.string(),
 	}),
@@ -21,18 +17,32 @@ export default defineTool({
 			const history = await readCrmHistory(contactId, { threads: 5 });
 			if (!history)
 				return { found: false as const, reason: "No such contact." };
+			const profileRef = await contactProfileSlug(contactId);
+			const publicHistory = await researchPublicPerson(
+				{
+					fullName: history.contact.fullName,
+					profileUrl: profileRef?.profileUrl ?? null,
+					employerDomain: history.contact.company?.domain ?? null,
+				},
+				() => spend(1),
+			);
 			return {
-				found: false as const,
-				...unavailable(CONTEXT_DEV_SOURCE),
+				found: publicHistory.outcome === "found",
+				contextAvailable: false,
 				crmRole: {
 					title: history.contact.title,
 					companyName: history.contact.companyName,
 					source:
 						"CRM contact record; check email signatures before relying on it",
 				},
+				publicRoles:
+					publicHistory.outcome === "found" ? publicHistory.roles : [],
 				pastRoles: [],
-				unknown: "Earlier roles and LinkedIn profile details are unverified.",
-				next: "Use read_crm_history for direct email evidence. Use public company pages only for claims they state.",
+				unknown:
+					publicHistory.outcome === "skipped"
+						? publicHistory.reason
+						: "Other roles remain unverified.",
+				next: "Use read_crm_history for direct email evidence. Public roles include exact quotes and URLs.",
 			};
 		}
 
