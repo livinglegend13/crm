@@ -165,7 +165,10 @@ export async function researchPublicCompany(
 			text,
 			sourceUrls: pages.map((page) => page.url),
 		};
-	} catch {
-		return { outcome: "skipped", reason: "Azure research did not complete." };
+	} catch (error) {
+		return {
+			outcome: "skipped",
+			reason: `Azure research did not complete (${error instanceof Error ? error.name : "unknown error"}).`,
+		};
 	}
 }

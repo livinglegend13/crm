@@ -3,8 +3,8 @@ const KIB = 1024;
 export const RESEARCH = {
 	company: {
 		maxPages: 4,
-		maxPageChars: 8_000,
-		maxOutputTokens: 1_200,
+		maxPageChars: 4_000,
+		maxOutputTokens: 2_000,
 		paths: ["/", "/about", "/services", "/news"],
 	},
 	web: {
