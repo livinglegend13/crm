@@ -411,7 +411,8 @@ export function CampaignList({
 								{campaign.serviceLine === "FILO_STORAGE"
 									? `${campaign.qualifiedCount} meet Filo gate · `
 									: ""}
-								{campaign.stepCount} email steps · {campaign.serviceName} ·{" "}
+								{campaign.stepCount} email steps · {campaign.linkedinStepCount}{" "}
+								LinkedIn steps · {campaign.serviceName} ·{" "}
 								{marketName(campaign.marketCountryCode)}
 							</p>
 						</Link>

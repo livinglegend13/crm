@@ -32,6 +32,7 @@ type Step = {
 	subjectPrompt: string;
 	bodyPrompt: string;
 };
+type LinkedinStep = Campaign["linkedinSequence"][number];
 
 const days = [
 	{ id: 1, label: "Mon" },
@@ -118,6 +119,12 @@ export function CampaignEditor({
 			bodyPrompt: step.bodyPrompt,
 		})),
 	);
+	const [closelyCampaignName, setCloselyCampaignName] = useState(
+		row.closelyCampaignName ?? "",
+	);
+	const [linkedinSteps, setLinkedinSteps] = useState<LinkedinStep[]>(
+		row.linkedinSequence,
+	);
 	const [queuedTargetId, setQueuedTargetId] = useState<string | null>(null);
 	const invalidate = async () => {
 		await Promise.all([
@@ -140,6 +147,15 @@ export function CampaignEditor({
 			onSuccess: async () => {
 				await invalidate();
 				toast.success("Sequence plan saved.");
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const saveLinkedinSequence = useMutation(
+		trpc.gtm.saveLinkedinSequence.mutationOptions({
+			onSuccess: async () => {
+				await invalidate();
+				toast.success("LinkedIn sequence saved.");
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -597,6 +613,198 @@ export function CampaignEditor({
 							{saveSteps.isPending ? "Saving…" : "Save sequence"}
 						</Button>
 					</div>
+				</div>
+			</section>
+			<section className="rounded-lg border bg-card p-5">
+				<h2 className="font-medium">LinkedIn sequence</h2>
+				<p className="mt-2 text-muted-foreground text-sm">
+					Plan a connection request and follow-up messages here. Copy the
+					approved sequence into Closely before launch. Closely campaign
+					creation and message delivery remain in Closely until its API access
+					is confirmed.
+				</p>
+				<div className="mt-4 space-y-2">
+					<Label htmlFor="closely-campaign-name">
+						Exact Closely campaign name
+					</Label>
+					<Input
+						id="closely-campaign-name"
+						value={closelyCampaignName}
+						onChange={(event) => setCloselyCampaignName(event.target.value)}
+						maxLength={120}
+						placeholder="Match the campaign name in Closely"
+					/>
+					<p className="text-muted-foreground text-xs">
+						Contact webhook events with this campaign name appear below. The
+						webhook does not report message delivery.
+					</p>
+				</div>
+				<div className="mt-4 space-y-3">
+					{linkedinSteps.map((step, index) => (
+						<div key={step.id} className="space-y-3 rounded-lg border p-4">
+							<div className="flex items-center justify-between gap-3">
+								<h3 className="font-medium text-sm">Step {index + 1}</h3>
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() =>
+										setLinkedinSteps(
+											linkedinSteps.filter((_, position) => position !== index),
+										)
+									}
+								>
+									Remove
+								</Button>
+							</div>
+							<div className="grid gap-3 sm:grid-cols-2">
+								<div className="space-y-2">
+									<Label htmlFor={`linkedin-action-${index}`}>Action</Label>
+									<Select
+										value={step.action}
+										onValueChange={(action: LinkedinStep["action"]) =>
+											setLinkedinSteps(
+												linkedinSteps.map((entry, position) =>
+													position === index ? { ...entry, action } : entry,
+												),
+											)
+										}
+									>
+										<SelectTrigger id={`linkedin-action-${index}`}>
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="CONNECTION_REQUEST">
+												Connection request
+											</SelectItem>
+											<SelectItem value="MESSAGE">LinkedIn message</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor={`linkedin-delay-${index}`}>
+										Days after previous step
+									</Label>
+									<Input
+										id={`linkedin-delay-${index}`}
+										type="number"
+										min="0"
+										max="90"
+										value={step.delayDays}
+										onChange={(event) =>
+											setLinkedinSteps(
+												linkedinSteps.map((entry, position) =>
+													position === index
+														? {
+																...entry,
+																delayDays: Number(event.target.value),
+															}
+														: entry,
+												),
+											)
+										}
+									/>
+								</div>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor={`linkedin-message-${index}`}>Message</Label>
+								<Textarea
+									id={`linkedin-message-${index}`}
+									value={step.message}
+									onChange={(event) =>
+										setLinkedinSteps(
+											linkedinSteps.map((entry, position) =>
+												position === index
+													? { ...entry, message: event.target.value }
+													: entry,
+											),
+										)
+									}
+									rows={4}
+									maxLength={3000}
+								/>
+							</div>
+						</div>
+					))}
+					<div className="flex flex-wrap gap-3">
+						<Button
+							variant="outline"
+							disabled={linkedinSteps.length >= 5}
+							onClick={() =>
+								setLinkedinSteps([
+									...linkedinSteps,
+									{
+										id: crypto.randomUUID(),
+										action: linkedinSteps.length
+											? "MESSAGE"
+											: "CONNECTION_REQUEST",
+										delayDays: linkedinSteps.length ? 3 : 0,
+										message: "",
+									},
+								])
+							}
+						>
+							Add LinkedIn step
+						</Button>
+						<Button
+							disabled={
+								saveLinkedinSequence.isPending ||
+								linkedinSteps.some(
+									(step) =>
+										step.message.trim().length < 10 ||
+										step.delayDays < 0 ||
+										step.delayDays > 90,
+								)
+							}
+							onClick={() =>
+								saveLinkedinSequence.mutate({
+									id: row.id,
+									closelyCampaignName: closelyCampaignName.trim() || null,
+									steps: linkedinSteps,
+								})
+							}
+						>
+							{saveLinkedinSequence.isPending
+								? "Saving…"
+								: "Save LinkedIn sequence"}
+						</Button>
+						<Button asChild variant="outline">
+							<a
+								href="https://app.closelyhq.com/0/linkedin-campaigns"
+								target="_blank"
+								rel="noreferrer"
+							>
+								Open Closely campaigns
+							</a>
+						</Button>
+					</div>
+				</div>
+				<div className="mt-6 border-t pt-4">
+					<h3 className="font-medium text-sm">Closely contact progress</h3>
+					<p className="mt-1 text-muted-foreground text-sm">
+						{row.closelyCampaignName
+							? `${row.linkedinEvents.length} recent contact events for ${row.closelyCampaignName}.`
+							: "Save an exact Closely campaign name to match contact events."}
+					</p>
+					{row.linkedinEvents.length ? (
+						<ol className="mt-3 divide-y text-sm">
+							{row.linkedinEvents.map((event) => (
+								<li
+									key={event.id}
+									className="flex flex-wrap justify-between gap-2 py-2"
+								>
+									<span>
+										{event.contactName ??
+											event.companyName ??
+											"Unmatched contact"}{" "}
+										· {event.trigger}
+									</span>
+									<span className="text-muted-foreground">
+										{new Date(event.receivedAt).toLocaleString("en-IN")}
+									</span>
+								</li>
+							))}
+						</ol>
+					) : null}
 				</div>
 			</section>
 			<section className="rounded-lg border bg-card p-5">

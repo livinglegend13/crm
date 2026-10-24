@@ -31,9 +31,11 @@ import {
 	type SaveCampaignStepsInput,
 	type SaveFiloReviewInput,
 	type SaveGtmServiceInput,
+	type SaveLinkedinSequenceInput,
 	saveCampaignStepsInput,
 	saveFiloReviewInput,
 	saveGtmServiceInput,
+	saveLinkedinSequenceInput,
 	type UpdateCampaignInput,
 	type UpdateProposalKnowledgeStatusInput,
 	updateCampaignInput,
@@ -210,6 +212,14 @@ export class GtmRouter {
 		@Input() input: SaveCampaignStepsInput,
 	) {
 		return this.gtm.saveSteps(ctx.user.id, input);
+	}
+
+	@Mutation({ input: saveLinkedinSequenceInput, output: campaignDetail })
+	saveLinkedinSequence(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: SaveLinkedinSequenceInput,
+	) {
+		return this.gtm.saveLinkedinSequence(ctx.user.id, input);
 	}
 
 	@Mutation({

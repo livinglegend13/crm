@@ -17,6 +17,7 @@ import type {
 	SaveCampaignStepsInput,
 	SaveFiloReviewInput,
 	SaveGtmServiceInput,
+	SaveLinkedinSequenceInput,
 	UpdateCampaignInput,
 	UpdateProposalKnowledgeStatusInput,
 } from "@crm/validation/gtm";
@@ -26,6 +27,7 @@ import {
 	campaignPlanRunInput,
 	campaignPlanValue,
 	campaignWorkflowRunInput,
+	linkedinSequence,
 } from "@crm/validation/gtm";
 import {
 	companyInMarket,
@@ -160,9 +162,9 @@ export class GtmService {
 				where: {
 					serviceId: input.id,
 					status: "READY",
-					...(input.active
-						? { marketCountryCode: { notIn: input.marketCountryCodes } }
-						: {}),
+					marketCountryCode: input.active
+						? { notIn: input.marketCountryCodes }
+						: undefined,
 				},
 			});
 			if (readyCampaigns)
@@ -417,6 +419,8 @@ export class GtmService {
 			targetCount: row._count.targets,
 			qualifiedCount: qualified[index] ?? 0,
 			stepCount: row._count.steps,
+			closelyCampaignName: row.closelyCampaignName,
+			linkedinStepCount: linkedinSequence.parse(row.linkedinSequence).length,
 			createdAt: row.createdAt.toISOString(),
 			updatedAt: row.updatedAt.toISOString(),
 		}));
@@ -446,6 +450,13 @@ export class GtmService {
 			},
 		});
 		if (!row) throw new NotFoundException("Campaign not found.");
+		const linkedinEvents = row.closelyCampaignName
+			? await this.db.closelyEvent.findMany({
+					where: { campaignNames: { has: row.closelyCampaignName } },
+					orderBy: { receivedAt: "desc" },
+					take: 50,
+				})
+			: [];
 		const recentRuns = await this.db.agentRun.findMany({
 			where: {
 				agentId: {
@@ -540,6 +551,18 @@ export class GtmService {
 						).length
 					: 0,
 			stepCount: row.steps.length,
+			closelyCampaignName: row.closelyCampaignName,
+			linkedinStepCount: linkedinSequence.parse(row.linkedinSequence).length,
+			linkedinSequence: linkedinSequence.parse(row.linkedinSequence),
+			linkedinEvents: linkedinEvents.map((event) => ({
+				id: event.id,
+				trigger: event.trigger,
+				contactId: event.contactId,
+				contactName:
+					[event.firstName, event.lastName].filter(Boolean).join(" ") || null,
+				companyName: event.companyName,
+				receivedAt: event.receivedAt.toISOString(),
+			})),
 			createdAt: row.createdAt.toISOString(),
 			updatedAt: row.updatedAt.toISOString(),
 			steps: row.steps.map((step) => ({
@@ -1003,6 +1026,39 @@ export class GtmService {
 					})),
 				});
 			}
+		});
+		return this.campaign(userId, input.id);
+	}
+
+	async saveLinkedinSequence(userId: string, input: SaveLinkedinSequenceInput) {
+		await this.access.assertMember(userId);
+		const row = await this.db.gtmCampaign.findUnique({
+			where: { id: input.id },
+			select: { id: true },
+		});
+		if (!row) throw new NotFoundException("Campaign not found.");
+		if (input.closelyCampaignName) {
+			const duplicate = await this.db.gtmCampaign.findFirst({
+				where: {
+					id: { not: input.id },
+					closelyCampaignName: {
+						equals: input.closelyCampaignName,
+						mode: "insensitive",
+					},
+				},
+				select: { id: true },
+			});
+			if (duplicate)
+				throw new BadRequestException(
+					"Another CRM campaign uses this Closely name.",
+				);
+		}
+		await this.db.gtmCampaign.update({
+			where: { id: input.id },
+			data: {
+				closelyCampaignName: input.closelyCampaignName,
+				linkedinSequence: input.steps,
+			},
 		});
 		return this.campaign(userId, input.id);
 	}

@@ -131,6 +131,8 @@ export const campaignSummary = z.object({
 	targetCount: z.number().int(),
 	qualifiedCount: z.number().int(),
 	stepCount: z.number().int(),
+	closelyCampaignName: z.string().nullable(),
+	linkedinStepCount: z.number().int(),
 	createdAt: z.string(),
 	updatedAt: z.string(),
 });
@@ -141,6 +143,43 @@ export const campaignStep = z.object({
 	delayDays: z.number().int(),
 	subjectPrompt: z.string(),
 	bodyPrompt: z.string(),
+});
+
+export const linkedinSequence = z
+	.array(
+		z.object({
+			id: z.uuid(),
+			action: z.enum(["CONNECTION_REQUEST", "MESSAGE"]),
+			delayDays: z.number().int().min(0).max(90),
+			message: z.string().trim().min(10).max(3000),
+		}),
+	)
+	.max(5)
+	.refine(
+		(steps) =>
+			steps.length === 0 ||
+			(steps[0]?.action === "CONNECTION_REQUEST" &&
+				steps[0].delayDays === 0 &&
+				steps.slice(1).every((step) => step.action === "MESSAGE")),
+		{ message: "Start with a connection request. Add messages after it." },
+	);
+
+export const saveLinkedinSequenceInput = z.object({
+	id: z.string().min(1),
+	closelyCampaignName: z.string().trim().min(3).max(120).nullable(),
+	steps: linkedinSequence,
+});
+export type SaveLinkedinSequenceInput = z.infer<
+	typeof saveLinkedinSequenceInput
+>;
+
+export const linkedinCampaignEvent = z.object({
+	id: z.string(),
+	trigger: z.string(),
+	contactId: z.string().nullable(),
+	contactName: z.string().nullable(),
+	companyName: z.string().nullable(),
+	receivedAt: z.string(),
 });
 
 export const campaignTarget = z.object({
@@ -321,6 +360,8 @@ export const campaignPlanStatus = z.object({
 export const campaignDetail = campaignSummary.extend({
 	sourceMaterial: z.string().nullable(),
 	steps: z.array(campaignStep),
+	linkedinSequence,
+	linkedinEvents: z.array(linkedinCampaignEvent),
 	targets: z.array(campaignTarget),
 });
 

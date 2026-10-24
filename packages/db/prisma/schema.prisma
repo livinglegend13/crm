@@ -953,6 +953,8 @@ model GtmCampaign {
   description       String?
   sourceFileName    String?
   sourceMaterial    String?  @db.Text
+  closelyCampaignName String?
+  linkedinSequence  Json @default("[]")
   serviceLine       GtmServiceLine @default(FILO_STORAGE)
   serviceId         String?
   service           GtmService? @relation(fields: [serviceId], references: [id], onDelete: Restrict)
