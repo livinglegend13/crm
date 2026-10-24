@@ -12,6 +12,10 @@ import {
 	SelectValue,
 } from "@crm/ui/components/select";
 import { Textarea } from "@crm/ui/components/textarea";
+import {
+	outreachSenderName,
+	withOutreachSignature,
+} from "@crm/validation/outreach-signature";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
@@ -184,12 +188,20 @@ function DraftEditor({
 	);
 	const [subject, setSubject] = useState(draft.subject);
 	const [body, setBody] = useState(draft.body);
+	const [bodyTouched, setBodyTouched] = useState(false);
 	const [senderEmail, setSenderEmail] = useState(draft.senderEmail ?? "");
 	const effectiveSenderEmail = senderEmail || recommendedSender || "";
+	const locked = ["SENDING", "SENT", "SEND_UNKNOWN"].includes(draft.status);
+	const displayedBody =
+		effectiveSenderEmail && !bodyTouched && !locked
+			? withOutreachSignature(body, effectiveSenderEmail)
+			: body;
 	const [pointers, setPointers] = useState("");
 	const save = useMutation(
 		trpc.outreachDrafts.save.mutationOptions({
-			onSuccess: async () => {
+			onSuccess: async (saved) => {
+				setBody(saved.body);
+				setBodyTouched(true);
 				await queryClient.invalidateQueries({
 					queryKey: trpc.outreachDrafts.list.pathKey(),
 				});
@@ -237,10 +249,9 @@ function DraftEditor({
 	const contentChanged =
 		recipientEmail !== (draft.recipientEmail ?? "") ||
 		subject !== draft.subject ||
-		body !== draft.body;
+		displayedBody !== draft.body;
 	const changed =
 		contentChanged || effectiveSenderEmail !== (draft.senderEmail ?? "");
-	const locked = ["SENDING", "SENT", "SEND_UNKNOWN"].includes(draft.status);
 
 	return (
 		<form
@@ -250,7 +261,7 @@ function DraftEditor({
 					runId: draft.runId,
 					recipientEmail,
 					subject,
-					body,
+					body: displayedBody,
 					senderEmail: effectiveSenderEmail || null,
 				});
 			}}
@@ -280,7 +291,11 @@ function DraftEditor({
 				<Label htmlFor="draft-sender">Sender mailbox</Label>
 				<Select
 					value={effectiveSenderEmail}
-					onValueChange={setSenderEmail}
+					onValueChange={(address) => {
+						setBody(withOutreachSignature(displayedBody, address));
+						setBodyTouched(true);
+						setSenderEmail(address);
+					}}
 					disabled={locked}
 				>
 					<SelectTrigger id="draft-sender" className="w-full">
@@ -289,7 +304,9 @@ function DraftEditor({
 					<SelectContent>
 						{senders.map((address) => (
 							<SelectItem key={address} value={address}>
-								{address}
+								{outreachSenderName(address)
+									? `${outreachSenderName(address)} · ${address}`
+									: address}
 							</SelectItem>
 						))}
 					</SelectContent>
@@ -301,6 +318,11 @@ function DraftEditor({
 					<p className="text-muted-foreground text-xs">
 						Suggested by rotation: {recommendedSender}. Each mailbox has 10
 						sends per 24 hours and a 15-minute gap.
+					</p>
+				) : null}
+				{outreachSenderName(effectiveSenderEmail) ? (
+					<p className="text-muted-foreground text-xs">
+						Signature: {outreachSenderName(effectiveSenderEmail)} · Terraeagle
 					</p>
 				) : null}
 			</div>
@@ -330,9 +352,12 @@ function DraftEditor({
 				<Label htmlFor="draft-body">Message</Label>
 				<Textarea
 					id="draft-body"
-					value={body}
+					value={displayedBody}
 					disabled={locked}
-					onChange={(event) => setBody(event.target.value)}
+					onChange={(event) => {
+						setBody(event.target.value);
+						setBodyTouched(true);
+					}}
 					required
 					maxLength={20_000}
 					rows={16}

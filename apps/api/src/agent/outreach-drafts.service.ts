@@ -17,6 +17,10 @@ import {
 	type SendOutreachDraftInput,
 } from "@crm/validation/outreach-draft";
 import {
+	hasOutreachSignature,
+	withOutreachSignature,
+} from "@crm/validation/outreach-signature";
+import {
 	BadRequestException,
 	ConflictException,
 	Injectable,
@@ -349,6 +353,7 @@ export class OutreachDraftsService {
 		) {
 			throw new BadRequestException("Choose a configured sender mailbox.");
 		}
+		const body = withOutreachSignature(input.body, input.senderEmail);
 		const existing = await this.db.outreachDraft.findUnique({
 			where: { runId_userId: { runId: run.id, userId } },
 		});
@@ -367,7 +372,7 @@ export class OutreachDraftsService {
 				data: {
 					recipientEmail: input.recipientEmail || null,
 					subject: input.subject,
-					body: input.body,
+					body,
 					senderEmail: input.senderEmail?.toLowerCase() ?? null,
 					status: "DRAFT",
 					approvedAt: null,
@@ -390,7 +395,7 @@ export class OutreachDraftsService {
 						userId,
 						recipientEmail: input.recipientEmail || null,
 						subject: input.subject,
-						body: input.body,
+						body,
 						senderEmail: input.senderEmail?.toLowerCase() ?? null,
 					},
 				});
@@ -453,6 +458,11 @@ export class OutreachDraftsService {
 		}
 		if (!edit.senderEmail || !outreachSenders().includes(edit.senderEmail)) {
 			throw new BadRequestException("Choose a configured sender mailbox.");
+		}
+		if (!hasOutreachSignature(edit.body, edit.senderEmail)) {
+			throw new BadRequestException(
+				"Save this draft with the selected sender signature before approval.",
+			);
 		}
 		if (/\[[^\]]+\]/.test(`${edit.subject}\n${edit.body}`)) {
 			throw new BadRequestException(
@@ -535,6 +545,11 @@ export class OutreachDraftsService {
 			throw new BadRequestException("Sender or recipient is unavailable.");
 		}
 		const senderAddress = draft.senderEmail;
+		if (!hasOutreachSignature(draft.body, senderAddress)) {
+			throw new BadRequestException(
+				"The signature does not match this sender mailbox. Edit and approve the draft again.",
+			);
+		}
 		const scopes = await this.tokens.grantedScopes(
 			userId,
 			MICROSOFT_PROVIDER_ID,

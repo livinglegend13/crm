@@ -19,6 +19,7 @@
 		"./gtm-market": "./src/gtm-market.ts",
 		"./inbox": "./src/inbox.ts",
 		"./outreach-draft": "./src/outreach-draft.ts",
+		"./outreach-signature": "./src/outreach-signature.ts",
 		"./saved-view": "./src/saved-view.ts"
 	},
 	"scripts": {
