@@ -17,11 +17,14 @@ import {
 } from "@crm/ui/components/alert-dialog";
 import { Button } from "@crm/ui/components/button";
 import { Icon } from "@crm/ui/components/icon";
+import { Markdown } from "@crm/ui/components/markdown";
 import { cn } from "@crm/ui/lib/utils";
+import Link from "next/link";
 import { useState } from "react";
 import { z } from "zod";
 import { runFailureReason } from "@/lib/agent-run-failure";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
 type Runs = RouterOutputs["agents"]["history"];
 type Activity = RouterOutputs["agents"]["activity"];
@@ -77,6 +80,7 @@ export function AgentRuns({
 	onRetry: (runId: string) => void;
 	retryingRunId?: string;
 }) {
+	const workspaceUrl = useWorkspaceUrl();
 	const [outcome, setOutcome] = useState("ALL");
 	const [expanded, setExpanded] = useState<string | null>(runs[0]?.id ?? null);
 	const [confirming, setConfirming] = useState<string | null>(null);
@@ -137,6 +141,17 @@ export function AgentRuns({
 									{humanStatus(run.triggerType)} · {formatDate(run.createdAt)} ·
 									Version {run.version.number}
 								</span>
+								<span className="mt-1 block wrap-break-word text-muted-foreground text-xs">
+									{run.context.target
+										? `${run.context.target.kind}: ${run.context.target.label}`
+										: (run.context.focus ?? "No record linked")}
+									{run.context.serviceName
+										? ` · ${run.context.serviceName}`
+										: ""}
+									{run.context.campaignName
+										? ` · ${run.context.campaignName}`
+										: ""}
+								</span>
 								{run.status === "FAILED" || run.status === "CANCELLED" ? (
 									<span className="mt-1.5 flex min-w-0 items-start gap-2 rounded-md bg-destructive/10 px-2.5 py-1.5">
 										<Icon
@@ -190,7 +205,9 @@ export function AgentRuns({
 						) : null}
 					</div>
 
-					{expanded === run.id ? <ExpandedRun run={run} /> : null}
+					{expanded === run.id ? (
+						<ExpandedRun run={run} workspaceUrl={workspaceUrl} />
+					) : null}
 				</div>
 			))}
 
@@ -232,7 +249,13 @@ export function AgentRuns({
 	);
 }
 
-function ExpandedRun({ run }: { run: RunRow }) {
+function ExpandedRun({
+	run,
+	workspaceUrl,
+}: {
+	run: RunRow;
+	workspaceUrl: (path: string) => string;
+}) {
 	const events = runEvents.parse(run.events);
 	const timeline = [
 		...events.map((event) => ({
@@ -249,6 +272,31 @@ function ExpandedRun({ run }: { run: RunRow }) {
 
 	return (
 		<div className="min-w-0 border-t">
+			<div className="flex flex-wrap gap-x-4 gap-y-2 border-b px-4 py-3 text-sm sm:px-5">
+				{run.context.target ? (
+					<Link
+						href={workspaceUrl(
+							`/${run.context.target.kind === "company" ? "companies" : `${run.context.target.kind}s`}?record=${run.context.target.kind}:${run.context.target.id}`,
+						)}
+						className="text-primary hover:underline"
+					>
+						{run.context.target.label}
+					</Link>
+				) : (
+					<span className="text-muted-foreground">No CRM record linked</span>
+				)}
+				{run.context.campaignId ? (
+					<Link
+						href={workspaceUrl(`/outreach/campaigns/${run.context.campaignId}`)}
+						className="text-primary hover:underline"
+					>
+						{run.context.campaignName ?? "Open campaign"}
+					</Link>
+				) : null}
+				{run.context.serviceName ? (
+					<span>{run.context.serviceName}</span>
+				) : null}
+			</div>
 			<div className="grid grid-cols-2 gap-x-4 gap-y-3 border-b bg-background px-4 py-3 sm:min-h-[58px] sm:grid-cols-4 sm:items-center sm:gap-0 sm:px-5 sm:py-2">
 				<RunMeta label="Trigger" value={humanStatus(run.triggerType)} />
 				<RunMeta
@@ -259,6 +307,12 @@ function ExpandedRun({ run }: { run: RunRow }) {
 				<RunMeta label="Version" value={String(run.version.number)} last />
 			</div>
 
+			{run.summary ? (
+				<section className="border-b px-4 py-4 sm:px-5">
+					<h3 className="font-semibold text-sm">Summary</h3>
+					<Markdown className="mt-2 text-sm">{run.summary}</Markdown>
+				</section>
+			) : null}
 			{run.result && Object.keys(run.result).length > 0 ? (
 				<section className="border-b px-4 py-4 sm:px-5">
 					<h3 className="font-semibold text-sm">Result</h3>
@@ -268,10 +322,14 @@ function ExpandedRun({ run }: { run: RunRow }) {
 								<dt className="font-medium text-muted-foreground text-xs">
 									{label}
 								</dt>
-								<dd className="mt-1 whitespace-pre-wrap wrap-break-word text-sm">
-									{typeof value === "string"
-										? value
-										: JSON.stringify(value, null, 2)}
+								<dd className="mt-1 wrap-break-word text-sm">
+									{typeof value === "string" ? (
+										<Markdown className="text-sm">{value}</Markdown>
+									) : (
+										<pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-xs">
+											{JSON.stringify(value, null, 2)}
+										</pre>
+									)}
 								</dd>
 							</div>
 						))}

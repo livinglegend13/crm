@@ -77,6 +77,36 @@ export class ActivitiesService {
 		private readonly stamp: ActivityStampService,
 	) {}
 
+	async researchFeed(limit: number) {
+		const rows = await this.db.activity.findMany({
+			where: {
+				OR: [
+					{ type: ActivityType.ENRICHMENT },
+					{
+						type: ActivityType.NOTE,
+						meta: { path: ["source"], equals: "agent" },
+					},
+				],
+			},
+			orderBy: { createdAt: "desc" },
+			take: limit,
+			select: {
+				id: true,
+				type: true,
+				subject: true,
+				body: true,
+				occurredAt: true,
+				company: { select: { id: true, name: true } },
+				contact: { select: { id: true, firstName: true, lastName: true } },
+				deal: { select: { id: true, name: true } },
+			},
+		});
+		return rows.map((row) => ({
+			...row,
+			occurredAt: row.occurredAt?.toISOString() ?? null,
+		}));
+	}
+
 	async timeline(input: TimelineInput): Promise<TimelineResult> {
 		const where = this.anchor(input);
 		Object.assign(where, filterClause(input.filter));

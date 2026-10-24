@@ -47,6 +47,29 @@ export const timelineInput = z.object({
 
 export type TimelineInput = z.infer<typeof timelineInput>;
 
+export const researchFeedInput = z.object({
+	limit: z.number().int().min(1).max(100).default(40),
+});
+
+export const researchFeedOutput = z.array(
+	z.object({
+		id: z.string(),
+		type: activityTypeOutput,
+		subject: z.string().nullable(),
+		body: z.string().nullable(),
+		occurredAt: z.string().nullable(),
+		company: z.object({ id: z.string(), name: z.string() }).nullable(),
+		contact: z
+			.object({
+				id: z.string(),
+				firstName: z.string(),
+				lastName: z.string().nullable(),
+			})
+			.nullable(),
+		deal: z.object({ id: z.string(), name: z.string() }).nullable(),
+	}),
+);
+
 export const timelineCountsInput = z.object({
 	companyId: z.string().optional(),
 	contactId: z.string().optional(),

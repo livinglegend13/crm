@@ -244,6 +244,22 @@ export class CompaniesService {
 		return {
 			...rest,
 			fields: await this.fields.valuesFor("COMPANY", id),
+			serviceCampaigns: await this.db.gtmCampaignTarget.findMany({
+				where: { companyId: id },
+				select: {
+					campaign: {
+						select: {
+							id: true,
+							name: true,
+							status: true,
+							serviceId: true,
+							serviceLine: true,
+							marketCountryCode: true,
+						},
+					},
+				},
+				orderBy: { createdAt: "desc" },
+			}),
 			queued: await this.queue.isQueued({ companyId: id }),
 			createdAt: createdAt.toISOString(),
 			archivedAt: archivedAt?.toISOString() ?? null,

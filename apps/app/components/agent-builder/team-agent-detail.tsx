@@ -26,6 +26,7 @@ import {
 } from "@crm/ui/components/dropdown-menu";
 import { Icon } from "@crm/ui/components/icon";
 import { Input } from "@crm/ui/components/input";
+import { Markdown } from "@crm/ui/components/markdown";
 import { SaveBarViewport } from "@crm/ui/components/save-bar";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -350,10 +351,21 @@ export function TeamAgentDetail({
 									{latestRun.status.toLowerCase().replaceAll("_", " ")} ·{" "}
 									{formatDate(latestRun.createdAt)}
 								</p>
+								<p className="mt-2 text-sm">
+									{latestRun.context.target?.label ??
+										latestRun.context.focus ??
+										"No CRM record linked"}
+									{latestRun.context.serviceName
+										? ` · ${latestRun.context.serviceName}`
+										: ""}
+									{latestRun.context.campaignName
+										? ` · ${latestRun.context.campaignName}`
+										: ""}
+								</p>
 								{latestRun.summary ? (
-									<p className="mt-4 whitespace-pre-wrap wrap-break-word text-sm">
+									<Markdown className="mt-4 text-sm">
 										{latestRun.summary}
-									</p>
+									</Markdown>
 								) : (
 									<p className="mt-4 text-muted-foreground text-sm">
 										{latestRun.status === "SUCCEEDED"

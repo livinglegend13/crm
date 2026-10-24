@@ -13,10 +13,12 @@ read_deal_history for a deal. These CRM reads are free, authoritative, and join
 to related contacts, companies, and deals. Use search_crm when a request names a
 record without an id. Never ask a rep to find an id the CRM can resolve.
 
-Look outside the CRM only after reading internal history. Prefer LinkedIn for
-identity and the open web for context. Search results point to sources but are
-not themselves evidence. When an install lacks a vendor capability, continue
-with CRM evidence instead of treating that absence as a failure.
+Look outside the CRM only after reading internal history. Use research_company
+for a known company domain. Use get_contact_work_history for a known contact.
+These tools read known public pages and use Azure when configured. Use
+research_person only when it is available for broader web search. Search
+results point to sources but are not themselves evidence. When an install
+lacks a vendor capability, continue with CRM evidence and known public pages.
 
 Only vendor calls spend the session research budget. When it is gone, write up
 what you have and stop, or schedule a recheck when another look is justified.

@@ -13,7 +13,7 @@ import { z } from "zod";
 
 const t = initTRPC.create();
 const publicProcedure = t.procedure;
-import { timelineInput, timelineOutput, timelineCountsInput, timelineCountsOutput, myTasksInput, myTasksOutput, activityCreateInput, activityCreateOutput, completeInput, completeOutput } from "../activities/activities.contracts";
+import { researchFeedInput, researchFeedOutput, timelineInput, timelineOutput, timelineCountsInput, timelineCountsOutput, myTasksInput, myTasksOutput, activityCreateInput, activityCreateOutput, completeInput, completeOutput } from "../activities/activities.contracts";
 import { agentListOutput, agentReviseInput, agentReviseOutput, agentIdInput, agentFilesOutput, agentSaveFileInput, agentSaveFileOutput, agentByIdOutput, agentHistoryInput, agentHistoryOutput, agentActivityOutput, agentUpdateInput, agentUpdateOutput, agentScheduleInput, agentScheduleOutput, agentDeployInput, agentDeployOutput, agentPauseOutput, agentResumeOutput, agentArchiveOutput, agentRestoreOutput, agentRemoveOutput, agentRunNowInput, agentRunNowOutput, agentRetryRunInput, agentRetryRunOutput, agentCancelRunInput, agentCancelRunOutput } from "../agent/agents.contracts";
 import { gtmServices, saveGtmServiceInput, prospectsInput, prospectsOutput, saveFiloReviewInput, filoReview, campaignsOutput, campaignIdInput, campaignDetail, proposalKnowledgeList, campaignWorkflowAgents, addProposalKnowledgeInput, updateProposalKnowledgeStatusInput, campaignCallTaskInput, campaignCallTaskOutput, requestCampaignPlanInput, runCampaignAgentOutput, campaignPlanRunIdInput, campaignPlanStatus, createCampaignInput, runCampaignAgentInput, updateCampaignInput, saveCampaignStepsInput, addCampaignTargetInput, removeCampaignTargetInput, gtmInsights } from "@crm/validation/gtm";
 import { outreachDraftList, outreachStats, outreachSendersOutput, saveOutreachDraftInput, outreachDraft, approveOutreachDraftInput, sendOutreachDraftInput, sendOutreachDraftOutput, regenerateOutreachDraftInput, regenerateOutreachDraftOutput } from "@crm/validation/outreach-draft";
@@ -39,6 +39,10 @@ import type { UsersRouter } from "../users/users.router";
 
 const appRouter = t.router({
   activities: t.router({
+    researchFeed: publicProcedure
+      .input(researchFeedInput)
+      .output(researchFeedOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     timeline: publicProcedure
       .input(timelineInput)
       .output(timelineOutput)

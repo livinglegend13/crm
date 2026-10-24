@@ -8,12 +8,19 @@ import type {
 	CampaignPlanRunInput,
 } from "@crm/validation/gtm";
 import {
+	campaignAgentRunInput,
+	campaignPlanRunInput,
+	campaignWorkflowRunInput,
+} from "@crm/validation/gtm";
+import { outreachRevisionRequest } from "@crm/validation/outreach-draft";
+import {
 	BadRequestException,
 	ConflictException,
 	ForbiddenException,
 	Injectable,
 	NotFoundException,
 } from "@nestjs/common";
+import { z } from "zod";
 import { InjectDatabase } from "../database/database.constants";
 import { AgentAccessService } from "./agent-access.service";
 import { AGENT_DISPATCH } from "./agent-dispatch.config";
@@ -31,6 +38,96 @@ const CANCELLABLE_STATUSES: readonly AgentRunStatus[] = [
 ];
 
 const RUN_EVENT_LIMIT = 200;
+
+const manualRunInput = z.object({ focus: z.string() });
+const scheduledRunInput = z.object({ scheduledFor: z.string() });
+const eventRunInput = z.object({
+	event: z.object({ type: z.string() }),
+	record: z.object({
+		kind: z.enum(["company", "contact", "deal"]),
+		id: z.string(),
+	}),
+});
+
+type ActionTarget = {
+	targetType: string | null;
+	targetId: string | null;
+	targetLabel: string | null;
+};
+
+function runContext(input: Prisma.JsonValue | null, actions: ActionTarget[]) {
+	const campaign = campaignAgentRunInput.safeParse(input);
+	const workflow = campaignWorkflowRunInput.safeParse(input);
+	const plan = campaignPlanRunInput.safeParse(input);
+	const revision = outreachRevisionRequest.safeParse(input);
+	const event = eventRunInput.safeParse(input);
+	const manual = manualRunInput.safeParse(input);
+	const scheduled = scheduledRunInput.safeParse(input);
+	const action = actions.find(
+		(item) =>
+			item.targetId &&
+			(item.targetType === "company" ||
+				item.targetType === "contact" ||
+				item.targetType === "deal"),
+	);
+	const companyId = campaign.success
+		? campaign.data.companyId
+		: workflow.success
+			? workflow.data.companyId
+			: null;
+	const focus = campaign.success
+		? campaign.data.focus
+		: workflow.success
+			? workflow.data.focus
+			: manual.success
+				? manual.data.focus
+				: revision.success
+					? `Revision of run ${revision.data.sourceRunId}`
+					: scheduled.success
+						? `Scheduled for ${scheduled.data.scheduledFor}`
+						: event.success
+							? event.data.event.type
+							: null;
+	const target = companyId
+		? { kind: "company" as const, id: companyId, label: focus ?? "Company" }
+		: action?.targetId &&
+				(action.targetType === "company" ||
+					action.targetType === "contact" ||
+					action.targetType === "deal")
+			? {
+					kind: action.targetType,
+					id: action.targetId,
+					label: action.targetLabel ?? "Open record",
+				}
+			: event.success
+				? {
+						kind: event.data.record.kind,
+						id: event.data.record.id,
+						label: "Open record",
+					}
+				: null;
+	return {
+		focus: focus ?? (plan.success ? plan.data.campaignName : null),
+		campaignId: campaign.success
+			? campaign.data.campaignId
+			: workflow.success
+				? workflow.data.campaignId
+				: null,
+		campaignName: campaign.success
+			? campaign.data.campaignName
+			: plan.success
+				? plan.data.campaignName
+				: null,
+		serviceName: campaign.success
+			? (campaign.data.serviceName ?? campaign.data.serviceLine)
+			: workflow.success
+				? (workflow.data.serviceName ?? workflow.data.serviceLine)
+				: plan.success
+					? (plan.data.serviceName ?? plan.data.serviceLine)
+					: null,
+		target,
+	};
+}
 
 @Injectable()
 export class AgentRunsService {
@@ -53,6 +150,7 @@ export class AgentRunsService {
 				triggerType: true,
 				summary: true,
 				result: true,
+				input: true,
 				modelId: true,
 				inputTokens: true,
 				outputTokens: true,
@@ -99,9 +197,10 @@ export class AgentRunsService {
 			},
 		});
 
-		return rows.map(({ _count, ...run }) => ({
+		return rows.map(({ _count, input, ...run }) => ({
 			...run,
 			result: run.result === null ? null : agentRunResult.parse(run.result),
+			context: runContext(input, run.actions),
 			totalEvents: _count.events,
 			eventsTruncated: _count.events > run.events.length,
 			canCancel:

@@ -304,6 +304,19 @@ const agentRunSummaryOutput = z.object({
 	triggerType: agentTriggerType,
 	summary: z.string().nullable(),
 	result: agentRunResult.nullable(),
+	context: z.object({
+		focus: z.string().nullable(),
+		campaignId: z.string().nullable(),
+		campaignName: z.string().nullable(),
+		serviceName: z.string().nullable(),
+		target: z
+			.object({
+				kind: z.enum(["company", "contact", "deal"]),
+				id: z.string(),
+				label: z.string(),
+			})
+			.nullable(),
+	}),
 	modelId: z.string().nullable(),
 	inputTokens: z.number().nullable(),
 	outputTokens: z.number().nullable(),

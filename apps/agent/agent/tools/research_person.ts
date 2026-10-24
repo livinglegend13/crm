@@ -1,45 +1,38 @@
-import { defineTool } from "eve/tools";
+import { defineDynamic, defineTool } from "eve/tools";
 import { z } from "zod";
-import { enabled, unavailable } from "../lib/capabilities";
 import { spend } from "../lib/focus";
 import { ask } from "../lib/perplexity";
 
-export default defineTool({
-	description:
-		"Research a person or company on the open web for sales context. Returns cited claims. For identity and job title, prefer direct CRM email evidence; treat public mentions as unverified.",
-	inputSchema: z.object({
-		question: z
-			.string()
-			.describe(
-				"A specific question, e.g. 'What has Acme announced in the last 6 months?'",
-			),
-		deep: z
-			.boolean()
-			.default(false)
-			.describe("Reason over more sources. Slower, better for prep briefs."),
-	}),
-	async execute({ question, deep }) {
-		if (!(await enabled("PERPLEXITY_API_KEY")))
-			return unavailable("PERPLEXITY_API_KEY");
-
-		const charge = spend(deep ? 2 : 1);
-		if (!charge.ok) return { ok: false as const, reason: charge.reason };
-
-		const answer = await ask(question, {
-			model: deep ? "sonar-pro" : "sonar",
-			system:
-				"You are researching for a B2B sales rep. Be specific and factual. " +
-				"State only what your sources support, prefer recent information, and " +
-				"say plainly when you do not know. Never speculate about a person.",
-		});
-
-		if (!answer.ok) return { ok: false as const, reason: answer.reason };
-
-		return {
-			ok: true as const,
-			answer: answer.data.text,
-			citations: answer.data.citations,
-			note: "Only write claims that have a citation.",
-		};
+export default defineDynamic({
+	events: {
+		"session.started": () =>
+			process.env.PERPLEXITY_API_KEY?.trim()
+				? defineTool({
+						description:
+							"Search the open web through Perplexity for cited sales context. Use CRM history first. Treat public person mentions as unverified.",
+						inputSchema: z.object({
+							question: z.string().describe("A specific research question."),
+							deep: z.boolean().default(false),
+						}),
+						async execute({ question, deep }) {
+							const charge = spend(deep ? 2 : 1);
+							if (!charge.ok)
+								return { ok: false as const, reason: charge.reason };
+							const answer = await ask(question, {
+								model: deep ? "sonar-pro" : "sonar",
+								system:
+									"You are researching for a B2B sales rep. Be specific and factual. State only what your sources support, prefer recent information, and say plainly when you do not know. Never speculate about a person.",
+							});
+							if (!answer.ok)
+								return { ok: false as const, reason: answer.reason };
+							return {
+								ok: true as const,
+								answer: answer.data.text,
+								citations: answer.data.citations,
+								note: "Only write claims that have a citation.",
+							};
+						},
+					})
+				: null,
 	},
 });

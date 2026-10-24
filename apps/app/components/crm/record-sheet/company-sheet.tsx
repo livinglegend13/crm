@@ -23,6 +23,7 @@ import {
 } from "@crm/ui/components/tooltip";
 import { formatMoney } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { toast } from "sonner";
 import { AgentPanel } from "@/components/crm/agent-panel";
 import { EnrichmentActions } from "@/components/crm/enrichment-actions";
@@ -60,6 +61,7 @@ import { hasCompanyLinks } from "@/lib/social-links";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { QuickAddContact, QuickAddDeal } from "./quick-add";
 import { RecordActions } from "./record-actions";
 import {
@@ -300,8 +302,10 @@ export function CompanySheet({ companyId }: { companyId: string }) {
 function CompanyOverview({ company }: { company: Company }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
+	const workspaceUrl = useWorkspaceUrl();
 
 	const users = useQuery(trpc.users.list.queryOptions());
+	const services = useQuery(trpc.gtm.services.queryOptions());
 
 	const update = useMutation(
 		trpc.companies.update.mutationOptions({
@@ -318,11 +322,72 @@ function CompanyOverview({ company }: { company: Company }) {
 
 	const isSaving = savingField(update);
 	const isSavingField = savingValue(update);
+	const hasFiloCampaign = company.serviceCampaigns.some(
+		({ campaign }) => campaign.serviceLine === "FILO_STORAGE",
+	);
+	const visibleFields = company.fields.filter(
+		(field) =>
+			!field.key.startsWith("filo") || hasFiloCampaign || field.value !== null,
+	);
 
 	return (
 		<DetailSheetBody>
 			<DetailSheetSplit>
 				<DetailSheetMain>
+					<DetailSheetSection title="Terraeagle services">
+						<div className="grid gap-2">
+							{services.data
+								?.filter((service) => service.active)
+								.map((service) => {
+									const campaigns = company.serviceCampaigns.filter(
+										({ campaign }) =>
+											campaign.serviceId === service.id ||
+											(service.legacyLine !== null &&
+												campaign.serviceLine === service.legacyLine),
+									);
+									return (
+										<div key={service.id} className="rounded-lg border p-3">
+											<div className="flex items-start justify-between gap-3">
+												<span className="font-medium text-sm">
+													{service.name}
+												</span>
+												<span className="text-muted-foreground text-xs">
+													{campaigns.length ? "In campaign" : "Not assessed"}
+												</span>
+											</div>
+											{service.qualificationGuidance ? (
+												<p className="mt-1 text-muted-foreground text-xs">
+													{service.qualificationGuidance}
+												</p>
+											) : null}
+											{campaigns.map(({ campaign }) => (
+												<Link
+													key={campaign.id}
+													href={workspaceUrl(
+														`/outreach/campaigns/${campaign.id}`,
+													)}
+													className="mt-2 block text-primary text-xs hover:underline"
+												>
+													{campaign.name} · {campaign.marketCountryCode} ·{" "}
+													{campaign.status.toLowerCase()}
+												</Link>
+											))}
+										</div>
+									);
+								})}
+							{services.isPending ? (
+								<p className="text-muted-foreground text-xs">
+									Loading services…
+								</p>
+							) : null}
+						</div>
+						<Link
+							href={workspaceUrl("/outreach/services")}
+							className="text-primary text-xs hover:underline"
+						>
+							Manage services and markets
+						</Link>
+					</DetailSheetSection>
 					{company.description ? (
 						<DetailSheetSection title="About">
 							<DetailSheetProse>{company.description}</DetailSheetProse>
@@ -401,7 +466,7 @@ function CompanyOverview({ company }: { company: Company }) {
 								}
 							/>
 							<RecordFields
-								fields={company.fields}
+								fields={visibleFields}
 								saving={isSavingField}
 								onSave={saveFields}
 							/>

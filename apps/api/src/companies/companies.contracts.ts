@@ -205,6 +205,24 @@ export const companyDetailOutput = z.object({
 	owner: ownerSummaryOutput.nullable(),
 	contacts: z.array(companyDetailContactOutput),
 	fields: z.array(companyRecordFieldOutput),
+	serviceCampaigns: z.array(
+		z.object({
+			campaign: z.object({
+				id: z.string(),
+				name: z.string(),
+				status: z.enum(["DRAFT", "READY", "PAUSED"]),
+				serviceId: z.string().nullable(),
+				serviceLine: z.enum([
+					"FILO_STORAGE",
+					"CYBERSECURITY",
+					"AI",
+					"FINOPS",
+					"CUSTOM",
+				]),
+				marketCountryCode: z.string(),
+			}),
+		}),
+	),
 	queued: z.boolean(),
 	createdAt: z.string(),
 	archivedAt: z.string().nullable(),

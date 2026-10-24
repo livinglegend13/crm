@@ -18,6 +18,8 @@ import {
 	completeOutput,
 	myTasksInput,
 	myTasksOutput,
+	researchFeedInput,
+	researchFeedOutput,
 	timelineCountsInput,
 	timelineCountsOutput,
 	timelineInput,
@@ -31,6 +33,11 @@ export class ActivitiesRouter {
 	constructor(
 		@Inject(ActivitiesService) private readonly activities: ActivitiesService,
 	) {}
+
+	@Query({ input: researchFeedInput, output: researchFeedOutput })
+	researchFeed(@Input() input: z.infer<typeof researchFeedInput>) {
+		return this.activities.researchFeed(input.limit);
+	}
 
 	@Query({
 		input: timelineInput,

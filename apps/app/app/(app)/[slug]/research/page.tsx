@@ -1,8 +1,9 @@
+import { Markdown } from "@crm/ui/components/markdown";
+import { marketName } from "@crm/validation/gtm-market";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { marketName } from "@crm/validation/gtm-market";
 import {
 	PageShell,
 	PageShellContent,
@@ -36,9 +37,10 @@ async function ResearchContent({
 	await connection();
 	const { slug } = await params;
 	const client = getServerTrpcClient();
-	const [agentList, campaigns] = await Promise.all([
+	const [agentList, campaigns, researchFeed] = await Promise.all([
 		client.agents.list.query(),
 		client.gtm.campaigns.query(),
+		client.activities.researchFeed.query({ limit: 40 }),
 	]);
 	const agents = agentList.filter((agent) =>
 		/research|qualif/i.test(agent.name),
@@ -61,7 +63,7 @@ async function ResearchContent({
 							typeof noteId === "string" && companyId
 								? await client.activities.timeline.query({
 										companyId,
-										filter: "notes",
+										filter: "all",
 										limit: 100,
 									})
 								: null;
@@ -85,6 +87,70 @@ async function ResearchContent({
 				</PageShellHeading>
 			</PageShellHeader>
 			<PageShellContent>
+				<section className="mb-5 rounded-lg border bg-card p-5">
+					<h2 className="font-medium">Latest research and agent notes</h2>
+					<p className="mt-1 text-muted-foreground text-sm">
+						The newest saved research appears here across all services and
+						records.
+					</p>
+					{researchFeed.length ? (
+						<div className="mt-4 divide-y">
+							{researchFeed.map((entry) => {
+								const record = entry.deal
+									? {
+											label: entry.deal.name,
+											href: `/${slug}/deals?record=deal:${entry.deal.id}`,
+										}
+									: entry.contact
+										? {
+												label: [entry.contact.firstName, entry.contact.lastName]
+													.filter(Boolean)
+													.join(" "),
+												href: `/${slug}/contacts?record=contact:${entry.contact.id}`,
+											}
+										: entry.company
+											? {
+													label: entry.company.name,
+													href: `/${slug}/companies?record=company:${entry.company.id}`,
+												}
+											: null;
+								return (
+									<article key={entry.id} className="py-4 first:pt-0 last:pb-0">
+										<div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
+											<time>
+												{entry.occurredAt
+													? new Date(entry.occurredAt).toLocaleString("en-IN")
+													: "Date unknown"}
+											</time>
+											{record ? (
+												<Link
+													href={record.href}
+													className="text-primary hover:underline"
+												>
+													{record.label}
+												</Link>
+											) : null}
+										</div>
+										<h3 className="mt-1 font-medium text-sm">
+											{entry.subject ?? "Research note"}
+										</h3>
+										{entry.body ? (
+											<Markdown className="mt-2 text-sm">{entry.body}</Markdown>
+										) : (
+											<p className="mt-2 text-muted-foreground text-sm">
+												No details were saved.
+											</p>
+										)}
+									</article>
+								);
+							})}
+						</div>
+					) : (
+						<p className="mt-4 text-muted-foreground text-sm">
+							No research notes have been saved yet.
+						</p>
+					)}
+				</section>
 				<section className="mb-5 rounded-lg border bg-card p-5">
 					<h2 className="font-medium">Campaign research</h2>
 					<p className="mt-1 text-muted-foreground text-sm">
