@@ -29,6 +29,8 @@ import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { inboxThreadList, inboxThreadInput, inboxThread } from "@crm/validation/inbox";
+import { closelyEventList, closelyConnectionStatus } from "@crm/validation/closely";
+import { emailVerificationRow, emailVerificationList } from "@crm/validation/reoon";
 import { savedViewListInput, savedViewListOutput, savedViewCreateInput, savedViewOutput, savedViewUpdateArgs, savedViewIdInput, savedViewDeleteOutput } from "../saved-views/saved-views.contracts";
 import { agentModelOutput, modelCatalogOutput, setAgentModelInput, researchKeyOutput, setResearchKeyInput, archiveRetentionOutput, setArchiveRetentionDaysInput } from "../settings/settings.contracts";
 import { slackStatusOutput, slackMatchesOutput, slackChannelsInput, slackChannelsOutput, slackJoinChannelInput, slackJoinChannelOutput, slackRefreshPeopleOutput, slackCreateChannelInput, slackCreateChannelOutput, slackDisconnectOutput } from "../slack/slack.contracts";
@@ -706,6 +708,33 @@ const appRouter = t.router({
       .input(setOutlookAutoCreateInput)
       .output(microsoftConnectionStatusOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  salesIntegrations: t.router({
+    closelyEvents: publicProcedure
+      .output(closelyEventList)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    status: publicProcedure
+      .output(closelyConnectionStatus)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    setEmailHandoff: publicProcedure
+      .input(z.object({ enabled: z.boolean() }))
+      .output(closelyConnectionStatus)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    emailVerification: publicProcedure
+      .input(z.object({ contactId: z.string().min(1) }))
+      .output(emailVerificationRow.nullable())
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    verifyEmail: publicProcedure
+      .input(z.object({ contactId: z.string().min(1) }))
+      .output(z.object({ queued: z.boolean() }))
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    verifyEmailByAddress: publicProcedure
+      .input(z.object({ email: z.email() }))
+      .output(z.object({ queued: z.boolean() }))
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    emailVerifications: publicProcedure
+      .output(emailVerificationList)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
   savedViews: t.router({
     list: publicProcedure

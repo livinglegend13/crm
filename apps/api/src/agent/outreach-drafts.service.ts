@@ -40,6 +40,7 @@ import { AgentAccessService } from "./agent-access.service";
 import { AgentTriggerService } from "./agent-trigger.service";
 import { senderAvailability } from "./outreach-rotation";
 import { OUTREACH_ROTATION } from "./outreach-rotation.config";
+import { OUTREACH_VERIFICATION } from "./outreach-verification.config";
 
 async function assertNoCampaignReply(
 	tx: Prisma.TransactionClient,
@@ -545,6 +546,24 @@ export class OutreachDraftsService {
 			throw new BadRequestException("Sender or recipient is unavailable.");
 		}
 		const senderAddress = draft.senderEmail;
+		if (process.env.REOON_VERIFICATION_REQUIRED === "true") {
+			const verification = await this.db.emailVerification.findFirst({
+				where: {
+					email: { equals: draft.recipientEmail, mode: "insensitive" },
+				},
+				orderBy: { checkedAt: "desc" },
+				select: { safe: true, checkedAt: true },
+			});
+			if (
+				!verification?.safe ||
+				verification.checkedAt.getTime() <
+					Date.now() - OUTREACH_VERIFICATION.maximumAgeMs
+			) {
+				throw new ConflictException(
+					"Verify this recipient with Reoon before sending.",
+				);
+			}
+		}
 		if (!hasOutreachSignature(draft.body, senderAddress)) {
 			throw new BadRequestException(
 				"The signature does not match this sender mailbox. Edit and approve the draft again.",

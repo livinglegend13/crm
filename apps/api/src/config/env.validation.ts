@@ -78,6 +78,18 @@ export class EnvironmentVariables {
 
 	@IsOptional()
 	@IsString()
+	CLOSELY_WEBHOOK_SECRET?: string;
+
+	@IsOptional()
+	@IsString()
+	CLOSELY_KEY_VAULT_NAME?: string;
+
+	@IsOptional()
+	@IsString()
+	REOON_VERIFICATION_REQUIRED?: string;
+
+	@IsOptional()
+	@IsString()
 	OUTREACH_REPLY_ALERTS_ENABLED?: string;
 
 	@IsOptional()

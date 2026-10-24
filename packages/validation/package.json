@@ -10,6 +10,7 @@
 		"./agent-manifest": "./src/agent-manifest.ts",
 		"./agent-run-result": "./src/agent-run-result.ts",
 		"./builder-question": "./src/builder-question.ts",
+		"./closely": "./src/closely.ts",
 		"./enrichment-queue": "./src/enrichment-queue.ts",
 		"./eve-stream": "./src/eve-stream.ts",
 		"./eve-tool": "./src/eve-tool.ts",
@@ -20,6 +21,7 @@
 		"./inbox": "./src/inbox.ts",
 		"./outreach-draft": "./src/outreach-draft.ts",
 		"./outreach-signature": "./src/outreach-signature.ts",
+		"./reoon": "./src/reoon.ts",
 		"./saved-view": "./src/saved-view.ts"
 	},
 	"scripts": {

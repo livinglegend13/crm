@@ -15,6 +15,8 @@ const STEPS = {
 	"slack-people-match": "Matching people in Slack",
 	"slack-channel-join": "Joining a Slack channel",
 	"agent-event": "Reacting to a change",
+	"closely-event": "Linking Closely activity",
+	"email-verify": "Checking email deliverability",
 } satisfies Record<TaskKind, string>;
 
 const STEP_BY_KIND = new Map<string, string>(Object.entries(STEPS));

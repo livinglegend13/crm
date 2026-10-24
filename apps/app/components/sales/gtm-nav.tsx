@@ -13,7 +13,8 @@ export function GtmNav({
 		| "campaigns"
 		| "services"
 		| "proposals"
-		| "insights";
+		| "insights"
+		| "integrations";
 }) {
 	const workspaceUrl = useWorkspaceUrl();
 	const links = [
@@ -23,6 +24,11 @@ export function GtmNav({
 		{ id: "services", label: "Services", path: "/outreach/services" },
 		{ id: "proposals", label: "Proposals", path: "/outreach/proposals" },
 		{ id: "insights", label: "Insights", path: "/outreach/insights" },
+		{
+			id: "integrations",
+			label: "Connections",
+			path: "/outreach/integrations",
+		},
 	] as const;
 	return (
 		<nav aria-label="Outreach sections" className="mb-6 flex flex-wrap gap-2">

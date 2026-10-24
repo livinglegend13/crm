@@ -395,6 +395,8 @@ model Contact {
   gtmTargets      GtmCampaignTarget[]
   activities      Activity[]
   emailThreads    EmailThread[]
+  closelyEvents   CloselyEvent[]
+  emailVerification EmailVerification?
   calendarEvents  CalendarEvent[]
   eventAttendance CalendarAttendee[]
   fieldValues     FieldValue[]
@@ -469,6 +471,39 @@ model ContactBrief {
   refreshedAt DateTime @default(now())
 
   @@map("contactBrief")
+}
+
+model CloselyEvent {
+  id            String   @id @default(cuid())
+  fingerprint   String   @unique
+  trigger       String
+  email         String?
+  linkedinUrl   String?
+  firstName     String?
+  lastName      String?
+  companyName   String?
+  campaignNames String[] @default([])
+  contactId     String?
+  contact       Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  occurredAt    DateTime?
+  receivedAt    DateTime @default(now())
+
+  @@index([receivedAt])
+  @@index([contactId, receivedAt])
+  @@map("closelyEvent")
+}
+
+model EmailVerification {
+  contactId String  @id
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  email     String
+  status    String
+  score     Int?
+  safe      Boolean
+  checkedAt DateTime @default(now())
+
+  @@index([email, checkedAt])
+  @@map("emailVerification")
 }
 
 model AgentTask {
@@ -1510,6 +1545,8 @@ model SuppressedContact {
 
 model AppSetting {
   id String @id
+
+  closelyEmailEnabled Boolean @default(false)
 
   agentModelId String?
 

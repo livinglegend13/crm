@@ -2,12 +2,14 @@ import { EnrichmentStatus } from "@crm/db";
 import { fieldBackfillPayload } from "@crm/validation/field-backfill";
 import { APP_AUTH, type AppAuth } from "./app-auth";
 import { brandOutcome, runBrand } from "./brand";
+import { linkCloselyEvent } from "./closely-event";
 import { queueEventAgentRuns } from "./custom-agent-dispatch";
 import { settledWithin } from "./deadline";
 import { DISPATCH } from "./dispatch-config";
 import { markRunning, settle } from "./enrichment";
 import { collapsing, runLimited } from "./pool";
 import { runPortrait } from "./portrait";
+import { verifyContactEmail } from "./reoon-verification";
 import { runSlackChannelJoin } from "./slack-join-task";
 import { runSlackPeopleMatch } from "./slack-people";
 import { staleTaskSweep } from "./stale-tasks";
@@ -84,6 +86,15 @@ async function reconcileDirect(
 }
 
 async function handleDirect(task: LeasedTask): Promise<void> {
+	if (task.kind === "closely-event") {
+		await completeTask(task.id, await linkCloselyEvent(task.payload));
+		return;
+	}
+
+	if (task.kind === "email-verify" && task.contactId) {
+		await completeTask(task.id, await verifyContactEmail(task.contactId));
+		return;
+	}
 	if (task.kind === "brand" && task.companyId) {
 		const result = await runBrand({ companyId: task.companyId });
 		if (result.retryable) return;

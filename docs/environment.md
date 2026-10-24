@@ -224,3 +224,6 @@ is sent. No client is constructed, so there is no queue waiting to flush later.
 - **Redis** — optional; without `REDIS_URL` the cache is per-instance in-memory, which
   is wrong for multi-instance.
 - **Sign-in method** — Google and Microsoft are in code; an IdP is a row (SSO, in `api.md`).
+# Optional sales integrations
+
+`CLOSELY_WEBHOOK_SECRET` is the shared secret for Closely webhook intake. `CLOSELY_KEY_VAULT_NAME` reads `closely-webhook-key` from Azure Key Vault instead. `REOON_API_KEY` is an optional Reoon key. `REOON_KEY_VAULT_NAME` reads `reoon-api-key` from Azure Key Vault instead. `REOON_VERIFICATION_REQUIRED` gates CRM email sends on a recent safe result. A missing provider key disables that capability.

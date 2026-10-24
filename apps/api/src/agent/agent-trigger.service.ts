@@ -123,6 +123,27 @@ export class AgentTriggerService {
 		);
 	}
 
+	async closelyEventReceived(eventId: string): Promise<void> {
+		await this.enqueue({
+			kind: "closely-event",
+			reason: "Link Closely activity to a CRM contact",
+			priority: PRIORITY.closely,
+			budget: 1,
+			payload: { eventId },
+			subject: { path: ["eventId"], value: eventId },
+		});
+	}
+
+	async emailVerificationRequested(contactId: string): Promise<void> {
+		await this.enqueue({
+			contactId,
+			kind: "email-verify",
+			reason: "Verify contact email with Reoon",
+			priority: PRIORITY.emailVerify,
+			budget: 1,
+		});
+	}
+
 	async slackPeopleRequested(reason: string, required = false): Promise<void> {
 		await this.enqueue(
 			{

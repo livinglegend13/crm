@@ -46,6 +46,16 @@ export function capabilitiesFrom(
 
 	return [
 		{
+			id: "REOON_EMAIL_VERIFICATION",
+			from: "REOON_API_KEY or REOON_KEY_VAULT_NAME",
+			enabled: Boolean(
+				process.env.REOON_API_KEY?.trim() ||
+					process.env.REOON_KEY_VAULT_NAME?.trim(),
+			),
+			label: "Email verification",
+			gives: "Reoon deliverability checks before outreach",
+		},
+		{
 			...fromEnv("PERPLEXITY_API_KEY"),
 			label: "Web research",
 			gives:
