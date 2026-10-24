@@ -50,12 +50,20 @@ function SheetContent({
 	size,
 	showCloseButton,
 	className,
+	onPointerDownOutside,
+	onEscapeKeyDown,
 	...props
 }: React.ComponentProps<"div"> & {
 	side?: "top" | "right" | "bottom" | "left";
 	size?: SheetSize;
 	showCloseButton?: boolean;
 	onOpenAutoFocus?: (event: Event) => void;
+	onPointerDownOutside?: React.ComponentProps<
+		typeof UISheetContent
+	>["onPointerDownOutside"];
+	onEscapeKeyDown?: React.ComponentProps<
+		typeof UISheetContent
+	>["onEscapeKeyDown"];
 }) {
 	if (useResponsive()) {
 		return (
@@ -76,6 +84,8 @@ function SheetContent({
 			size={size}
 			showCloseButton={showCloseButton}
 			className={className}
+			onPointerDownOutside={onPointerDownOutside}
+			onEscapeKeyDown={onEscapeKeyDown}
 			{...props}
 		>
 			{children}

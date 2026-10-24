@@ -26,6 +26,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@crm/ui/components/tooltip";
+import { useIsMobile } from "@crm/ui/hooks/use-mobile";
 import { cn } from "@crm/ui/lib/utils";
 import { type ReactNode, useRef, useState } from "react";
 import {
@@ -61,9 +62,10 @@ export function DetailSheet({
 	children: ReactNode;
 }) {
 	const content = useRef<HTMLDivElement>(null);
+	const isMobile = useIsMobile();
 
 	return (
-		<Sheet open={open} onOpenChange={onOpenChange}>
+		<Sheet open={open} onOpenChange={isMobile ? onOpenChange : () => undefined}>
 			<SheetContent
 				ref={content}
 				side="right"
@@ -73,6 +75,16 @@ export function DetailSheet({
 					event.preventDefault();
 					content.current?.focus();
 				}}
+				onPointerDownOutside={(event) => {
+					if (
+						content.current?.contains(event.detail.originalEvent.target as Node)
+					) {
+						event.preventDefault();
+						return;
+					}
+					onOpenChange(false);
+				}}
+				onEscapeKeyDown={() => onOpenChange(false)}
 				className={cn("flex flex-col gap-0 p-0", className)}
 			>
 				{children}
