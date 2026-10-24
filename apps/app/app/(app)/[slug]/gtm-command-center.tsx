@@ -64,7 +64,7 @@ export function GtmCommandCenter({ data }: { data: Snapshot }) {
 							value={data.bookedThisWeek}
 							label="Calendar events this week"
 						/>
-						<Metric value={data.pendingDrafts} label="Drafts to review" />
+						<Metric value={data.pendingDrafts} label="Open email drafts" />
 						<Metric value={data.readyCampaigns} label="Ready campaigns" />
 					</div>
 					<section aria-labelledby="workflow-heading">

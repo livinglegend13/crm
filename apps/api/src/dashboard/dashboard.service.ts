@@ -337,7 +337,12 @@ export class DashboardService {
 				select: { id: true, subject: true, status: true, updatedAt: true },
 			}),
 			this.db.agentRun.findMany({
-				where: { initiatedById: userId },
+				where: {
+					OR: [
+						{ initiatedById: userId },
+						{ initiatedById: null, trigger: { createdById: userId } },
+					],
+				},
 				orderBy: { createdAt: "desc" },
 				take: 8,
 				select: {
