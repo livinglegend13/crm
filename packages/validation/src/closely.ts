@@ -41,6 +41,8 @@ export const closelyEventRow = z.object({
 	lastName: z.string().nullable(),
 	companyName: z.string().nullable(),
 	campaignNames: z.array(z.string()),
+	accountEmail: z.string().nullable(),
+	accountName: z.string().nullable(),
 	contactId: z.string().nullable(),
 	receivedAt: z.string(),
 });

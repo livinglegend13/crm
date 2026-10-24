@@ -29,6 +29,7 @@ export function SalesConnections({
 	const queryClient = useQueryClient();
 	const workspaceUrl = useWorkspaceUrl();
 	const [email, setEmail] = useState("");
+	const [activitySearch, setActivitySearch] = useState("");
 	const status = useQuery({
 		...trpc.salesIntegrations.status.queryOptions(),
 		initialData: initialStatus,
@@ -60,8 +61,66 @@ export function SalesConnections({
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const accounts = Array.from(
+		new Map(
+			events.data
+				.filter((event) => event.accountEmail)
+				.map((event) => [event.accountEmail, event]),
+		).values(),
+	);
+	const matchingEvents = events.data.filter((event) =>
+		[
+			event.firstName,
+			event.lastName,
+			event.email,
+			event.companyName,
+			event.trigger,
+			...event.campaignNames,
+		]
+			.filter(Boolean)
+			.join(" ")
+			.toLowerCase()
+			.includes(activitySearch.trim().toLowerCase()),
+	);
 	return (
 		<div className="flex flex-col gap-6">
+			<section className="rounded-lg border bg-card p-5">
+				<h2 className="font-medium">Closely connection</h2>
+				<p className="mt-1 text-muted-foreground text-sm">
+					Contact events flow from Closely to CRM. Closely does not include the
+					connected LinkedIn account or message delivery in this webhook.
+				</p>
+				<div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+					<Badge variant={status.data.receiving ? "default" : "outline"}>
+						{status.data.receiving
+							? "Contact events received"
+							: "No contact events received"}
+					</Badge>
+					<span>Closely → CRM contact activity</span>
+					<span className="text-muted-foreground">
+						→ LinkedIn inbox stays in Closely
+					</span>
+				</div>
+				{accounts.length ? (
+					<div className="mt-4 flex flex-col divide-y">
+						{accounts.map((account) => (
+							<div
+								key={account.accountEmail}
+								className="flex flex-wrap justify-between gap-2 py-3 text-sm"
+							>
+								<span>{account.accountName || account.accountEmail}</span>
+								<span className="text-muted-foreground">
+									{account.accountEmail} · Seen in a contact event
+								</span>
+							</div>
+						))}
+					</div>
+				) : (
+					<p className="mt-4 text-muted-foreground text-sm">
+						No sending account appears in received contact events.
+					</p>
+				)}
+			</section>
 			<section className="rounded-lg border bg-card p-5">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div className="flex flex-col gap-2">
@@ -88,13 +147,22 @@ export function SalesConnections({
 					Closely sends contact sync events here. LinkedIn messages remain in
 					the Closely inbox.
 				</p>
+				<Input
+					className="mt-4"
+					aria-label="Search Closely activity"
+					placeholder="Search contacts, companies, campaigns, or events"
+					value={activitySearch}
+					onChange={(event) => setActivitySearch(event.target.value)}
+				/>
 				<div className="mt-5 flex flex-col divide-y">
-					{events.data.length === 0 ? (
+					{matchingEvents.length === 0 ? (
 						<p className="py-4 text-muted-foreground text-sm">
-							No Closely activity has reached the CRM yet.
+							{events.data.length
+								? "No matching Closely activity."
+								: "No Closely activity has reached the CRM yet."}
 						</p>
 					) : (
-						events.data.map((event) => (
+						matchingEvents.map((event) => (
 							<div
 								key={event.id}
 								className="flex flex-wrap items-start justify-between gap-3 py-4"
@@ -129,6 +197,16 @@ export function SalesConnections({
 										>
 											Open contact
 										</Link>
+									) : null}
+									{event.linkedinUrl ? (
+										<a
+											className="text-primary text-sm hover:underline"
+											href={event.linkedinUrl}
+											target="_blank"
+											rel="noreferrer"
+										>
+											LinkedIn profile
+										</a>
 									) : null}
 									<time className="text-muted-foreground text-xs">
 										{new Date(event.receivedAt).toLocaleString("en-IN")}

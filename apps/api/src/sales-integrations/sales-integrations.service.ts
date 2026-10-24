@@ -62,6 +62,11 @@ export class SalesIntegrationsService {
 				lastName: input.lastName ?? null,
 				companyName: input.companyDto?.name ?? input.company ?? null,
 				campaignNames: input.accountDto?.campaignsName ?? [],
+				accountEmail: input.accountDto?.email?.toLowerCase() ?? null,
+				accountName:
+					[input.accountDto?.firstName, input.accountDto?.lastName]
+						.filter(Boolean)
+						.join(" ") || null,
 			},
 		});
 		await this.trigger.closelyEventReceived(event.id);
@@ -83,6 +88,8 @@ export class SalesIntegrationsService {
 			lastName: row.lastName,
 			companyName: row.companyName,
 			campaignNames: row.campaignNames,
+			accountEmail: row.accountEmail,
+			accountName: row.accountName,
 			contactId: row.contactId,
 			receivedAt: row.receivedAt.toISOString(),
 		}));

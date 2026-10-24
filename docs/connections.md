@@ -234,4 +234,6 @@ Docusign is spelled with a lowercase s since its 2024 rebrand. The note-taker is
 
 Closely posts contact events to `/api/integrations/closely/events`. The endpoint requires `x-terraeagle-webhook-key`. The API stores the event and queues an agent task. The agent links a contact only after an exact email or LinkedIn URL match. The CRM shows unmatched events in the activity feed. Closely remains the source for LinkedIn message content and delivery.
 
+The intake stores the sending account name and email when Closely includes `accountDto`. The sales connection page shows these observed identities and supports searching contact events. The webhook does not prove current account health or provide a complete conversation. The CRM must not present a contact event as a confirmed send.
+
 Reoon verification runs in the agent. The agent stores the result against a CRM contact. The API can require a recent safe result before a CRM email send. This gate does not control sends inside Closely.

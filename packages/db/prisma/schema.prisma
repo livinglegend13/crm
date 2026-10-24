@@ -483,6 +483,8 @@ model CloselyEvent {
   lastName      String?
   companyName   String?
   campaignNames String[] @default([])
+  accountEmail  String?
+  accountName   String?
   contactId     String?
   contact       Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
   occurredAt    DateTime?
