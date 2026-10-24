@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { TeamAgentsIndex } from "@/components/agent-builder/team-agents-index";
-import { UnifiedAgentRuns } from "@/components/agent-builder/unified-agent-runs";
 import {
 	PageShell,
 	PageShellContent,
@@ -41,15 +40,13 @@ export default function AgentsPage() {
 async function PrefetchedTeamAgents() {
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
-	const [agents, campaigns, runs] = await Promise.all([
+	const [agents, campaigns] = await Promise.all([
 		queryClient.fetchQuery(trpc.agents.list.queryOptions()),
 		queryClient.fetchQuery(trpc.gtm.campaigns.queryOptions()),
-		queryClient.fetchQuery(trpc.agents.recentRuns.queryOptions({ limit: 100 })),
 	]);
 
 	return (
 		<HydrateClient>
-			<UnifiedAgentRuns initialRuns={runs} />
 			<TeamAgentsIndex initialAgents={agents} initialCampaigns={campaigns} />
 		</HydrateClient>
 	);

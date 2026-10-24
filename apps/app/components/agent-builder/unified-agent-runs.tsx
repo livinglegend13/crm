@@ -47,9 +47,12 @@ export function UnifiedAgentRuns({ initialRuns }: { initialRuns: Runs }) {
 							<summary className="cursor-pointer list-none rounded-md px-2 py-2 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
 								<span className="block font-medium text-sm">
 									{run.agent.name} ·{" "}
-									{run.context.target?.label ??
+									{(
+										run.context.target?.label ??
+										run.context.campaignName ??
 										run.context.focus ??
-										"General run"}
+										"General run"
+									).slice(0, 120)}
 								</span>
 								<span className="mt-1 block text-muted-foreground text-xs">
 									{run.status.toLowerCase().replaceAll("_", " ")} ·{" "}

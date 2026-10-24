@@ -50,6 +50,12 @@ export function TeamAgentsIndex({
 					</p>
 				</div>
 				<Link
+					href={workspaceUrl("/agents/runs")}
+					className="text-primary text-sm hover:underline"
+				>
+					All run output
+				</Link>
+				<Link
 					href={workspaceUrl("/chat")}
 					className="text-primary text-sm hover:underline"
 				>
