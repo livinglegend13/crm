@@ -339,22 +339,26 @@ export const agentHistoryOutput = z.array(agentRunSummaryOutput);
 
 export const agentRecentRunsInput = z.object({
 	limit: z.number().int().min(1).max(100).default(50),
+	cursor: z.string().optional(),
 });
 
-export const agentRecentRunsOutput = z.array(
-	agentRunSummaryOutput
-		.pick({
-			id: true,
-			status: true,
-			triggerType: true,
-			summary: true,
-			result: true,
-			context: true,
-			createdAt: true,
-			finishedAt: true,
-		})
-		.extend({ agent: z.object({ id: z.string(), name: z.string() }) }),
-);
+export const agentRecentRunsOutput = z.object({
+	entries: z.array(
+		agentRunSummaryOutput
+			.pick({
+				id: true,
+				status: true,
+				triggerType: true,
+				summary: true,
+				result: true,
+				context: true,
+				createdAt: true,
+				finishedAt: true,
+			})
+			.extend({ agent: z.object({ id: z.string(), name: z.string() }) }),
+	),
+	nextCursor: z.string().nullable(),
+});
 
 export type AgentRunSummary = z.infer<typeof agentRunSummaryOutput>;
 

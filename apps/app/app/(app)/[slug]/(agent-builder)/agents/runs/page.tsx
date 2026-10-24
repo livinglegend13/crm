@@ -46,7 +46,7 @@ async function OutputContent({
 }) {
 	const { slug } = await params;
 	const runs = await getServerTrpcClient().agents.recentRuns.query({
-		limit: 100,
+		limit: 25,
 	});
 	return (
 		<>

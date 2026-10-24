@@ -138,12 +138,14 @@ export class AgentRunsService {
 		private readonly trigger: AgentTriggerService,
 	) {}
 
-	async recent(limit: number, userId: string) {
+	async recent(input: { limit: number; cursor?: string }, userId: string) {
 		await this.access.assertMember(userId);
 		const rows = await this.db.agentRun.findMany({
 			where: { agent: { status: { in: [...TEAM_AGENT_STATUSES] } } },
-			orderBy: { createdAt: "desc" },
-			take: limit,
+			orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+			cursor: input.cursor ? { id: input.cursor } : undefined,
+			skip: input.cursor ? 1 : undefined,
+			take: input.limit + 1,
 			select: {
 				id: true,
 				status: true,
@@ -159,13 +161,17 @@ export class AgentRunsService {
 				},
 			},
 		});
-		return rows.map(({ input, actions, ...run }) => ({
-			...run,
-			result: run.result === null ? null : agentRunResult.parse(run.result),
-			context: runContext(input, actions),
-			createdAt: run.createdAt.toISOString(),
-			finishedAt: run.finishedAt?.toISOString() ?? null,
-		}));
+		const page = rows.slice(0, input.limit);
+		return {
+			entries: page.map(({ input, actions, ...run }) => ({
+				...run,
+				result: run.result === null ? null : agentRunResult.parse(run.result),
+				context: runContext(input, actions),
+				createdAt: run.createdAt.toISOString(),
+				finishedAt: run.finishedAt?.toISOString() ?? null,
+			})),
+			nextCursor: rows.length > input.limit ? (page.at(-1)?.id ?? null) : null,
+		};
 	}
 
 	async list(agentId: string, limit: number, userId: string) {

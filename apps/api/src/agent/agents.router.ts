@@ -123,7 +123,7 @@ export class AgentsRouter {
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof agentRecentRunsInput>,
 	) {
-		return this.runs.recent(input.limit, ctx.user.id);
+		return this.runs.recent(input, ctx.user.id);
 	}
 
 	@Query({

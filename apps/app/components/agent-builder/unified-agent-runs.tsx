@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@crm/ui/components/button";
 import { Input } from "@crm/ui/components/input";
 import { Markdown } from "@crm/ui/components/markdown";
 import { useQuery } from "@tanstack/react-query";
@@ -16,12 +17,14 @@ export function UnifiedAgentRuns({ initialRuns }: { initialRuns: Runs }) {
 	const trpc = useTRPC();
 	const workspaceUrl = useWorkspaceUrl();
 	const [search, setSearch] = useState("");
+	const [cursors, setCursors] = useState<(string | undefined)[]>([undefined]);
+	const cursor = cursors.at(-1);
 	const runs = useQuery({
-		...trpc.agents.recentRuns.queryOptions({ limit: 100 }),
-		initialData: initialRuns,
+		...trpc.agents.recentRuns.queryOptions({ limit: 25, cursor }),
+		initialData: cursor ? undefined : initialRuns,
 	});
 	const term = search.trim().toLowerCase();
-	const visible = (runs.data ?? initialRuns).filter((run) =>
+	const visible = (runs.data?.entries ?? []).filter((run) =>
 		`${run.agent.name} ${run.context.focus ?? ""} ${run.context.target?.label ?? ""} ${run.context.campaignName ?? ""} ${run.context.serviceName ?? ""} ${run.summary ?? ""}`
 			.toLowerCase()
 			.includes(term),
@@ -30,13 +33,12 @@ export function UnifiedAgentRuns({ initialRuns }: { initialRuns: Runs }) {
 		<section className="mb-6 rounded-lg border bg-card p-5">
 			<h2 className="font-medium">Agent output across the team</h2>
 			<p className="mt-1 text-muted-foreground text-sm">
-				Recent runs from every agent, newest first. Open a run to read its
-				output.
+				Runs from every agent, newest first. Open a run to read its output.
 			</p>
 			<Input
 				className="mt-4"
 				aria-label="Search agent output"
-				placeholder="Search agent, company, campaign, or service"
+				placeholder="Search this page by agent, company, campaign, or service"
 				value={search}
 				onChange={(event) => setSearch(event.target.value)}
 			/>
@@ -118,11 +120,32 @@ export function UnifiedAgentRuns({ initialRuns }: { initialRuns: Runs }) {
 					No agent runs match this search.
 				</p>
 			) : null}
-			{(runs.data ?? initialRuns).length === 100 ? (
-				<p className="mt-4 text-muted-foreground text-xs">
-					Showing the newest 100 runs. Open an agent for its full history.
-				</p>
-			) : null}
+			<div className="mt-4 flex items-center gap-2">
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={cursors.length === 1 || runs.isFetching}
+					onClick={() => setCursors((current) => current.slice(0, -1))}
+				>
+					Previous
+				</Button>
+				<span className="text-muted-foreground text-xs">
+					Page {cursors.length}
+				</span>
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={!runs.data?.nextCursor || runs.isFetching}
+					onClick={() =>
+						setCursors((current) => [
+							...current,
+							runs.data?.nextCursor ?? undefined,
+						])
+					}
+				>
+					Next
+				</Button>
+			</div>
 		</section>
 	);
 }
