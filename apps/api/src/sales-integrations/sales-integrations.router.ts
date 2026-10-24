@@ -1,4 +1,5 @@
 import {
+	closelyAccountInput,
 	closelyConnectionStatus,
 	closelyEventList,
 } from "@crm/validation/closely";
@@ -38,6 +39,14 @@ export class SalesIntegrationsRouter {
 	@Query({ output: closelyConnectionStatus })
 	async status(@Ctx() ctx: AuthedTrpcContext) {
 		return this.integrations.status(ctx.user.id);
+	}
+
+	@Mutation({ input: closelyAccountInput, output: closelyConnectionStatus })
+	async recordCloselyAccount(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof closelyAccountInput>,
+	) {
+		return this.integrations.recordCloselyAccount(ctx.user.id, input);
 	}
 
 	@Mutation({

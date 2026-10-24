@@ -29,7 +29,7 @@ import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { inboxThreadList, inboxThreadInput, inboxThread } from "@crm/validation/inbox";
-import { closelyEventList, closelyConnectionStatus } from "@crm/validation/closely";
+import { closelyEventList, closelyConnectionStatus, closelyAccountInput } from "@crm/validation/closely";
 import { emailVerificationRow, emailVerificationList } from "@crm/validation/reoon";
 import { savedViewListInput, savedViewListOutput, savedViewCreateInput, savedViewOutput, savedViewUpdateArgs, savedViewIdInput, savedViewDeleteOutput } from "../saved-views/saved-views.contracts";
 import { agentModelOutput, modelCatalogOutput, setAgentModelInput, researchKeyOutput, setResearchKeyInput, archiveRetentionOutput, setArchiveRetentionDaysInput } from "../settings/settings.contracts";
@@ -716,6 +716,10 @@ const appRouter = t.router({
     status: publicProcedure
       .output(closelyConnectionStatus)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    recordCloselyAccount: publicProcedure
+      .input(closelyAccountInput)
+      .output(closelyConnectionStatus)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     setEmailHandoff: publicProcedure
       .input(z.object({ enabled: z.boolean() }))
       .output(closelyConnectionStatus)

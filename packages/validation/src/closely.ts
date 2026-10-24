@@ -55,4 +55,17 @@ export const closelyConnectionStatus = z.object({
 	lastEventAt: z.string().nullable(),
 	emailHandoffEnabled: z.boolean(),
 	canManage: z.boolean(),
+	linkedInName: z.string().nullable(),
+	linkedInUrl: z.string().nullable(),
+	accountEmail: z.string().nullable(),
+	accountCheckedAt: z.string().nullable(),
+});
+
+export const closelyAccountInput = z.object({
+	linkedInName: z.string().trim().min(1).max(200),
+	linkedInUrl: z.url().refine((value) => {
+		const host = new URL(value).hostname.toLowerCase();
+		return host === "linkedin.com" || host.endsWith(".linkedin.com");
+	}),
+	accountEmail: z.email(),
 });

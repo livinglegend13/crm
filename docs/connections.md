@@ -236,4 +236,6 @@ Closely posts contact events to `/api/integrations/closely/events`. The endpoint
 
 The intake stores the sending account name and email when Closely includes `accountDto`. The sales connection page shows these observed identities and supports searching contact events. The webhook does not prove current account health or provide a complete conversation. The CRM must not present a contact event as a confirmed send.
 
+An owner or admin can record the LinkedIn profile and Closely email account shown in Closely's Accounts page. The CRM shows this as a dated account record. It does not call it a live connection check. Account records do not grant sending access.
+
 Reoon verification runs in the agent. The agent stores the result against a CRM contact. The API can require a recent safe result before a CRM email send. This gate does not control sends inside Closely.

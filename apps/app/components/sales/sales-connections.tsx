@@ -30,6 +30,15 @@ export function SalesConnections({
 	const workspaceUrl = useWorkspaceUrl();
 	const [email, setEmail] = useState("");
 	const [activitySearch, setActivitySearch] = useState("");
+	const [linkedInName, setLinkedInName] = useState(
+		initialStatus.linkedInName ?? "",
+	);
+	const [linkedInUrl, setLinkedInUrl] = useState(
+		initialStatus.linkedInUrl ?? "",
+	);
+	const [accountEmail, setAccountEmail] = useState(
+		initialStatus.accountEmail ?? "",
+	);
 	const status = useQuery({
 		...trpc.salesIntegrations.status.queryOptions(),
 		initialData: initialStatus,
@@ -50,6 +59,17 @@ export function SalesConnections({
 				await queryClient.invalidateQueries({
 					queryKey: trpc.salesIntegrations.status.queryKey(),
 				});
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const recordAccount = useMutation(
+		trpc.salesIntegrations.recordCloselyAccount.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries({
+					queryKey: trpc.salesIntegrations.status.queryKey(),
+				});
+				toast.success("Closely account record saved.");
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -90,6 +110,73 @@ export function SalesConnections({
 					Contact events flow from Closely to CRM. Closely does not include the
 					connected LinkedIn account or message delivery in this webhook.
 				</p>
+				{status.data.linkedInUrl ? (
+					<div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+						<a
+							href={status.data.linkedInUrl}
+							target="_blank"
+							rel="noreferrer"
+							className="text-primary hover:underline"
+						>
+							{status.data.linkedInName || "LinkedIn account"}
+						</a>
+						<span>{status.data.accountEmail}</span>
+						<span className="text-muted-foreground">
+							Recorded from Closely{" "}
+							{status.data.accountCheckedAt
+								? new Date(status.data.accountCheckedAt).toLocaleString("en-IN")
+								: ""}
+							. Live status stays in Closely.
+						</span>
+					</div>
+				) : null}
+				<form
+					className="mt-4 flex flex-wrap items-end gap-3"
+					onSubmit={(event) => {
+						event.preventDefault();
+						recordAccount.mutate({ linkedInName, linkedInUrl, accountEmail });
+					}}
+				>
+					<div className="flex min-w-40 flex-1 flex-col gap-2">
+						<Label htmlFor="closely-linkedin-name">LinkedIn account name</Label>
+						<Input
+							id="closely-linkedin-name"
+							value={linkedInName}
+							onChange={(event) => setLinkedInName(event.target.value)}
+							disabled={!status.data.canManage}
+							required
+						/>
+					</div>
+					<div className="flex min-w-48 flex-1 flex-col gap-2">
+						<Label htmlFor="closely-linkedin-url">LinkedIn profile URL</Label>
+						<Input
+							id="closely-linkedin-url"
+							type="url"
+							value={linkedInUrl}
+							onChange={(event) => setLinkedInUrl(event.target.value)}
+							disabled={!status.data.canManage}
+							required
+						/>
+					</div>
+					<div className="flex min-w-48 flex-1 flex-col gap-2">
+						<Label htmlFor="closely-account-email">Closely email account</Label>
+						<Input
+							id="closely-account-email"
+							type="email"
+							value={accountEmail}
+							onChange={(event) => setAccountEmail(event.target.value)}
+							disabled={!status.data.canManage}
+							required
+						/>
+					</div>
+					<Button
+						type="submit"
+						variant="outline"
+						disabled={!status.data.canManage || recordAccount.isPending}
+					>
+						Record account
+					</Button>
+				</form>
 				<div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
 					<Badge variant={status.data.receiving ? "default" : "outline"}>
 						{status.data.receiving

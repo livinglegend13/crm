@@ -1549,6 +1549,10 @@ model AppSetting {
   id String @id
 
   closelyEmailEnabled Boolean @default(false)
+  closelyLinkedinName String?
+  closelyLinkedinUrl String?
+  closelyAccountEmail String?
+  closelyAccountCheckedAt DateTime?
 
   agentModelId String?
 

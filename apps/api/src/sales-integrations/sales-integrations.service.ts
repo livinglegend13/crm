@@ -3,7 +3,7 @@ import { canManageConnections } from "@crm/auth";
 import { type Db } from "@crm/db";
 import { SETTINGS_ID } from "@crm/db/settings";
 import { readAzureSecret } from "@crm/env/azure-vault";
-import { closelyWebhook } from "@crm/validation/closely";
+import { closelyAccountInput, closelyWebhook } from "@crm/validation/closely";
 import {
 	BadRequestException,
 	ForbiddenException,
@@ -104,7 +104,13 @@ export class SalesIntegrationsService {
 			}),
 			this.db.appSetting.findUnique({
 				where: { id: SETTINGS_ID },
-				select: { closelyEmailEnabled: true },
+				select: {
+					closelyEmailEnabled: true,
+					closelyLinkedinName: true,
+					closelyLinkedinUrl: true,
+					closelyAccountEmail: true,
+					closelyAccountCheckedAt: true,
+				},
 			}),
 		]);
 		return {
@@ -116,7 +122,39 @@ export class SalesIntegrationsService {
 			lastEventAt: lastEvent?.receivedAt.toISOString() ?? null,
 			emailHandoffEnabled: setting?.closelyEmailEnabled ?? false,
 			canManage: canManageConnections(role),
+			linkedInName: setting?.closelyLinkedinName ?? null,
+			linkedInUrl: setting?.closelyLinkedinUrl ?? null,
+			accountEmail: setting?.closelyAccountEmail ?? null,
+			accountCheckedAt: setting?.closelyAccountCheckedAt?.toISOString() ?? null,
 		};
+	}
+
+	async recordCloselyAccount(
+		userId: string,
+		input: typeof closelyAccountInput._output,
+	) {
+		const role = await this.access.assertMember(userId);
+		if (!canManageConnections(role))
+			throw new ForbiddenException(
+				"Only an owner or admin can record this account.",
+			);
+		await this.db.appSetting.upsert({
+			where: { id: SETTINGS_ID },
+			create: {
+				id: SETTINGS_ID,
+				closelyLinkedinName: input.linkedInName,
+				closelyLinkedinUrl: input.linkedInUrl,
+				closelyAccountEmail: input.accountEmail.toLowerCase(),
+				closelyAccountCheckedAt: new Date(),
+			},
+			update: {
+				closelyLinkedinName: input.linkedInName,
+				closelyLinkedinUrl: input.linkedInUrl,
+				closelyAccountEmail: input.accountEmail.toLowerCase(),
+				closelyAccountCheckedAt: new Date(),
+			},
+		});
+		return this.status(userId);
 	}
 
 	private async closelySecret(): Promise<string | null> {
