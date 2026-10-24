@@ -20,4 +20,13 @@ describe("outreach quality", () => {
 			}),
 		).not.toThrow();
 	});
+
+	test("rejects verification as a public source", () => {
+		expect(() =>
+			assertOutreachQuality({
+				"Approval-ready email body": "Would a call about SOC testing help?",
+				Sources: "Reoon SAFE verification: 98/100",
+			}),
+		).toThrow("Email verification is an internal contact check");
+	});
 });

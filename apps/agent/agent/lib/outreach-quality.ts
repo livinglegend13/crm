@@ -3,6 +3,8 @@ import { z } from "zod";
 const outreachEmail = z.object({
 	"Approval-ready email subject": z.string().optional(),
 	"Approval-ready email body": z.string().optional(),
+	Sources: z.string().optional().catch(undefined),
+	"Public facts": z.string().optional().catch(undefined),
 });
 
 const internalSignals = [
@@ -25,6 +27,14 @@ export function assertOutreachQuality(value: unknown) {
 	if (internalSignals.some((pattern) => pattern.test(email))) {
 		throw new Error(
 			"Remove email verification vendors, scores, and other internal contact checks from the prospect email. Keep them in internal research only.",
+		);
+	}
+	const publicEvidence = [parsed.data.Sources, parsed.data["Public facts"]]
+		.filter(Boolean)
+		.join("\n");
+	if (internalSignals.some((pattern) => pattern.test(publicEvidence))) {
+		throw new Error(
+			"Email verification is an internal contact check. Remove it from Sources and Public facts. Keep it in CRM facts only.",
 		);
 	}
 }

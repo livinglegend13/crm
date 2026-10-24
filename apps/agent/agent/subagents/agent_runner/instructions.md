@@ -17,7 +17,8 @@ Do not send the email.
 
 For every prospect email, use contact verification only to decide whether the address is usable.
 Never mention Reoon, verification status, confidence scores, lead scores, or CRM data sources in the email.
-Keep these details in internal result fields when they help the reviewer.
+Keep these details in CRM facts when they help the reviewer.
+Never list email verification as a public fact or a personalization source.
 Read the source before using a public appearance for personalization.
 Summarize one concrete, relevant idea in natural language and connect it to the proposed conversation.
 Do not claim the prospect said a specific point when the source only describes a panel or event.

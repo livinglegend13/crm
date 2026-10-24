@@ -75,8 +75,21 @@ export function AgentResultView({
 }: {
 	result: Record<string, ResultValue>;
 }) {
+	const sourceText = [result.Sources, result["Public facts"]]
+		.filter((value): value is string => typeof value === "string")
+		.join("\n");
+	const rejectedSource =
+		/\breoon\b|\b(?:safe|email)\s+verif(?:ied|ication)\b|\b\d{1,3}\s*\/\s*100\b/i.test(
+			sourceText,
+		);
 	return (
 		<div className="flex min-w-0 flex-col gap-5">
+			{rejectedSource ? (
+				<p className="rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
+					This historical run mislabels an internal email check as public
+					evidence. Do not use it for personalization.
+				</p>
+			) : null}
 			{Object.entries(result).map(([key, value]) => (
 				<section
 					key={key}
