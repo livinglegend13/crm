@@ -88,6 +88,38 @@ const recentActivityOutput = z.object({
 
 export const dashboardSummaryOutput = z.object({
 	scope: z.enum(DASHBOARD_SCOPES),
+	gtm: z.object({
+		linkedin: z.object({
+			connected: z.boolean(),
+			name: z.string().nullable(),
+			checkedAt: z.string().nullable(),
+			lastEventAt: z.string().nullable(),
+		}),
+		email: z.object({ connected: z.boolean(), address: z.string().nullable() }),
+		bookedThisWeek: z.number(),
+		pendingDrafts: z.number(),
+		readyCampaigns: z.number(),
+		activity: z.array(
+			z.object({
+				id: z.string(),
+				source: z.enum(["closely", "email", "agent"]),
+				title: z.string(),
+				detail: z.string(),
+				context: z.string().nullable(),
+				at: z.string(),
+				href: z.string(),
+			}),
+		),
+		meetings: z.array(
+			z.object({
+				id: z.string(),
+				title: z.string(),
+				startsAt: z.string(),
+				company: z.string().nullable(),
+				contact: z.string().nullable(),
+			}),
+		),
+	}),
 	reportingCurrency: z.string(),
 	unconverted: unconvertedOutput,
 	pipeline: z.object({

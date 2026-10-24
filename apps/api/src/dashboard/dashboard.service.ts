@@ -60,6 +60,7 @@ export class DashboardService {
 			overdueTasks,
 			recentActivity,
 			unconverted,
+			gtm,
 		] = await Promise.all([
 			this.db.deal.groupBy({
 				by: ["stage"],
@@ -166,6 +167,7 @@ export class DashboardService {
 				},
 			}),
 			this.conversion.unconverted(owned),
+			this.gtmSnapshot(actingUserId),
 		]);
 
 		const stages = OPEN_DEAL_STAGES.map((stage) => {
@@ -237,6 +239,7 @@ export class DashboardService {
 			scope: input.scope,
 			reportingCurrency: base,
 			unconverted,
+			gtm,
 			pipeline: {
 				stages,
 				totalCents: stages.reduce((total, s) => total + s.valueCents, 0),
@@ -284,6 +287,158 @@ export class DashboardService {
 				...entry,
 				createdAt: createdAt.toISOString(),
 				meta: activityMeta.parse(meta),
+			})),
+		};
+	}
+
+	private async gtmSnapshot(userId: string) {
+		const now = new Date();
+		const weekStart = new Date(
+			now.getFullYear(),
+			now.getMonth(),
+			now.getDate() - ((now.getDay() + 6) % 7),
+		);
+		const weekEnd = new Date(now.getTime() + 7 * DAY_MS);
+		const [
+			setting,
+			closely,
+			drafts,
+			runs,
+			meetings,
+			bookedThisWeek,
+			pendingDrafts,
+			campaigns,
+		] = await Promise.all([
+			this.db.appSetting.findFirst({
+				select: {
+					closelyLinkedinName: true,
+					closelyAccountEmail: true,
+					closelyAccountCheckedAt: true,
+				},
+			}),
+			this.db.closelyEvent.findMany({
+				orderBy: { receivedAt: "desc" },
+				take: 8,
+				select: {
+					id: true,
+					trigger: true,
+					firstName: true,
+					lastName: true,
+					companyName: true,
+					campaignNames: true,
+					receivedAt: true,
+					contactId: true,
+				},
+			}),
+			this.db.outreachDraft.findMany({
+				where: { userId },
+				orderBy: { updatedAt: "desc" },
+				take: 8,
+				select: { id: true, subject: true, status: true, updatedAt: true },
+			}),
+			this.db.agentRun.findMany({
+				where: { initiatedById: userId },
+				orderBy: { createdAt: "desc" },
+				take: 8,
+				select: {
+					id: true,
+					status: true,
+					summary: true,
+					createdAt: true,
+					agent: { select: { id: true, name: true } },
+				},
+			}),
+			this.db.calendarEvent.findMany({
+				where: {
+					startsAt: { gte: now, lt: weekEnd },
+					status: { not: "cancelled" },
+					syncedByUserId: userId,
+				},
+				orderBy: { startsAt: "asc" },
+				take: 5,
+				select: {
+					id: true,
+					title: true,
+					startsAt: true,
+					company: { select: { name: true } },
+					contact: { select: { firstName: true, lastName: true } },
+				},
+			}),
+			this.db.calendarEvent.count({
+				where: {
+					startsAt: { gte: weekStart, lt: weekEnd },
+					status: { not: "cancelled" },
+					syncedByUserId: userId,
+				},
+			}),
+			this.db.outreachDraft.count({
+				where: { userId, status: { in: ["DRAFT", "APPROVED"] } },
+			}),
+			this.db.gtmCampaign.count({
+				where: { ownerId: userId, status: "READY" },
+			}),
+		]);
+		const activity = [
+			...closely.map((row) => ({
+				id: row.id,
+				source: "closely" as const,
+				title:
+					[row.firstName, row.lastName].filter(Boolean).join(" ") ||
+					row.companyName ||
+					"Closely contact",
+				detail: row.trigger,
+				context: row.companyName ?? row.campaignNames[0] ?? null,
+				at: row.receivedAt.toISOString(),
+				href: row.contactId
+					? `/contacts?record=contact:${row.contactId}`
+					: "/outreach/integrations",
+			})),
+			...drafts.map((row) => ({
+				id: row.id,
+				source: "email" as const,
+				title: row.subject,
+				detail: row.status.toLowerCase().replaceAll("_", " "),
+				context: null,
+				at: row.updatedAt.toISOString(),
+				href: "/outreach",
+			})),
+			...runs.map((row) => ({
+				id: row.id,
+				source: "agent" as const,
+				title: row.agent.name,
+				detail: row.status.toLowerCase().replaceAll("_", " "),
+				context: row.summary?.slice(0, 100) ?? null,
+				at: row.createdAt.toISOString(),
+				href: `/agents/${row.agent.id}`,
+			})),
+		]
+			.sort((a, b) => b.at.localeCompare(a.at))
+			.slice(0, 12);
+		return {
+			linkedin: {
+				connected: Boolean(setting?.closelyLinkedinName),
+				name: setting?.closelyLinkedinName ?? null,
+				checkedAt: setting?.closelyAccountCheckedAt?.toISOString() ?? null,
+				lastEventAt: closely[0]?.receivedAt.toISOString() ?? null,
+			},
+			email: {
+				connected: Boolean(setting?.closelyAccountEmail),
+				address: setting?.closelyAccountEmail ?? null,
+			},
+			bookedThisWeek,
+			pendingDrafts,
+			readyCampaigns: campaigns,
+			activity,
+			meetings: meetings.map((row) => ({
+				id: row.id,
+				title: row.title ?? "Meeting",
+				startsAt: row.startsAt.toISOString(),
+				company: row.company?.name ?? null,
+				contact: row.contact
+					? [row.contact.firstName, row.contact.lastName]
+							.filter(Boolean)
+							.join(" ")
+					: null,
 			})),
 		};
 	}
