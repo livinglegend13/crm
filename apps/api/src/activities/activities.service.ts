@@ -13,6 +13,7 @@ import type {
 	ActivityCreateInput,
 	ActivityEntry,
 	MyTasksInput,
+	ResearchFeedInput,
 	TimelineCounts,
 	TimelineFilter,
 	TimelineInput,
@@ -77,19 +78,63 @@ export class ActivitiesService {
 		private readonly stamp: ActivityStampService,
 	) {}
 
-	async researchFeed(limit: number) {
+	async researchFeed(input: ResearchFeedInput) {
+		const search: Prisma.ActivityWhereInput = input.query
+			? {
+					OR: [
+						{ subject: { contains: input.query, mode: "insensitive" } },
+						{ body: { contains: input.query, mode: "insensitive" } },
+						{
+							company: {
+								is: {
+									OR: [
+										{ name: { contains: input.query, mode: "insensitive" } },
+										{ domain: { contains: input.query, mode: "insensitive" } },
+									],
+								},
+							},
+						},
+						{
+							contact: {
+								is: {
+									OR: [
+										{
+											firstName: { contains: input.query, mode: "insensitive" },
+										},
+										{
+											lastName: { contains: input.query, mode: "insensitive" },
+										},
+									],
+								},
+							},
+						},
+						{
+							deal: {
+								is: { name: { contains: input.query, mode: "insensitive" } },
+							},
+						},
+					],
+				}
+			: {};
 		const rows = await this.db.activity.findMany({
 			where: {
-				OR: [
-					{ type: ActivityType.ENRICHMENT },
+				AND: [
 					{
-						type: ActivityType.NOTE,
-						meta: { path: ["source"], equals: "agent" },
+						OR: [
+							{ type: ActivityType.ENRICHMENT },
+							{
+								type: ActivityType.NOTE,
+								meta: { path: ["source"], equals: "agent" },
+							},
+						],
 					},
+					search,
 				],
 			},
-			orderBy: { createdAt: "desc" },
-			take: limit,
+			orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+			cursor: input.cursor ? { id: input.cursor } : undefined,
+			skip: input.cursor ? 1 : undefined,
+			take: input.limit + 1,
 			select: {
 				id: true,
 				type: true,
@@ -101,10 +146,14 @@ export class ActivitiesService {
 				deal: { select: { id: true, name: true } },
 			},
 		});
-		return rows.map((row) => ({
-			...row,
-			occurredAt: row.occurredAt?.toISOString() ?? null,
-		}));
+		const page = rows.slice(0, input.limit);
+		return {
+			entries: page.map((row) => ({
+				...row,
+				occurredAt: row.occurredAt?.toISOString() ?? null,
+			})),
+			nextCursor: rows.length > input.limit ? (page.at(-1)?.id ?? null) : null,
+		};
 	}
 
 	async timeline(input: TimelineInput): Promise<TimelineResult> {

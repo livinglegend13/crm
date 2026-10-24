@@ -36,7 +36,7 @@ export class ActivitiesRouter {
 
 	@Query({ input: researchFeedInput, output: researchFeedOutput })
 	researchFeed(@Input() input: z.infer<typeof researchFeedInput>) {
-		return this.activities.researchFeed(input.limit);
+		return this.activities.researchFeed(input);
 	}
 
 	@Query({

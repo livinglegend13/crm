@@ -25,6 +25,7 @@ import { z } from "zod";
 import { runFailureReason } from "@/lib/agent-run-failure";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
+import { AgentResultView } from "./agent-result-view";
 
 type Runs = RouterOutputs["agents"]["history"];
 type Activity = RouterOutputs["agents"]["activity"];
@@ -307,37 +308,25 @@ function ExpandedRun({
 				<RunMeta label="Version" value={String(run.version.number)} last />
 			</div>
 
-			{run.summary ? (
-				<section className="border-b px-4 py-4 sm:px-5">
-					<h3 className="font-semibold text-sm">Summary</h3>
-					<Markdown className="mt-2 text-sm">{run.summary}</Markdown>
-				</section>
-			) : null}
 			{run.result && Object.keys(run.result).length > 0 ? (
 				<section className="border-b px-4 py-4 sm:px-5">
-					<h3 className="font-semibold text-sm">Result</h3>
-					<dl className="mt-3 flex flex-col gap-4">
-						{Object.entries(run.result).map(([label, value]) => (
-							<div className="min-w-0" key={label}>
-								<dt className="font-medium text-muted-foreground text-xs">
-									{label}
-								</dt>
-								<dd className="mt-1 wrap-break-word text-sm">
-									{typeof value === "string" ? (
-										<Markdown className="text-sm">{value}</Markdown>
-									) : (
-										<pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-xs">
-											{JSON.stringify(value, null, 2)}
-										</pre>
-									)}
-								</dd>
-							</div>
-						))}
-					</dl>
+					<h3 className="mb-3 font-semibold text-sm">Run output</h3>
+					<AgentResultView result={run.result} />
 				</section>
 			) : null}
+			{run.summary ? (
+				<details className="border-b px-4 py-4 sm:px-5">
+					<summary className="cursor-pointer font-semibold text-sm">
+						Run summary
+					</summary>
+					<Markdown className="mt-3 text-sm">{run.summary}</Markdown>
+				</details>
+			) : null}
 
-			<div>
+			<details>
+				<summary className="cursor-pointer px-4 py-3 text-sm text-muted-foreground sm:px-5">
+					Execution events · {timeline.length}
+				</summary>
 				{timeline.map((entry) =>
 					entry.kind === "event" ? (
 						<div
@@ -385,7 +374,7 @@ function ExpandedRun({
 						run is too long to display in full.
 					</div>
 				) : null}
-			</div>
+			</details>
 		</div>
 	);
 }

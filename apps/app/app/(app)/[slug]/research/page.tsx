@@ -1,4 +1,3 @@
-import { Markdown } from "@crm/ui/components/markdown";
 import { marketName } from "@crm/validation/gtm-market";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -13,6 +12,7 @@ import {
 	PageShellHeading,
 	PageShellTitle,
 } from "@/components/page-shell";
+import { ResearchBrowser } from "@/components/research/research-browser";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "Research" };
@@ -37,124 +37,26 @@ async function ResearchContent({
 	await connection();
 	const { slug } = await params;
 	const client = getServerTrpcClient();
-	const [agentList, campaigns, researchFeed] = await Promise.all([
-		client.agents.list.query(),
+	const [feed, campaigns] = await Promise.all([
+		client.activities.researchFeed.query({ limit: 20, query: "" }),
 		client.gtm.campaigns.query(),
-		client.activities.researchFeed.query({ limit: 40 }),
 	]);
-	const agents = agentList.filter((agent) =>
-		/research|qualif/i.test(agent.name),
-	);
-	const rows = await Promise.all(
-		agents.map(async (agent) => {
-			const runs = await client.agents.history.query({
-				id: agent.id,
-				limit: 10,
-			});
-			return {
-				agent,
-				runs: await Promise.all(
-					runs.map(async (run) => {
-						const noteId = run.result?.noteActivityId;
-						const companyId = run.actions.find(
-							(action) => action.targetType === "company" && action.targetId,
-						)?.targetId;
-						const timeline =
-							typeof noteId === "string" && companyId
-								? await client.activities.timeline.query({
-										companyId,
-										filter: "all",
-										limit: 100,
-									})
-								: null;
-						const note = timeline?.entries.find((entry) => entry.id === noteId);
-						return { ...run, researchNote: note?.body ?? null };
-					}),
-				),
-			};
-		}),
-	);
-
 	return (
 		<PageShell>
 			<PageShellHeader>
 				<PageShellHeading>
 					<PageShellTitle>Research</PageShellTitle>
 					<PageShellDescription>
-						Review research output for every Terraeagle service. Check sources
-						and unknowns before outreach.
+						Find cited account research across Terraeagle services.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>
 			<PageShellContent>
-				<section className="mb-5 rounded-lg border bg-card p-5">
-					<h2 className="font-medium">Latest research and agent notes</h2>
-					<p className="mt-1 text-muted-foreground text-sm">
-						The newest saved research appears here across all services and
-						records.
-					</p>
-					{researchFeed.length ? (
-						<div className="mt-4 divide-y">
-							{researchFeed.map((entry) => {
-								const record = entry.deal
-									? {
-											label: entry.deal.name,
-											href: `/${slug}/deals?record=deal:${entry.deal.id}`,
-										}
-									: entry.contact
-										? {
-												label: [entry.contact.firstName, entry.contact.lastName]
-													.filter(Boolean)
-													.join(" "),
-												href: `/${slug}/contacts?record=contact:${entry.contact.id}`,
-											}
-										: entry.company
-											? {
-													label: entry.company.name,
-													href: `/${slug}/companies?record=company:${entry.company.id}`,
-												}
-											: null;
-								return (
-									<article key={entry.id} className="py-4 first:pt-0 last:pb-0">
-										<div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
-											<time>
-												{entry.occurredAt
-													? new Date(entry.occurredAt).toLocaleString("en-IN")
-													: "Date unknown"}
-											</time>
-											{record ? (
-												<Link
-													href={record.href}
-													className="text-primary hover:underline"
-												>
-													{record.label}
-												</Link>
-											) : null}
-										</div>
-										<h3 className="mt-1 font-medium text-sm">
-											{entry.subject ?? "Research note"}
-										</h3>
-										{entry.body ? (
-											<Markdown className="mt-2 text-sm">{entry.body}</Markdown>
-										) : (
-											<p className="mt-2 text-muted-foreground text-sm">
-												No details were saved.
-											</p>
-										)}
-									</article>
-								);
-							})}
-						</div>
-					) : (
-						<p className="mt-4 text-muted-foreground text-sm">
-							No research notes have been saved yet.
-						</p>
-					)}
-				</section>
-				<section className="mb-5 rounded-lg border bg-card p-5">
+				<ResearchBrowser initialFeed={feed} />
+				<section className="rounded-lg border bg-card p-5">
 					<h2 className="font-medium">Campaign research</h2>
 					<p className="mt-1 text-muted-foreground text-sm">
-						Open a campaign to view each target’s research and agent handoffs.
+						Open a campaign to view its targets and agent handoffs.
 					</p>
 					<div className="mt-3 grid gap-2 sm:grid-cols-2">
 						{campaigns.map((campaign) => (
@@ -174,135 +76,10 @@ async function ResearchContent({
 					</div>
 					{campaigns.length === 0 ? (
 						<p className="mt-3 text-muted-foreground text-sm">
-							Create a campaign to start service-specific research.
+							Create a campaign to start service research.
 						</p>
 					) : null}
 				</section>
-				<Link
-					href={`/${slug}/companies?contactCoverage=none`}
-					className="mb-5 inline-block text-primary text-sm hover:underline"
-				>
-					Review companies with no contacts
-				</Link>
-				{rows.length === 0 ? (
-					<div className="rounded-lg border border-dashed p-6 text-sm">
-						No research agents are visible in this workspace.
-					</div>
-				) : (
-					<div className="flex flex-col gap-5">
-						{rows.map(({ agent, runs }) => (
-							<section key={agent.id} className="rounded-lg border bg-card p-5">
-								<h2 className="font-medium text-base">{agent.name}</h2>
-								<p className="mt-1 text-muted-foreground text-sm">
-									{runs.length} recent runs
-								</p>
-								{runs.map((run) => {
-									const sourceUrls = [
-										...new Set(
-											(run.researchNote?.match(/https:\/\/[^\s)]+/g) ?? []).map(
-												(url) => url.replace(/[.,;]+$/, ""),
-											),
-										),
-									];
-									const entries = Object.entries(run.result ?? {}).filter(
-										([key, value]) =>
-											!/ActivityId/i.test(key) && typeof value === "string",
-									);
-									const usesOldMetric = /annual storage|PB\/year/i.test(
-										run.researchNote ?? "",
-									);
-									const companyAction = run.actions.find(
-										(action) =>
-											action.targetType === "company" && action.targetId,
-									);
-									return (
-										<div key={run.id} className="mt-4 border-t pt-4">
-											<div className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
-												<span>{run.status.toLowerCase()}</span>
-												<time>
-													{new Date(run.createdAt).toLocaleString("en-IN")}
-												</time>
-												{companyAction?.targetId ? (
-													<Link
-														href={`/${slug}/companies?record=company:${companyAction.targetId}`}
-														className="text-primary hover:underline"
-													>
-														{companyAction.targetLabel || "Open company"}
-													</Link>
-												) : null}
-											</div>
-											{usesOldMetric ? (
-												<p className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
-													This historical note uses an older storage metric.
-													Confirm 1 PB average stored capacity over 12 months
-													before qualification.
-												</p>
-											) : null}
-											{entries.length > 0 ? (
-												<dl className="mt-4 grid gap-4">
-													{entries.map(([key, value]) => (
-														<div key={key}>
-															<dt className="font-medium text-sm">{key}</dt>
-															<dd className="mt-1 whitespace-pre-wrap wrap-break-word text-sm">
-																{value as string}
-															</dd>
-														</div>
-													))}
-												</dl>
-											) : (
-												<p className="mt-4 whitespace-pre-wrap wrap-break-word text-sm">
-													{run.summary || "No research result saved."}
-												</p>
-											)}
-											{sourceUrls.length > 0 ? (
-												<div className="mt-5">
-													<h3 className="font-medium text-sm">
-														Sources in the research note
-													</h3>
-													<ul className="mt-2 flex flex-col gap-1 text-sm">
-														{sourceUrls.map((url) => (
-															<li key={url}>
-																<a
-																	href={url}
-																	target="_blank"
-																	rel="noopener noreferrer"
-																	className="break-all text-primary hover:underline"
-																>
-																	{url}
-																</a>
-															</li>
-														))}
-													</ul>
-												</div>
-											) : (
-												<p className="mt-4 text-muted-foreground text-sm">
-													This run saved no source links. Storage capacity
-													remains unverified.
-												</p>
-											)}
-											{run.researchNote ? (
-												<details className="mt-5 rounded-lg border p-4">
-													<summary className="cursor-pointer font-medium text-sm">
-														Full research note
-													</summary>
-													<p className="mt-4 whitespace-pre-wrap wrap-break-word text-sm">
-														{run.researchNote}
-													</p>
-												</details>
-											) : null}
-										</div>
-									);
-								})}
-								<Link
-									href={`/${slug}/agents/${agent.id}`}
-									className="mt-4 inline-block text-primary text-xs hover:underline"
-								>
-									Open agent and full run history
-								</Link>
-							</section>
-						))}
-					</div>
-				)}
 			</PageShellContent>
 		</PageShell>
 	);

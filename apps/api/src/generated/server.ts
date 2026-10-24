@@ -14,7 +14,7 @@ import { z } from "zod";
 const t = initTRPC.create();
 const publicProcedure = t.procedure;
 import { researchFeedInput, researchFeedOutput, timelineInput, timelineOutput, timelineCountsInput, timelineCountsOutput, myTasksInput, myTasksOutput, activityCreateInput, activityCreateOutput, completeInput, completeOutput } from "../activities/activities.contracts";
-import { agentListOutput, agentReviseInput, agentReviseOutput, agentIdInput, agentFilesOutput, agentSaveFileInput, agentSaveFileOutput, agentByIdOutput, agentHistoryInput, agentHistoryOutput, agentActivityOutput, agentUpdateInput, agentUpdateOutput, agentScheduleInput, agentScheduleOutput, agentDeployInput, agentDeployOutput, agentPauseOutput, agentResumeOutput, agentArchiveOutput, agentRestoreOutput, agentRemoveOutput, agentRunNowInput, agentRunNowOutput, agentRetryRunInput, agentRetryRunOutput, agentCancelRunInput, agentCancelRunOutput } from "../agent/agents.contracts";
+import { agentListOutput, agentReviseInput, agentReviseOutput, agentIdInput, agentFilesOutput, agentSaveFileInput, agentSaveFileOutput, agentByIdOutput, agentHistoryInput, agentHistoryOutput, agentRecentRunsInput, agentRecentRunsOutput, agentActivityOutput, agentUpdateInput, agentUpdateOutput, agentScheduleInput, agentScheduleOutput, agentDeployInput, agentDeployOutput, agentPauseOutput, agentResumeOutput, agentArchiveOutput, agentRestoreOutput, agentRemoveOutput, agentRunNowInput, agentRunNowOutput, agentRetryRunInput, agentRetryRunOutput, agentCancelRunInput, agentCancelRunOutput } from "../agent/agents.contracts";
 import { gtmServices, saveGtmServiceInput, prospectsInput, prospectsOutput, saveFiloReviewInput, filoReview, campaignsOutput, campaignIdInput, campaignDetail, proposalKnowledgeList, campaignWorkflowAgents, addProposalKnowledgeInput, updateProposalKnowledgeStatusInput, campaignCallTaskInput, campaignCallTaskOutput, requestCampaignPlanInput, runCampaignAgentOutput, campaignPlanRunIdInput, campaignPlanStatus, createCampaignInput, runCampaignAgentInput, updateCampaignInput, saveCampaignStepsInput, addCampaignTargetInput, removeCampaignTargetInput, gtmInsights } from "@crm/validation/gtm";
 import { outreachDraftList, outreachStats, outreachSendersOutput, saveOutreachDraftInput, outreachDraft, approveOutreachDraftInput, sendOutreachDraftInput, sendOutreachDraftOutput, regenerateOutreachDraftInput, regenerateOutreachDraftOutput } from "@crm/validation/outreach-draft";
 import { apiKeyListInput, apiKeyListOutput, createApiKeyInput, createApiKeyOutput, revokeApiKeyInput, revokeApiKeyOutput } from "../api-keys/api-keys.contracts";
@@ -87,6 +87,10 @@ const appRouter = t.router({
     history: publicProcedure
       .input(agentHistoryInput)
       .output(agentHistoryOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    recentRuns: publicProcedure
+      .input(agentRecentRunsInput)
+      .output(agentRecentRunsOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     activity: publicProcedure
       .input(agentHistoryInput)

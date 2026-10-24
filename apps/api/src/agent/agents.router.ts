@@ -27,6 +27,8 @@ import {
 	agentIdInput,
 	agentListOutput,
 	agentPauseOutput,
+	agentRecentRunsInput,
+	agentRecentRunsOutput,
 	agentRemoveOutput,
 	agentRestoreOutput,
 	agentResumeOutput,
@@ -114,6 +116,14 @@ export class AgentsRouter {
 		@Input() input: z.infer<typeof agentHistoryInput>,
 	) {
 		return this.runs.list(input.id, input.limit, ctx.user.id);
+	}
+
+	@Query({ input: agentRecentRunsInput, output: agentRecentRunsOutput })
+	recentRuns(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof agentRecentRunsInput>,
+	) {
+		return this.runs.recent(input.limit, ctx.user.id);
 	}
 
 	@Query({

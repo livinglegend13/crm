@@ -25,6 +25,7 @@ import { InjectDatabase } from "../database/database.constants";
 import { AgentAccessService } from "./agent-access.service";
 import { AGENT_DISPATCH } from "./agent-dispatch.config";
 import { AgentTriggerService } from "./agent-trigger.service";
+import { TEAM_AGENT_STATUSES } from "./agent-visibility";
 import type {
 	AgentCancelRunInput,
 	AgentRetryRunInput,
@@ -136,6 +137,36 @@ export class AgentRunsService {
 		private readonly access: AgentAccessService,
 		private readonly trigger: AgentTriggerService,
 	) {}
+
+	async recent(limit: number, userId: string) {
+		await this.access.assertMember(userId);
+		const rows = await this.db.agentRun.findMany({
+			where: { agent: { status: { in: [...TEAM_AGENT_STATUSES] } } },
+			orderBy: { createdAt: "desc" },
+			take: limit,
+			select: {
+				id: true,
+				status: true,
+				triggerType: true,
+				summary: true,
+				result: true,
+				input: true,
+				createdAt: true,
+				finishedAt: true,
+				agent: { select: { id: true, name: true } },
+				actions: {
+					select: { targetType: true, targetId: true, targetLabel: true },
+				},
+			},
+		});
+		return rows.map(({ input, actions, ...run }) => ({
+			...run,
+			result: run.result === null ? null : agentRunResult.parse(run.result),
+			context: runContext(input, actions),
+			createdAt: run.createdAt.toISOString(),
+			finishedAt: run.finishedAt?.toISOString() ?? null,
+		}));
+	}
 
 	async list(agentId: string, limit: number, userId: string) {
 		const agent = await this.readableAgent(agentId, userId);
