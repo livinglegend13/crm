@@ -200,6 +200,12 @@ for (const [name, slug, purpose] of AGENTS) {
 		: baseInstructions;
 	if (existing) {
 		const current = existing.currentVersion;
+		const qualityPolicy =
+			"Use contact verification only to assess address usability. Never mention Reoon, verification status, scores, or CRM data sources in prospect emails. Read each public source before personalizing. Summarize one relevant idea naturally. Do not attribute a panel summary to a speaker without evidence.";
+		const qualityUpgrade =
+			slug === "sales-outbound-strategist" &&
+			current !== null &&
+			!current.instructions.includes(qualityPolicy);
 		const legacyInstructions = baseInstructions
 			.split("\n")
 			.filter(
@@ -239,7 +245,10 @@ for (const [name, slug, purpose] of AGENTS) {
 					`${previousBaseInstructions}\n${previousCampaignInstructions}`) ||
 			current?.instructions === previousInstructions ||
 			current?.instructions === previousPlannerInstructions;
-		if (current && upgrade) {
+		if (current && (upgrade || qualityUpgrade)) {
+			const nextInstructions = qualityUpgrade
+				? `${current.instructions}\n${qualityPolicy}`
+				: instructions;
 			await db.$transaction(async (tx) => {
 				const now = new Date();
 				const version = await tx.agentVersion.create({
@@ -247,7 +256,7 @@ for (const [name, slug, purpose] of AGENTS) {
 						agentId: id,
 						number: current.number + 1,
 						status: "DEPLOYED",
-						instructions,
+						instructions: nextInstructions,
 						manifest: current.manifest as object,
 						modelId: current.modelId,
 						modelContextWindowTokens: current.modelContextWindowTokens,
@@ -265,7 +274,7 @@ for (const [name, slug, purpose] of AGENTS) {
 							versionId: version.id,
 							path: "agent/instructions.md",
 							language: "markdown",
-							content: instructions,
+							content: nextInstructions,
 							previousContent: current.instructions,
 							revision: 1,
 							status: "READY",

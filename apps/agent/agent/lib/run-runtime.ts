@@ -19,6 +19,7 @@ import { AGENT_ACTION_EXECUTORS, isAgentActionType } from "./agent-actions";
 import { readCrmHistory } from "./crm";
 import { DISPATCH } from "./dispatch-config";
 import { searchCrm } from "./lookup";
+import { assertOutreachQuality } from "./outreach-quality";
 import {
 	type LockedAgentRun,
 	lockAgentRun,
@@ -759,6 +760,7 @@ export async function stageRunResult(
 		}
 
 		const result: RunResult = { ...(input.result ?? {}) };
+		assertOutreachQuality(result);
 		if (run.agentId === "terraeagle-marketing-campaign-planner") {
 			const plan = campaignPlanValue.safeParse(result["Campaign plan"]);
 			if (!plan.success) {
