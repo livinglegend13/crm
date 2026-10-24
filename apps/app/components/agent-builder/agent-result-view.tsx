@@ -17,6 +17,16 @@ function label(key: string) {
 		.replace(/^./, (letter) => letter.toUpperCase());
 }
 
+function rejectedEmail(key: string, value: ResultValue) {
+	return (
+		key === "Approval-ready email body" &&
+		typeof value === "string" &&
+		/\breoon\b|\b(?:safe|email)\s+verif(?:ied|ication)\b|\b\d{1,3}\s*\/\s*100\b/i.test(
+			value,
+		)
+	);
+}
+
 function Value({ value }: { value: ResultValue }) {
 	if (value === null)
 		return <span className="text-muted-foreground">Not provided</span>;
@@ -73,6 +83,12 @@ export function AgentResultView({
 					className="min-w-0 border-t pt-4 first:border-t-0 first:pt-0"
 				>
 					<h4 className="mb-2 font-medium text-sm">{label(key)}</h4>
+					{rejectedEmail(key, value) ? (
+						<p className="mb-3 rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
+							Rejected historical email. It includes internal contact checks.
+							Use the saved draft in Outreach.
+						</p>
+					) : null}
 					<Value value={value} />
 				</section>
 			))}
