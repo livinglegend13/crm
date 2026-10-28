@@ -6,7 +6,7 @@
 - API health: https://api.crm.terraeagle.com/health
 - Sign-in: Terraeagle Microsoft 365 accounts.
 - Reporting currency: INR.
-- Company research: Context free tier.
+- Company research: Azure OpenAI and public HTTPS sources. Context is optional.
 - Agent model: `content-engine-gpt-5-mini` on Azure OpenAI.
 
 ## Azure
@@ -22,8 +22,8 @@
 
 ## VM services
 
-- Checkout: `/opt/terraeagle-crm`.
-- Environment: `/opt/terraeagle-crm/.env`, readable only by the VM administrator.
+- Checkouts: versioned directories under `/opt/terraeagle-crm-v*`.
+- Environment: one `.env` in each active checkout, readable only by the VM administrator.
 - PostgreSQL: Docker container `terraeagle-crm-postgres`, bound to loopback.
 - API: `terraeagle-crm-api.service` on loopback port 3001.
 - App: `terraeagle-crm-app.service` on loopback port 3000.
@@ -45,6 +45,15 @@ for dump in /var/backups/terraeagle-crm/*.dump; do pg_restore -l "$dump" > /dev/
 
 The mailbox job checks Microsoft 365 every five minutes. The rates job runs daily.
 Tracking retention and archive pruning also run daily. PostgreSQL dumps run daily.
+
+## Faster releases
+
+Keep the current checkout untouched. Stage the next commit in a new versioned checkout.
+Reuse the previous `node_modules` only when `bun.lock` has not changed.
+Build only services affected by the commit. An app and API change does not rebuild eve.
+Run TypeScript and focused lint checks before the VM build.
+Switch only affected systemd service paths after their builds pass.
+Keep earlier checkouts for rollback. Check each changed service after restart.
 
 ## Sales setup
 

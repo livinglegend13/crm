@@ -45,10 +45,19 @@ export function DraftWorkspace({
 	});
 	const rows = drafts.data ?? initialDrafts;
 	const senders = useQuery(trpc.outreachDrafts.senders.queryOptions());
+	const [showSent, setShowSent] = useState(
+		rows.some(
+			(draft) => draft.runId === selectedRunId && draft.status === "SENT",
+		),
+	);
+	const visibleRows = rows.filter((draft) =>
+		showSent ? draft.status === "SENT" : draft.status !== "SENT",
+	);
 	const [selectedId, setSelectedId] = useState<string | null>(
 		selectedRunId ?? null,
 	);
-	const selected = rows.find((draft) => draft.runId === selectedId) ?? rows[0];
+	const selected =
+		visibleRows.find((draft) => draft.runId === selectedId) ?? visibleRows[0];
 
 	if (rows.length === 0) {
 		return (
@@ -65,9 +74,31 @@ export function DraftWorkspace({
 	return (
 		<div className="flex flex-col gap-6">
 			<MailboxConnections status={senders.data} />
+			<fieldset className="flex flex-wrap items-center gap-2">
+				<legend className="sr-only">Outreach email status</legend>
+				<Button
+					type="button"
+					variant={showSent ? "outline" : "default"}
+					onClick={() => setShowSent(false)}
+				>
+					Drafts ({rows.filter((draft) => draft.status !== "SENT").length})
+				</Button>
+				<Button
+					type="button"
+					variant={showSent ? "default" : "outline"}
+					onClick={() => setShowSent(true)}
+				>
+					Sent ({rows.filter((draft) => draft.status === "SENT").length})
+				</Button>
+			</fieldset>
 			<div className="grid gap-6 lg:grid-cols-[minmax(14rem,18rem)_minmax(0,1fr)]">
 				<nav aria-label="Outreach drafts" className="flex flex-col gap-2">
-					{rows.map((draft) => (
+					{visibleRows.length === 0 ? (
+						<p className="text-muted-foreground text-sm">
+							No {showSent ? "sent emails" : "drafts"} in this view.
+						</p>
+					) : null}
+					{visibleRows.map((draft) => (
 						<button
 							key={draft.runId}
 							type="button"
@@ -499,16 +530,15 @@ function DraftEditor({
 					</p>
 				) : null}
 			</section>
-			<details className="rounded-lg border p-4" open>
+			<details className="rounded-lg border p-4">
 				<summary className="cursor-pointer font-medium text-sm">
-					Research and source record
+					Why this email was drafted
 				</summary>
 				<div className="mt-4 space-y-4 text-sm">
 					{[
 						["Sources", draft.researchSources],
 						["Facts", draft.researchFacts],
 						["Unknowns", draft.researchUnknowns],
-						["Run summary", draft.researchSummary],
 					].map(([label, value]) => (
 						<div key={label}>
 							<h3 className="font-medium">{label}</h3>

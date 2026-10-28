@@ -15,6 +15,7 @@ const inboxMessage = z.object({
 
 export const inboxThreadSummary = z.object({
 	id: z.string(),
+	mailboxAddresses: z.array(z.email()),
 	subject: z.string().nullable(),
 	lastMessageAt: z.string(),
 	company: relatedRecord.nullable(),
@@ -27,10 +28,12 @@ export const inboxThreadSummary = z.object({
 export const inboxThreadListInput = z.object({
 	page: z.number().int().min(1).default(1),
 	view: z.enum(["ACTIVE", "HIDDEN"]).default("ACTIVE"),
+	mailbox: z.email().optional(),
 });
 
 export const inboxThreadList = z.object({
 	items: z.array(inboxThreadSummary),
+	mailboxes: z.array(z.email()),
 	page: z.number(),
 	totalPages: z.number(),
 	total: z.number(),

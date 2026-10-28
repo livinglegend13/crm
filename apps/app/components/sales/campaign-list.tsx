@@ -50,6 +50,16 @@ const DRIP_STEPS = [
 	},
 ] as const;
 
+const NEWSLETTER_STEPS = [
+	{
+		delayDays: 0,
+		subjectPrompt:
+			"Write a clear subject for this Terraeagle update. Do not imply a personal conversation.",
+		bodyPrompt:
+			"Write one useful newsletter update from the supplied material. Explain the relevance to this recipient's role. Include only verified claims. Add a clear unsubscribe sentence and one optional next step. Do not fabricate customer results.",
+	},
+] as const;
+
 export function CampaignList({
 	initialCampaigns,
 	initialServices,
@@ -70,6 +80,9 @@ export function CampaignList({
 		initialData: initialServices,
 	});
 	const [name, setName] = useState("");
+	const [campaignType, setCampaignType] = useState<"DRIP" | "NEWSLETTER">(
+		"DRIP",
+	);
 	const [serviceId, setServiceId] = useState(
 		initialServices.find((service) => service.active)?.id ?? "",
 	);
@@ -155,7 +168,10 @@ export function CampaignList({
 						sourceFileName,
 						sourceMaterial: source || null,
 						steps:
-							planStatus.data?.plan?.steps ?? (source ? [...DRIP_STEPS] : []),
+							campaignType === "NEWSLETTER"
+								? [...NEWSLETTER_STEPS]
+								: (planStatus.data?.plan?.steps ??
+									(source ? [...DRIP_STEPS] : [])),
 					});
 				}}
 			>
@@ -164,6 +180,30 @@ export function CampaignList({
 					Upload sales material, generate a plan, and review every step before
 					activation.
 				</p>
+				<div className="space-y-2">
+					<Label htmlFor="campaign-type">Campaign format</Label>
+					<Select
+						value={campaignType}
+						onValueChange={(value) => {
+							setCampaignType(value as "DRIP" | "NEWSLETTER");
+							setPlanRunId(null);
+						}}
+					>
+						<SelectTrigger id="campaign-type">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="DRIP">Personal outreach sequence</SelectItem>
+							<SelectItem value="NEWSLETTER">Terraeagle newsletter</SelectItem>
+						</SelectContent>
+					</Select>
+					{campaignType === "NEWSLETTER" ? (
+						<p className="text-muted-foreground text-xs">
+							One update per contact. Add recipients from Prospecting. Review
+							and approve each email before sending.
+						</p>
+					) : null}
+				</div>
 				<div className="space-y-2">
 					<Label htmlFor="campaign-service">Service</Label>
 					<Select
@@ -285,7 +325,17 @@ export function CampaignList({
 						placeholder="Or paste product notes here."
 					/>
 				</div>
-				{source ? (
+				{campaignType === "NEWSLETTER" ? (
+					<div className="rounded-lg border p-4 text-sm">
+						<p className="font-medium">Newsletter workflow</p>
+						<p className="mt-2 text-muted-foreground">
+							The campaign creates one update from the material. Add recipients
+							in Prospecting. Each draft keeps the selected sender and needs
+							your approval before sending.
+						</p>
+					</div>
+				) : null}
+				{source && campaignType === "DRIP" ? (
 					<div className="rounded-md border p-4 text-sm">
 						<div className="flex flex-wrap items-center justify-between gap-3">
 							<p className="font-medium">Campaign sequence</p>
@@ -368,7 +418,10 @@ export function CampaignList({
 						create.isPending ||
 						!serviceId ||
 						readingFile ||
-						(planRunId !== null && !planStatus.data?.plan)
+						(campaignType === "NEWSLETTER" && source.length < 20) ||
+						(campaignType === "DRIP" &&
+							planRunId !== null &&
+							!planStatus.data?.plan)
 					}
 				>
 					{create.isPending ? "Creating…" : "Create draft campaign"}

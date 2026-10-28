@@ -10,6 +10,7 @@ import {
 import { Injectable, Logger } from "@nestjs/common";
 import { ActivityStampService } from "../crm/activity-stamp.service";
 import { InjectDatabase } from "../database/database.constants";
+import { outreachSenders } from "../microsoft/sender-mailboxes";
 import type { SyncSource } from "./mailbox.constants";
 import {
 	MailboxMatchService,
@@ -80,7 +81,9 @@ export class ThreadWriterService {
 
 		const repair = existing !== null;
 		const participants = [parsed.from, ...parsed.recipients];
-		const outbound = parsed.from.email === options.mailbox;
+		const outbound =
+			parsed.from.email === options.mailbox ||
+			outreachSenders().includes(parsed.from.email);
 
 		const thread = existing
 			? {

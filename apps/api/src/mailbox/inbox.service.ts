@@ -11,7 +11,9 @@ import {
 } from "@nestjs/common";
 import type { z } from "zod";
 import { InjectDatabase } from "../database/database.constants";
+import { outreachSenders } from "../microsoft/sender-mailboxes";
 import { INBOX } from "./inbox.config";
+import { messageMailboxes } from "./inbox-mailboxes";
 
 function subjectKey(value: string | null): string {
 	return (value ?? "")
@@ -196,6 +198,14 @@ export class InboxService {
 	}
 
 	async list(userId: string, input: z.infer<typeof inboxThreadListInput>) {
+		const user = await this.db.user.findUniqueOrThrow({
+			where: { id: userId },
+			select: { email: true },
+		});
+		const knownAddresses = new Set([
+			user.email.toLowerCase(),
+			...outreachSenders(),
+		]);
 		const feedback = await this.db.emailThreadFeedback.findMany({
 			where: { userId, label: { in: ["NOT_RELEVANT", "SPAM"] } },
 			select: { senderEmail: true },
@@ -233,6 +243,7 @@ export class InboxService {
 						sentAt: true,
 						gmailMessageId: true,
 						outlookWebLink: true,
+						recipients: true,
 					},
 				},
 			},
@@ -255,6 +266,17 @@ export class InboxService {
 			else groups.push([thread]);
 		}
 		const filtered = groups.filter((rows) => {
+			if (
+				input.mailbox &&
+				!rows.some((row) =>
+					row.messages.some((message) =>
+						messageMailboxes(message, knownAddresses).includes(
+							input.mailbox ?? "",
+						),
+					),
+				)
+			)
+				return false;
 			const restored = rows.some((row) =>
 				row.feedback.some((item) => item.label === "RELEVANT"),
 			);
@@ -282,6 +304,7 @@ export class InboxService {
 			input.page * INBOX.pageSize,
 		);
 		return {
+			mailboxes: [...knownAddresses].sort(),
 			items: pageRows.map((rows) => {
 				const thread = rows[0];
 				if (!thread) throw new Error("Empty inbox conversation group.");
@@ -292,6 +315,15 @@ export class InboxService {
 					)?.label;
 				return {
 					id: thread.id,
+					mailboxAddresses: [
+						...new Set(
+							rows.flatMap((row) =>
+								row.messages.flatMap((message) =>
+									messageMailboxes(message, knownAddresses),
+								),
+							),
+						),
+					].sort(),
 					subject: thread.subject,
 					lastMessageAt: thread.lastMessageAt.toISOString(),
 					company: thread.company,
@@ -431,6 +463,14 @@ export class InboxService {
 	}
 
 	async thread(userId: string, id: string) {
+		const user = await this.db.user.findUniqueOrThrow({
+			where: { id: userId },
+			select: { email: true },
+		});
+		const knownAddresses = new Set([
+			user.email.toLowerCase(),
+			...outreachSenders(),
+		]);
 		const thread = await this.db.emailThread.findFirst({
 			where: {
 				id,
@@ -461,6 +501,7 @@ export class InboxService {
 						sentAt: true,
 						gmailMessageId: true,
 						outlookWebLink: true,
+						recipients: true,
 					},
 				},
 			},
@@ -506,6 +547,7 @@ export class InboxService {
 									sentAt: true,
 									gmailMessageId: true,
 									outlookWebLink: true,
+									recipients: true,
 								},
 							},
 						},
@@ -520,6 +562,15 @@ export class InboxService {
 		const label = thread.feedback[0]?.label;
 		return {
 			id: thread.id,
+			mailboxAddresses: [
+				...new Set(
+					(grouped.length ? grouped : [thread]).flatMap((row) =>
+						row.messages.flatMap((message) =>
+							messageMailboxes(message, knownAddresses),
+						),
+					),
+				),
+			].sort(),
 			subject: thread.subject,
 			lastMessageAt: thread.lastMessageAt.toISOString(),
 			company: thread.company,

@@ -25,7 +25,7 @@ import {
 	type GraphMessage,
 } from "./graph.client";
 import { OutreachRepliesService } from "./outreach-replies.service";
-import { senderFromSource } from "./sender-mailboxes";
+import { outreachSenders, senderFromSource } from "./sender-mailboxes";
 
 const MAX_MESSAGES_PER_TICK = 120;
 const PAGE_SIZE = 50;
@@ -210,8 +210,8 @@ export class OutlookSyncService {
 
 				const parsed = this.parse(message);
 				if (!parsed) continue;
-				if (shared && parsed.from.email === mailbox) {
-					await this.replies.captureSent(mailbox, parsed);
+				if (outreachSenders().includes(parsed.from.email)) {
+					await this.replies.captureSent(parsed.from.email, parsed);
 				}
 				const outreach = shared
 					? await this.replies.match(mailbox, parsed)
