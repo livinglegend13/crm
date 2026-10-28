@@ -8,6 +8,7 @@ import Link from "next/link";
 import { z } from "zod";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
+import { AgentResultView } from "./agent-result-view";
 
 const runLink = z.object({
 	runId: z.string().min(1),
@@ -50,6 +51,14 @@ export function ChatAgentRunCard({
 				<Markdown className="mt-3 wrap-break-word leading-5">
 					{run.summary}
 				</Markdown>
+			) : null}
+			{run?.result && Object.keys(run.result).length > 0 ? (
+				<details className="mt-3 rounded-md border p-3">
+					<summary className="cursor-pointer font-medium">View findings and sources</summary>
+					<div className="mt-3">
+						<AgentResultView result={run.result} />
+					</div>
+				</details>
 			) : null}
 			{run?.errorMessage ? (
 				<p className="mt-3 text-destructive">{run.errorMessage}</p>
