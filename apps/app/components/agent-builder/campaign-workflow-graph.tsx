@@ -2,13 +2,7 @@
 
 import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@crm/ui/components/select";
+import { Combobox } from "@crm/ui/components/combobox";
 import {
 	WorkflowConnector,
 	WorkflowNode,
@@ -298,45 +292,38 @@ export function CampaignWorkflowGraph({
 			{rows.length ? (
 				<>
 					<div className="flex flex-wrap gap-3">
-						<Select
+						<Combobox
+							aria-label="Select campaign"
+							searchPlaceholder="Search campaigns"
+							className="w-64"
+							options={rows.map((row) => ({
+								value: row.id,
+								label: row.name,
+								hint: `${row.serviceName} · ${marketName(row.marketCountryCode)}`,
+							}))}
 							value={selectedCampaignId}
 							onValueChange={(value) => {
 								setCampaignId(value);
 								setTargetId("");
 								setSelectedId("research");
 							}}
-						>
-							<SelectTrigger aria-label="Select campaign" className="w-64">
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								{rows.map((row) => (
-									<SelectItem key={row.id} value={row.id}>
-										{row.name} · {row.serviceName} ·{" "}
-										{marketName(row.marketCountryCode)}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
+						/>
 						{detail?.targets.length ? (
-							<Select
+							<Combobox
+								aria-label="Select prospect"
+								searchPlaceholder="Search prospects"
+								className="w-56"
+								options={detail.targets.map((row) => ({
+									value: row.id,
+									label: row.companyName,
+									hint: row.contactName ?? undefined,
+								}))}
 								value={target?.id ?? ""}
 								onValueChange={(value) => {
 									setTargetId(value);
 									setSelectedId("research");
 								}}
-							>
-								<SelectTrigger aria-label="Select prospect" className="w-56">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{detail.targets.map((row) => (
-										<SelectItem key={row.id} value={row.id}>
-											{row.companyName}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+							/>
 						) : null}
 						{detail ? (
 							<Button asChild size="sm" variant="outline">
