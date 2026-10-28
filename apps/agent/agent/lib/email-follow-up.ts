@@ -165,6 +165,18 @@ export async function assessEmailFollowUps(): Promise<number> {
 			},
 		},
 	});
+	const outbound = await db.emailMessage.findMany({
+		where: {
+			threadId: { in: threads.map((thread) => thread.id) },
+			direction: "OUTBOUND",
+			syncedByUserId: { not: null },
+		},
+		select: { threadId: true, syncedByUserId: true },
+		distinct: ["threadId", "syncedByUserId"],
+	});
+	const outboundUsers = new Set(
+		outbound.map((message) => `${message.threadId}:${message.syncedByUserId}`),
+	);
 	let count = 0;
 	for (const thread of threads) {
 		const users = new Set(
@@ -173,6 +185,7 @@ export async function assessEmailFollowUps(): Promise<number> {
 			),
 		);
 		for (const userId of users) {
+			if (!outboundUsers.has(`${thread.id}:${userId}`)) continue;
 			const mine = thread.messages.filter(
 				(message) => message.syncedByUserId === userId,
 			);
