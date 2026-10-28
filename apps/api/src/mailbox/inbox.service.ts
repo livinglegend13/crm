@@ -43,7 +43,14 @@ export class InboxService {
 
 	async followUps(userId: string) {
 		const rows = await this.db.emailFollowUp.findMany({
-			where: { userId },
+			where: {
+				userId,
+				thread: {
+					messages: {
+						some: { syncedByUserId: userId, direction: "OUTBOUND" },
+					},
+				},
+			},
 			orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }],
 			take: 100,
 			select: {
