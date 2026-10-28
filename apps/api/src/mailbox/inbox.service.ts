@@ -292,9 +292,13 @@ export class InboxService {
 			const inherited = inbound
 				? hiddenSenders.has(inbound.fromEmail.toLowerCase())
 				: false;
-			const classified = rows.some((row) =>
-				row.followUps.some((item) => item.relevance === "NOT_RELEVANT"),
-			);
+			const classified =
+				rows.some((row) =>
+					row.followUps.some((item) => item.relevance === "NOT_RELEVANT"),
+				) &&
+				!rows.some((row) =>
+					row.followUps.some((item) => item.relevance === "RELEVANT"),
+				);
 			const hidden = explicit || inherited || classified;
 			return input.view === "HIDDEN" ? hidden : !hidden;
 		});
