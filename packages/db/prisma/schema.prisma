@@ -29,6 +29,7 @@ model User {
   activities     Activity[]          @relation("ActivityAuthor")
   mailboxSyncs   MailboxSync[]
   emailFollowUps EmailFollowUp[]
+  emailThreadFeedback EmailThreadFeedback[]
   factDecisions  ContactFact[]       @relation("FactDecider")
   conversations  AgentConversation[] @relation("ConversationOwner")
   fieldValues    FieldValue[]        @relation("FieldValueUser")
@@ -1444,6 +1445,7 @@ model EmailThread {
 
   messages EmailMessage[]
   followUps EmailFollowUp[]
+  feedback EmailThreadFeedback[]
   activity Activity?
 
   createdAt DateTime @default(now())
@@ -1467,6 +1469,7 @@ model EmailFollowUp {
   dueAt DateTime?
   dueSource String
   confidence String
+  relevance String @default("RELEVANT")
   snoozedUntil DateTime?
   dismissedAt DateTime?
   createdAt DateTime @default(now())
@@ -1475,6 +1478,23 @@ model EmailFollowUp {
   @@unique([userId, threadId])
   @@index([userId, owner, dueAt])
   @@map("emailFollowUp")
+}
+
+model EmailThreadFeedback {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  threadId String
+  thread EmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  label String
+  senderEmail String
+  subject String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, threadId])
+  @@index([userId, senderEmail, label])
+  @@map("emailThreadFeedback")
 }
 
 model EmailMessage {

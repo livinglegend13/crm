@@ -10,6 +10,8 @@ Contact creation and email changes queue Reoon verification without waiting for 
 
 Outlook sync links the sent copy of an approved draft to its RFC message ID and Microsoft conversation ID. Reply matching uses those IDs before subject matching. This handles replies with edited subjects after the sent copy syncs. Subject matching remains the fallback for messages without the IDs.
 
+The inbox groups linked records by contact and normalized subject within 30 days. Company-only records also require the same external sender. The original email messages stay unchanged. The inbox shows 25 conversation groups per page. User feedback marks a whole visible conversation group as unrelated or spam, hides matching future senders, and removes its follow-up cards. Restore feedback marks the group relevant. The agent uses saved feedback examples when it assesses new mail. Inbox reads inspect at most 1000 recent stored threads per request.
+
 ## Logging
 
 `apps/api/src/logging`. `new Logger(Thing.name)` picks up `ContextLogger`. **Never

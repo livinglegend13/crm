@@ -35,6 +35,7 @@ export const DISPATCH = {
 		callCueMaxCharacters: 1600,
 	},
 	followUp: {
+		feedbackExamples: 30,
 		scan: 200,
 		assessPerTick: 3,
 		modelTimeoutMs: 20_000,

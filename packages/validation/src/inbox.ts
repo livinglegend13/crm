@@ -20,15 +20,34 @@ export const inboxThreadSummary = z.object({
 	company: relatedRecord.nullable(),
 	contact: relatedRecord.nullable(),
 	lastMessage: inboxMessage.nullable(),
+	messageCount: z.number(),
+	feedback: z.enum(["NOT_RELEVANT", "SPAM"]).nullable(),
 });
 
-export const inboxThreadList = z.array(inboxThreadSummary);
+export const inboxThreadListInput = z.object({
+	page: z.number().int().min(1).default(1),
+	view: z.enum(["ACTIVE", "HIDDEN"]).default("ACTIVE"),
+});
+
+export const inboxThreadList = z.object({
+	items: z.array(inboxThreadSummary),
+	page: z.number(),
+	totalPages: z.number(),
+	total: z.number(),
+});
 
 export const inboxThreadInput = z.object({ id: z.string().min(1) });
 
 export const inboxThread = inboxThreadSummary.extend({
 	messages: z.array(inboxMessage),
 });
+
+export const inboxThreadFeedbackInput = z.object({
+	threadId: z.string().min(1),
+	label: z.enum(["NOT_RELEVANT", "SPAM", "RESTORE"]),
+});
+
+export const inboxThreadFeedbackResult = z.object({ updated: z.boolean() });
 
 export const inboxFollowUp = z.object({
 	id: z.string(),
@@ -42,6 +61,7 @@ export const inboxFollowUp = z.object({
 	dueAt: z.string().nullable(),
 	dueSource: z.enum(["EXPLICIT", "DEFAULT", "NONE"]),
 	confidence: z.enum(["HIGH", "MEDIUM", "LOW"]),
+	relevance: z.enum(["RELEVANT", "NOT_RELEVANT"]),
 	snoozedUntil: z.string().nullable(),
 	dismissedAt: z.string().nullable(),
 	lastMessageAt: z.string(),

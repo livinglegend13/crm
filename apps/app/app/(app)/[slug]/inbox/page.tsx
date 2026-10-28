@@ -14,6 +14,7 @@ import {
 } from "@/components/page-shell";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 import { FollowUpQueue } from "./follow-up-queue";
+import { ThreadFeedback } from "./thread-feedback";
 
 export const metadata: Metadata = { title: "Inbox" };
 
@@ -22,7 +23,7 @@ export default function InboxPage({
 	searchParams,
 }: {
 	params: Promise<{ slug: string }>;
-	searchParams: Promise<{ thread?: string }>;
+	searchParams: Promise<{ thread?: string; page?: string; view?: string }>;
 }) {
 	return (
 		<Suspense fallback={<PageShellFallback />}>
@@ -36,24 +37,25 @@ async function InboxContent({
 	searchParams,
 }: {
 	params: Promise<{ slug: string }>;
-	searchParams: Promise<{ thread?: string }>;
+	searchParams: Promise<{ thread?: string; page?: string; view?: string }>;
 }) {
 	await connection();
-	const [{ slug }, { thread: requested }] = await Promise.all([
-		params,
-		searchParams,
-	]);
+	const [{ slug }, { thread: requested, page: pageParam, view: viewParam }] =
+		await Promise.all([params, searchParams]);
 	const client = getServerTrpcClient();
+	const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
+	const view =
+		viewParam === "HIDDEN" ? ("HIDDEN" as const) : ("ACTIVE" as const);
 	const [threads, drafts, followUps] = await Promise.all([
-		client.inbox.list.query(),
+		client.inbox.list.query({ page, view }),
 		client.outreachDrafts.list.query(),
 		client.inbox.followUps.query(),
 	]);
-	const selectedId = requested ?? threads[0]?.id;
-	if (requested && !threads.some((thread) => thread.id === requested))
-		notFound();
+	const selectedId = requested ?? threads.items[0]?.id;
 	const selected = selectedId
-		? await client.inbox.thread.query({ id: selectedId })
+		? await client.inbox.thread
+				.query({ id: selectedId })
+				.catch(() => notFound())
 		: null;
 
 	return (
@@ -97,13 +99,40 @@ async function InboxContent({
 						</div>
 					)}
 				</section>
-				<h2 className="mb-3 font-medium text-base">Mailbox conversations</h2>
-				{threads.length === 0 ? (
+				<div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+					<h2 className="font-medium text-base">
+						Mailbox conversations ({threads.total})
+					</h2>
+					<div className="flex gap-3 text-sm">
+						<Link
+							href={`/${slug}/inbox?view=ACTIVE`}
+							className={
+								view === "ACTIVE" ? "text-primary" : "text-muted-foreground"
+							}
+						>
+							Active
+						</Link>
+						<Link
+							href={`/${slug}/inbox?view=HIDDEN`}
+							className={
+								view === "HIDDEN" ? "text-primary" : "text-muted-foreground"
+							}
+						>
+							Hidden
+						</Link>
+					</div>
+				</div>
+				{threads.items.length === 0 ? (
 					<div className="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed px-6 text-center">
-						<h2 className="font-medium text-sm">No CRM conversations yet</h2>
+						<h2 className="font-medium text-sm">
+							{view === "HIDDEN"
+								? "No hidden conversations"
+								: "No CRM conversations yet"}
+						</h2>
 						<p className="mt-2 max-w-md text-muted-foreground text-sm">
-							Only mailbox conversations linked to CRM records appear here.
-							Check your Microsoft connection and sync status.
+							{view === "HIDDEN"
+								? "Mark a conversation as not relevant or spam to remove it from the active inbox."
+								: "Only mailbox conversations linked to CRM records appear here. Check your Microsoft connection and sync status."}
 						</p>
 						<Link
 							href={`/${slug}/settings/connections/microsoft`}
@@ -118,10 +147,10 @@ async function InboxContent({
 							aria-label="Conversations"
 							className="max-h-80 overflow-y-auto border-b md:max-h-none md:border-r md:border-b-0"
 						>
-							{threads.map((thread) => (
+							{threads.items.map((thread) => (
 								<Link
 									key={thread.id}
-									href={`/${slug}/inbox?thread=${encodeURIComponent(thread.id)}`}
+									href={`/${slug}/inbox?view=${view}&page=${page}&thread=${encodeURIComponent(thread.id)}`}
 									aria-current={thread.id === selectedId ? "page" : undefined}
 									className={`block border-b px-4 py-3 outline-none hover:bg-muted/50 focus-visible:bg-muted/50 ${thread.id === selectedId ? "bg-muted" : ""}`}
 								>
@@ -136,6 +165,10 @@ async function InboxContent({
 									<span className="mt-1 block truncate text-muted-foreground text-xs">
 										{thread.lastMessage?.snippet || "No preview"}
 									</span>
+									<span className="mt-1 block text-muted-foreground text-xs">
+										{thread.messageCount} message
+										{thread.messageCount === 1 ? "" : "s"}
+									</span>
 								</Link>
 							))}
 						</nav>
@@ -146,6 +179,12 @@ async function InboxContent({
 							<h2 className="text-lg font-medium">
 								{selected?.subject || "No subject"}
 							</h2>
+							{selected ? (
+								<ThreadFeedback
+									threadId={selected.id}
+									hidden={view === "HIDDEN"}
+								/>
+							) : null}
 							{selected?.company ? (
 								<Link
 									href={`/${slug}/companies?record=company:${selected.company.id}`}
@@ -182,6 +221,32 @@ async function InboxContent({
 						</section>
 					</div>
 				)}
+				{threads.totalPages > 1 ? (
+					<nav
+						aria-label="Inbox pages"
+						className="mt-4 flex items-center justify-end gap-4 text-sm"
+					>
+						{page > 1 ? (
+							<Link
+								href={`/${slug}/inbox?view=${view}&page=${page - 1}`}
+								className="text-primary hover:underline"
+							>
+								Previous
+							</Link>
+						) : null}
+						<span>
+							Page {page} of {threads.totalPages}
+						</span>
+						{page < threads.totalPages ? (
+							<Link
+								href={`/${slug}/inbox?view=${view}&page=${page + 1}`}
+								className="text-primary hover:underline"
+							>
+								Next
+							</Link>
+						) : null}
+					</nav>
+				) : null}
 			</PageShellContent>
 		</PageShell>
 	);

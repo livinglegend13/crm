@@ -28,7 +28,7 @@ import { enrichmentQueueInput } from "@crm/validation/enrichment-queue";
 import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput, fieldEntityInput, fieldFiltersOutput, fieldIdInput, fieldCoverageOutput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput, fieldReorderOutput, fieldDeleteOutput, fieldBackfillOutput } from "../fields/fields.contracts";
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
-import { inboxFollowUpList, inboxFollowUpAction, inboxFollowUpActionResult, inboxThreadList, inboxThreadInput, inboxThread } from "@crm/validation/inbox";
+import { inboxFollowUpList, inboxFollowUpAction, inboxFollowUpActionResult, inboxThreadListInput, inboxThreadList, inboxThreadFeedbackInput, inboxThreadFeedbackResult, inboxThreadInput, inboxThread } from "@crm/validation/inbox";
 import { closelyEventList, closelyConnectionStatus, closelyAccountInput } from "@crm/validation/closely";
 import { emailVerificationRow, emailVerificationStatus, emailVerificationList } from "@crm/validation/reoon";
 import { savedViewListInput, savedViewListOutput, savedViewCreateInput, savedViewOutput, savedViewUpdateArgs, savedViewIdInput, savedViewDeleteOutput } from "../saved-views/saved-views.contracts";
@@ -692,8 +692,13 @@ const appRouter = t.router({
       .output(inboxFollowUpActionResult)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     list: publicProcedure
+      .input(inboxThreadListInput)
       .output(inboxThreadList)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    feedback: publicProcedure
+      .input(inboxThreadFeedbackInput)
+      .output(inboxThreadFeedbackResult)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     thread: publicProcedure
       .input(inboxThreadInput)
       .output(inboxThread)

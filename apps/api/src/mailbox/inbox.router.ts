@@ -3,8 +3,11 @@ import {
 	inboxFollowUpActionResult,
 	inboxFollowUpList,
 	inboxThread,
+	inboxThreadFeedbackInput,
+	inboxThreadFeedbackResult,
 	inboxThreadInput,
 	inboxThreadList,
+	inboxThreadListInput,
 } from "@crm/validation/inbox";
 import { Inject } from "@nestjs/common";
 import {
@@ -43,11 +46,26 @@ export class InboxRouter {
 	}
 
 	@Query({
+		input: inboxThreadListInput,
 		output: inboxThreadList,
 		meta: restMeta("GET", "/inbox/threads", ["Inbox"]),
 	})
-	async list(@Ctx() ctx: AuthedTrpcContext) {
-		return this.inbox.list(ctx.user.id);
+	async list(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof inboxThreadListInput>,
+	) {
+		return this.inbox.list(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: inboxThreadFeedbackInput,
+		output: inboxThreadFeedbackResult,
+	})
+	async feedback(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof inboxThreadFeedbackInput>,
+	) {
+		return this.inbox.feedback(ctx.user.id, input);
 	}
 
 	@Query({
