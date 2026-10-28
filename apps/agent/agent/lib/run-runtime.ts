@@ -8,6 +8,7 @@ import {
 	parseAgentManifest,
 } from "@crm/validation/agent-manifest";
 import { agentRunResult } from "@crm/validation/agent-run-result";
+import { chatAgentRunInput } from "@crm/validation/chat-agent-run";
 import {
 	campaignAgentRunInput,
 	campaignCallSubject,
@@ -119,6 +120,7 @@ export async function approvedRunInstructions(runId: string): Promise<string> {
 		where: { id: runId },
 		select: {
 			status: true,
+			input: true,
 			version: { select: { instructions: true } },
 		},
 	});
@@ -127,7 +129,10 @@ export async function approvedRunInstructions(runId: string): Promise<string> {
 	if (run.status !== "RUNNING") {
 		throw new Error("This agent run is not active.");
 	}
-	return run.version.instructions;
+	const chat = chatAgentRunInput.safeParse(run.input);
+	return chat.success
+		? `${run.version.instructions}\n\nThis is a read-only chat run for ${chat.data.record.label}. Answer only this focus: ${chat.data.focus}. Do not create CRM records or send messages. Finish with a factual summary and sources.`
+		: run.version.instructions;
 }
 
 export async function runContext(runId: string) {
@@ -158,6 +163,28 @@ export async function runContext(runId: string) {
 	}
 
 	const dataScope = manifestDataScope(run.version.manifest);
+	const chat = chatAgentRunInput.safeParse(run.input);
+	if (chat.success) {
+		const selected = chat.data.record;
+		if (
+			dataScope.mode === "SELECTED" &&
+			!dataScope.resources.some(
+				(resource) => resource.kind === selected.kind && resource.id === selected.id,
+			)
+		) {
+			throw new Error("The selected record is outside the agent scope.");
+		}
+		return {
+			...run,
+			recordScope: "SELECTED" as const,
+			allowedResources: [
+				selected,
+				...dataScope.resources.filter((resource) => resource.kind === "integration"),
+			],
+			allowedActions: [],
+			now: new Date().toISOString(),
+		};
+	}
 	return {
 		...run,
 		recordScope: dataScope.mode,
@@ -250,6 +277,7 @@ export async function createRunActivity(
 		select: {
 			id: true,
 			status: true,
+			input: true,
 			agentId: true,
 			initiatedById: true,
 			agent: { select: { createdById: true } },
@@ -257,6 +285,9 @@ export async function createRunActivity(
 		},
 	});
 	if (!run) throw new Error("This agent run is unavailable.");
+	if (chatAgentRunInput.safeParse(run.input).success) {
+		throw new Error("Chat agent runs cannot write CRM activities.");
+	}
 
 	assertActivityAllowed(run.version.manifest, input.type);
 	const dataScope = manifestDataScope(run.version.manifest);
@@ -391,11 +422,15 @@ export async function postRunSlackMessage(
 		select: {
 			id: true,
 			status: true,
+			input: true,
 			agentId: true,
 			version: { select: { manifest: true } },
 		},
 	});
 	if (!run) throw new Error("This agent run is unavailable.");
+	if (chatAgentRunInput.safeParse(run.input).success) {
+		throw new Error("Chat agent runs cannot post Slack messages.");
+	}
 
 	const destination = approvedSlackDestination(run.version.manifest);
 	const text = input.text.trim();
@@ -946,10 +981,11 @@ async function noActionNeededRefusal(
 	tx: Prisma.TransactionClient,
 	run: LockedAgentRun,
 ): Promise<string | null> {
-	const { triggerType } = await tx.agentRun.findUniqueOrThrow({
+	const { triggerType, input } = await tx.agentRun.findUniqueOrThrow({
 		where: { id: run.id },
-		select: { triggerType: true },
+		select: { triggerType: true, input: true },
 	});
+	if (chatAgentRunInput.safeParse(input).success) return null;
 	if (NO_ACTION_TRIGGER_TYPES.has(triggerType)) return null;
 
 	const version = await tx.agentVersion.findUniqueOrThrow({
@@ -965,6 +1001,11 @@ async function requiredActionFailure(
 	tx: Prisma.TransactionClient,
 	run: LockedAgentRun,
 ): Promise<{ code: string; message: string } | null> {
+	const runInput = await tx.agentRun.findUniqueOrThrow({
+		where: { id: run.id },
+		select: { input: true },
+	});
+	if (chatAgentRunInput.safeParse(runInput.input).success) return null;
 	const version = await tx.agentVersion.findUniqueOrThrow({
 		where: { id: run.versionId },
 		select: { manifest: true },

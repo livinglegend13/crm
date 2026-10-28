@@ -85,6 +85,10 @@ import {
 } from "./agent-result";
 import { AgentScopeBadges } from "./agent-scope-badges";
 import {
+	ChatAgentRunCard,
+	chatAgentRunLink,
+} from "./chat-agent-run-card";
+import {
 	ChatAttachmentChip,
 	ChatCommandChip,
 	ChatReferenceChip,
@@ -103,7 +107,7 @@ const BUILDER_STEP_ARTIFACTS = [
 	"agent/README.md",
 ] as const;
 const submissionResource = z.object({
-	kind: z.enum(["integration", "company", "contact", "deal"]),
+	kind: z.enum(["integration", "company", "contact", "deal", "agent"]),
 	id: z.string().min(1),
 	label: z.string().min(1),
 	detail: z.string().nullable().optional().catch(null),
@@ -911,6 +915,12 @@ function AssistantMessage({
 					return (
 						<Fragment key={item.id}>
 							<AgentToolStep item={item} />
+							{conversation && item.tool === "run_team_agent" && !item.pending
+								? (() => {
+										const run = chatAgentRunLink(item.output);
+										return run ? <ChatAgentRunCard result={run} /> : null;
+									})()
+								: null}
 							{results.get(item.id)}
 						</Fragment>
 					);
@@ -1489,6 +1499,7 @@ function ChatUnavailable() {
 }
 
 const RESOURCE_ICONS = {
+	agent: Application,
 	integration: Application,
 	company: Building,
 	contact: User,

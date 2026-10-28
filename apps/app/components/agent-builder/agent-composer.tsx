@@ -4,6 +4,7 @@ import Add from "@carbon/icons-react/es/Add";
 import Application from "@carbon/icons-react/es/Application";
 import ArrowUp from "@carbon/icons-react/es/ArrowUp";
 import AttachmentIcon from "@carbon/icons-react/es/Attachment";
+import Bot from "@carbon/icons-react/es/Bot";
 import Building from "@carbon/icons-react/es/Building";
 import Calendar from "@carbon/icons-react/es/Calendar";
 import Email from "@carbon/icons-react/es/Email";
@@ -1253,7 +1254,7 @@ function ResourcePicker({
 				<Button
 					variant="ghost"
 					size="icon-sm"
-					aria-label="Tag CRM records and integrations"
+					aria-label="Tag a team agent or CRM record"
 					disabled={disabled}
 				>
 					<Icon icon={Add} />
@@ -1270,8 +1271,8 @@ function ResourcePicker({
 									value: event.target.value,
 								})
 							}
-							placeholder="Search CRM"
-							aria-label="Search CRM"
+							placeholder="Search agents and CRM records"
+							aria-label="Search agents and CRM records"
 							disabled={disabled}
 						/>
 						<InputGroupAddon>
@@ -1458,6 +1459,7 @@ function ResourceResultsSkeleton() {
 }
 
 const RESOURCE_ICONS = {
+	agent: Bot,
 	integration: Application,
 	company: Building,
 	contact: User,

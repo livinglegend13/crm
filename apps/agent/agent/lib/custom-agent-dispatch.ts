@@ -36,7 +36,13 @@ const builderSubmissionMessage = z
 	.object({
 		text: z.string().catch(""),
 		resources: z
-			.array(z.object({ label: z.string().catch("") }).catch({ label: "" }))
+			.array(
+				z.object({
+					kind: z.string().catch("record"),
+					id: z.string().catch(""),
+					label: z.string().catch(""),
+				}),
+			)
 			.catch([]),
 		inputResponse: builderInputResponse,
 	})
@@ -849,7 +855,7 @@ export function builderDeliveryMessage(
 	}
 
 	const labels = message.resources
-		.map((resource) => resource.label)
+		.map((resource) => `${resource.kind}:${resource.id} (${resource.label})`)
 		.filter(Boolean);
 	const context = [
 		`Submission id: ${submissionId}`,

@@ -163,7 +163,7 @@ export class ConversationsService {
 			: undefined;
 		const nameParts = search.split(/\s+/).filter(Boolean);
 
-		const [companies, contacts, deals, slackAccount] = await Promise.all([
+		const [companies, contacts, deals, agents, slackAccount] = await Promise.all([
 			this.db.company.findMany({
 				where: contains ? { name: contains } : undefined,
 				orderBy: { lastActivityAt: { sort: "desc", nulls: "last" } },
@@ -209,6 +209,15 @@ export class ConversationsService {
 					company: { select: { name: true, logoUrl: true } },
 				},
 			}),
+			this.db.agentDefinition.findMany({
+				where: {
+					status: "LIVE",
+					name: contains,
+				},
+				orderBy: { name: "asc" },
+				take: 20,
+				select: { id: true, name: true, description: true },
+			}),
 			this.db.account.findFirst({
 				where: { providerId: "slack", accessToken: { not: null } },
 				select: { id: true },
@@ -216,6 +225,13 @@ export class ConversationsService {
 		]);
 
 		return [
+			...agents.map((agent) => ({
+				kind: "agent" as const,
+				id: agent.id,
+				label: agent.name,
+				detail: agent.description,
+				imageUrl: null,
+			})),
 			...(slackAccount && (!search || "slack".includes(search.toLowerCase()))
 				? [
 						{

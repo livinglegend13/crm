@@ -82,7 +82,7 @@ export const conversationEventsInput = z.object({
 export type ConversationEventsInput = z.infer<typeof conversationEventsInput>;
 
 export const builderResource = z.object({
-	kind: z.enum(["integration", "company", "contact", "deal"]),
+	kind: z.enum(["integration", "company", "contact", "deal", "agent"]),
 	id: z.string().trim().min(1).max(160),
 	label: z.string().trim().min(1).max(120),
 	detail: z.string().trim().max(160).nullable().optional(),
@@ -270,7 +270,7 @@ export type BuilderConversationSummary = z.infer<
 >;
 
 export const builderResourceOutput = z.object({
-	kind: z.enum(["integration", "company", "contact", "deal"]),
+	kind: z.enum(["integration", "company", "contact", "deal", "agent"]),
 	id: z.string(),
 	label: z.string(),
 	detail: z.string().nullable(),

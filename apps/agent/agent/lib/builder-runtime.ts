@@ -16,14 +16,14 @@ const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
 
 export type BuilderResource = {
-	kind: "integration" | "company" | "contact" | "deal";
+	kind: "integration" | "company" | "contact" | "deal" | "agent";
 	id: string;
 	label: string;
 };
 
 const taggedResource = z
 	.object({
-		kind: z.enum(["integration", "company", "contact", "deal"]),
+		kind: z.enum(["integration", "company", "contact", "deal", "agent"]),
 		id: z.string(),
 		label: z.string(),
 	})

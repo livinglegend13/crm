@@ -3,6 +3,7 @@ import { type Db, Prisma } from "@crm/db";
 import type { AgentRunStatus } from "@crm/db/enums";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
 import { agentRunResult } from "@crm/validation/agent-run-result";
+import { chatAgentRunInput } from "@crm/validation/chat-agent-run";
 import type {
 	CampaignAgentRunInput,
 	CampaignPlanRunInput,
@@ -64,6 +65,7 @@ function runContext(input: Prisma.JsonValue | null, actions: ActionTarget[]) {
 	const event = eventRunInput.safeParse(input);
 	const manual = manualRunInput.safeParse(input);
 	const scheduled = scheduledRunInput.safeParse(input);
+	const chat = chatAgentRunInput.safeParse(input);
 	const action = actions.find(
 		(item) =>
 			item.targetId &&
@@ -89,7 +91,9 @@ function runContext(input: Prisma.JsonValue | null, actions: ActionTarget[]) {
 						: event.success
 							? event.data.event.type
 							: null;
-	const target = companyId
+	const target = chat.success
+		? chat.data.record
+		: companyId
 		? { kind: "company" as const, id: companyId, label: focus ?? "Company" }
 		: action?.targetId &&
 				(action.targetType === "company" ||
@@ -108,7 +112,9 @@ function runContext(input: Prisma.JsonValue | null, actions: ActionTarget[]) {
 					}
 				: null;
 	return {
-		focus: focus ?? (plan.success ? plan.data.campaignName : null),
+		focus: chat.success
+			? chat.data.focus
+			: (focus ?? (plan.success ? plan.data.campaignName : null)),
 		campaignId: campaign.success
 			? campaign.data.campaignId
 			: workflow.success

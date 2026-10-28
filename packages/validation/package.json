@@ -10,6 +10,7 @@
 		"./agent-manifest": "./src/agent-manifest.ts",
 		"./agent-run-result": "./src/agent-run-result.ts",
 		"./builder-question": "./src/builder-question.ts",
+		"./chat-agent-run": "./src/chat-agent-run.ts",
 		"./closely": "./src/closely.ts",
 		"./enrichment-queue": "./src/enrichment-queue.ts",
 		"./eve-stream": "./src/eve-stream.ts",

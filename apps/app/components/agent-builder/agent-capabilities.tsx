@@ -347,11 +347,12 @@ function ResourcePicker({ onPick }: { onPick: (resource: Resource) => void }) {
 					value={query}
 				/>
 				<div className="flex max-h-64 flex-col overflow-y-auto py-1">
-					{(results.data ?? []).map((resource) => (
+					{(results.data ?? []).filter((resource) => resource.kind !== "agent").map((resource) => (
 						<button
 							className="flex flex-col items-start px-3 py-2 text-left hover:bg-muted"
 							key={`${resource.kind}:${resource.id}`}
 							onClick={() => {
+								if (resource.kind === "agent") return;
 								onPick({
 									id: resource.id,
 									kind: resource.kind,
