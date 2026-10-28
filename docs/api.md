@@ -6,6 +6,8 @@ The GTM router stores India prospect reviews and campaign plans. It queues appro
 
 Outreach delivery also requires `OUTREACH_SENDING_ENABLED=true`. This server-side gate keeps approved drafts unsent while sender-domain DKIM is unresolved.
 
+Contact creation and email changes queue Reoon verification without waiting for a send attempt. The send gate requires a current safe result for the active CRM contact. The contact record and outreach draft show the verification state. A missing or stale result queues another check and blocks sending. An unsafe result blocks sending without another check.
+
 Outlook sync links the sent copy of an approved draft to its RFC message ID and Microsoft conversation ID. Reply matching uses those IDs before subject matching. This handles replies with edited subjects after the sent copy syncs. Subject matching remains the fallback for messages without the IDs.
 
 ## Logging

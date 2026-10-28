@@ -20,6 +20,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
+import { EmailVerificationLabel } from "@/components/sales/email-verification-label";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
@@ -101,6 +103,7 @@ export function DraftWorkspace({
 						canSend={
 							senders.data?.connected === true && senders.data.sendingEnabled
 						}
+						verificationRequired={senders.data?.verificationRequired ?? false}
 						recommendedSender={senders.data?.recommendedSender ?? null}
 						senderReason={senders.data?.reason ?? null}
 					/>
@@ -171,12 +174,14 @@ function DraftEditor({
 	draft,
 	senders,
 	canSend,
+	verificationRequired,
 	senderReason,
 	recommendedSender,
 }: {
 	draft: Draft;
 	senders: string[];
 	canSend: boolean;
+	verificationRequired: boolean;
 	senderReason: string | null;
 	recommendedSender: string | null;
 }) {
@@ -186,6 +191,15 @@ function DraftEditor({
 	const [recipientEmail, setRecipientEmail] = useState(
 		draft.recipientEmail ?? "",
 	);
+	const recipient = recipientEmail.trim().toLowerCase();
+	const validRecipient = z.email().safeParse(recipient).success;
+	const verification = useQuery({
+		...trpc.salesIntegrations.verificationStatusByAddress.queryOptions({
+			email: recipient,
+		}),
+		enabled: validRecipient,
+		refetchInterval: 15_000,
+	});
 	const [subject, setSubject] = useState(draft.subject);
 	const [body, setBody] = useState(draft.body);
 	const [bodyTouched, setBodyTouched] = useState(false);
@@ -336,6 +350,12 @@ function DraftEditor({
 					onChange={(event) => setRecipientEmail(event.target.value)}
 					placeholder="name@company.com"
 				/>
+				{validRecipient ? (
+					<EmailVerificationLabel
+						verification={verification.data}
+						loading={verification.isPending}
+					/>
+				) : null}
 			</div>
 			<div className="flex flex-col gap-2">
 				<Label htmlFor="draft-subject">Subject</Label>
@@ -390,7 +410,12 @@ function DraftEditor({
 				{draft.status === "APPROVED" && !changed ? (
 					<Button
 						type="button"
-						disabled={!canSend || send.isPending || !draft.updatedAt}
+						disabled={
+							!canSend ||
+							send.isPending ||
+							!draft.updatedAt ||
+							(verificationRequired && verification.data?.state !== "SAFE")
+						}
 						onClick={() => {
 							if (draft.updatedAt)
 								send.mutate({

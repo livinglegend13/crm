@@ -6,6 +6,7 @@ import {
 import {
 	emailVerificationList,
 	emailVerificationRow,
+	emailVerificationStatus,
 } from "@crm/validation/reoon";
 import { Inject } from "@nestjs/common";
 import {
@@ -66,6 +67,31 @@ export class SalesIntegrationsRouter {
 		@Input() input: z.infer<typeof contactInput>,
 	) {
 		return this.integrations.emailVerification(ctx.user.id, input.contactId);
+	}
+
+	@Query({ input: contactInput, output: emailVerificationStatus })
+	async verificationStatus(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof contactInput>,
+	) {
+		return this.integrations.emailVerificationStatus(
+			ctx.user.id,
+			input.contactId,
+		);
+	}
+
+	@Query({
+		input: z.object({ email: z.email() }),
+		output: emailVerificationStatus,
+	})
+	async verificationStatusByAddress(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: { email: string },
+	) {
+		return this.integrations.emailVerificationStatusByAddress(
+			ctx.user.id,
+			input.email,
+		);
 	}
 
 	@Mutation({ input: contactInput, output: z.object({ queued: z.boolean() }) })

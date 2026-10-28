@@ -52,6 +52,7 @@ import {
 	type DetailSheetTab,
 } from "@/components/detail-sheet";
 import { LocalDateTime, LocalRelativeDate } from "@/components/local-date-time";
+import { EmailVerificationLabel } from "@/components/sales/email-verification-label";
 import { factsByField } from "@/lib/contact-facts";
 import { ENRICHMENT_POLL_MS, isEnriching } from "@/lib/enrichment-status";
 import { savingField } from "@/lib/pending-field";
@@ -101,6 +102,10 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 		},
 	});
 	const contact = query.data;
+	const verification = useQuery({
+		...trpc.salesIntegrations.verificationStatus.queryOptions({ contactId }),
+		refetchInterval: 15_000,
+	});
 
 	const setPrimary = useMutation(
 		trpc.companies.setPrimaryContact.mutationOptions({
@@ -225,12 +230,18 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 						</DetailSheetStat>
 						<DetailSheetStat label="Email">
 							{contact.email ? (
-								<a
-									href={`mailto:${contact.email}`}
-									className="underline-offset-2 hover:underline"
-								>
-									{contact.email}
-								</a>
+								<div className="flex flex-col gap-1">
+									<a
+										href={`mailto:${contact.email}`}
+										className="underline-offset-2 hover:underline"
+									>
+										{contact.email}
+									</a>
+									<EmailVerificationLabel
+										verification={verification.data}
+										loading={verification.isPending}
+									/>
+								</div>
 							) : (
 								<EmptyCellValue />
 							)}

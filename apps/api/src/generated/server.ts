@@ -30,7 +30,7 @@ import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, 
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { inboxFollowUpList, inboxFollowUpAction, inboxFollowUpActionResult, inboxThreadList, inboxThreadInput, inboxThread } from "@crm/validation/inbox";
 import { closelyEventList, closelyConnectionStatus, closelyAccountInput } from "@crm/validation/closely";
-import { emailVerificationRow, emailVerificationList } from "@crm/validation/reoon";
+import { emailVerificationRow, emailVerificationStatus, emailVerificationList } from "@crm/validation/reoon";
 import { savedViewListInput, savedViewListOutput, savedViewCreateInput, savedViewOutput, savedViewUpdateArgs, savedViewIdInput, savedViewDeleteOutput } from "../saved-views/saved-views.contracts";
 import { agentModelOutput, modelCatalogOutput, setAgentModelInput, researchKeyOutput, setResearchKeyInput, archiveRetentionOutput, setArchiveRetentionDaysInput } from "../settings/settings.contracts";
 import { slackStatusOutput, slackMatchesOutput, slackChannelsInput, slackChannelsOutput, slackJoinChannelInput, slackJoinChannelOutput, slackRefreshPeopleOutput, slackCreateChannelInput, slackCreateChannelOutput, slackDisconnectOutput } from "../slack/slack.contracts";
@@ -738,6 +738,14 @@ const appRouter = t.router({
     emailVerification: publicProcedure
       .input(z.object({ contactId: z.string().min(1) }))
       .output(emailVerificationRow.nullable())
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    verificationStatus: publicProcedure
+      .input(z.object({ contactId: z.string().min(1) }))
+      .output(emailVerificationStatus)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    verificationStatusByAddress: publicProcedure
+      .input(z.object({ email: z.email() }))
+      .output(emailVerificationStatus)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     verifyEmail: publicProcedure
       .input(z.object({ contactId: z.string().min(1) }))

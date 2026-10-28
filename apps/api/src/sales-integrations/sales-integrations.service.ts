@@ -4,6 +4,7 @@ import { type Db } from "@crm/db";
 import { SETTINGS_ID } from "@crm/db/settings";
 import { readAzureSecret } from "@crm/env/azure-vault";
 import { closelyAccountInput, closelyWebhook } from "@crm/validation/closely";
+import { REOON } from "@crm/validation/reoon";
 import {
 	BadRequestException,
 	ForbiddenException,
@@ -182,6 +183,81 @@ export class SalesIntegrationsService {
 			where: { contactId },
 		});
 		return row ? { ...row, checkedAt: row.checkedAt.toISOString() } : null;
+	}
+
+	async emailVerificationStatus(userId: string, contactId: string) {
+		await this.access.assertMember(userId);
+		const contact = await this.db.contact.findUnique({
+			where: { id: contactId },
+			select: { id: true, email: true },
+		});
+		if (!contact) throw new NotFoundException("Contact not found.");
+		return this.verificationStatus(contact);
+	}
+
+	async emailVerificationStatusByAddress(userId: string, email: string) {
+		await this.access.assertMember(userId);
+		const contact = await this.db.contact.findFirst({
+			where: {
+				email: { equals: email, mode: "insensitive" },
+				archivedAt: null,
+			},
+			select: { id: true, email: true },
+		});
+		if (!contact)
+			return {
+				email,
+				state: "NO_CONTACT" as const,
+				status: null,
+				score: null,
+				safe: null,
+				checkedAt: null,
+			};
+		return this.verificationStatus(contact);
+	}
+
+	private async verificationStatus(contact: {
+		id: string;
+		email: string | null;
+	}) {
+		const empty = {
+			email: contact.email,
+			status: null,
+			score: null,
+			safe: null,
+			checkedAt: null,
+		};
+		if (!contact.email) return { ...empty, state: "NO_EMAIL" as const };
+		const [verification, task] = await Promise.all([
+			this.db.emailVerification.findUnique({
+				where: { contactId: contact.id },
+			}),
+			this.db.agentTask.findFirst({
+				where: { contactId: contact.id, kind: "email-verify" },
+				orderBy: { createdAt: "desc" },
+				select: { finishedAt: true, createdAt: true },
+			}),
+		]);
+		const current =
+			verification?.email.toLowerCase() === contact.email.toLowerCase() &&
+			verification.checkedAt.getTime() >= Date.now() - REOON.maximumAgeMs;
+		if (current)
+			return {
+				...empty,
+				state: verification.safe ? ("SAFE" as const) : ("UNSAFE" as const),
+				status: verification.status,
+				score: verification.score,
+				safe: verification.safe,
+				checkedAt: verification.checkedAt.toISOString(),
+			};
+		if (task && !task.finishedAt)
+			return { ...empty, state: "CHECKING" as const };
+		if (
+			task?.finishedAt &&
+			task.createdAt.getTime() >= Date.now() - REOON.retryDelayMs
+		)
+			return { ...empty, state: "FAILED" as const };
+		return { ...empty, state: "PENDING" as const };
 	}
 
 	async verifyEmail(userId: string, contactId: string) {

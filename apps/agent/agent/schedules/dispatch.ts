@@ -9,6 +9,7 @@ import {
 } from "../lib/custom-agent-dispatch";
 import { brief, drainAll, taskAuth } from "../lib/dispatch";
 import { assessEmailFollowUps } from "../lib/email-follow-up";
+import { queueAutomaticEmailVerifications } from "../lib/reoon-verification";
 import { reconcileStaleTasks } from "../lib/stale-tasks";
 
 export default defineSchedule({
@@ -21,6 +22,7 @@ export default defineSchedule({
 
 				(async () => {
 					await reconcileStaleTasks();
+					await queueAutomaticEmailVerifications();
 					await drainAll((task) =>
 						receive(crm, {
 							message: brief(task),

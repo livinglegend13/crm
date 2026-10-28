@@ -20,6 +20,7 @@ import {
 	hasOutreachSignature,
 	withOutreachSignature,
 } from "@crm/validation/outreach-signature";
+import { REOON } from "@crm/validation/reoon";
 import {
 	BadRequestException,
 	ConflictException,
@@ -41,7 +42,6 @@ import { AgentTriggerService } from "./agent-trigger.service";
 import { GTM } from "./gtm.config";
 import { senderAvailability } from "./outreach-rotation";
 import { OUTREACH_ROTATION } from "./outreach-rotation.config";
-import { OUTREACH_VERIFICATION } from "./outreach-verification.config";
 
 async function assertNoCampaignReply(
 	tx: Prisma.TransactionClient,
@@ -222,6 +222,7 @@ export class OutreachDraftsService {
 		return {
 			addresses,
 			sendingEnabled: process.env.OUTREACH_SENDING_ENABLED === "true",
+			verificationRequired: process.env.REOON_VERIFICATION_REQUIRED === "true",
 			replyAlertsEnabled: process.env.OUTREACH_REPLY_ALERTS_ENABLED === "true",
 			pendingReplyAlerts,
 			unknownReplyAlerts,
@@ -557,20 +558,36 @@ export class OutreachDraftsService {
 		}
 		const senderAddress = draft.senderEmail;
 		if (process.env.REOON_VERIFICATION_REQUIRED === "true") {
-			const verification = await this.db.emailVerification.findFirst({
+			const contact = await this.db.contact.findFirst({
 				where: {
 					email: { equals: draft.recipientEmail, mode: "insensitive" },
+					archivedAt: null,
 				},
-				orderBy: { checkedAt: "desc" },
-				select: { safe: true, checkedAt: true },
+				select: {
+					id: true,
+					emailVerification: {
+						select: { email: true, safe: true, checkedAt: true },
+					},
+				},
 			});
-			if (
-				!verification?.safe ||
-				verification.checkedAt.getTime() <
-					Date.now() - OUTREACH_VERIFICATION.maximumAgeMs
-			) {
+			if (!contact)
 				throw new ConflictException(
-					"Verify this recipient with Reoon before sending.",
+					"Add this recipient as a CRM contact. The CRM verifies contact emails automatically.",
+				);
+			const verification = contact.emailVerification;
+			const current =
+				verification?.email.toLowerCase() ===
+					draft.recipientEmail.toLowerCase() &&
+				verification.checkedAt.getTime() >= Date.now() - REOON.maximumAgeMs;
+			if (!current) {
+				await this.trigger.emailVerificationRequested(contact.id);
+				throw new ConflictException(
+					"Recipient verification is pending. The CRM checks contact emails automatically.",
+				);
+			}
+			if (!verification?.safe) {
+				throw new ConflictException(
+					"Reoon marked this address unsafe. Choose another recipient address.",
 				);
 			}
 		}

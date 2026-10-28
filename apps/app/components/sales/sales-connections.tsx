@@ -28,7 +28,6 @@ export function SalesConnections({
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const workspaceUrl = useWorkspaceUrl();
-	const [email, setEmail] = useState("");
 	const [activitySearch, setActivitySearch] = useState("");
 	const [linkedInName, setLinkedInName] = useState(
 		initialStatus.linkedInName ?? "",
@@ -71,13 +70,6 @@ export function SalesConnections({
 				});
 				toast.success("Closely account record saved.");
 			},
-			onError: (error) => toast.error(error.message),
-		}),
-	);
-	const verify = useMutation(
-		trpc.salesIntegrations.verifyEmailByAddress.mutationOptions({
-			onSuccess: () =>
-				toast.success("Verification queued. Results appear below."),
 			onError: (error) => toast.error(error.message),
 		}),
 	);
@@ -307,30 +299,9 @@ export function SalesConnections({
 			<section className="rounded-lg border bg-card p-5">
 				<h2 className="font-medium">Reoon email verification</h2>
 				<p className="mt-1 text-muted-foreground text-sm">
-					Check a CRM contact before email outreach. Only a safe result clears
-					the CRM send check.
+					The CRM checks contact emails automatically. Each contact and outreach
+					draft shows its current result. Only safe addresses can be sent.
 				</p>
-				<form
-					className="mt-4 flex flex-wrap items-end gap-3"
-					onSubmit={(event) => {
-						event.preventDefault();
-						verify.mutate({ email: email.trim() });
-					}}
-				>
-					<div className="flex min-w-64 flex-1 flex-col gap-2">
-						<Label htmlFor="verify-email">Contact email</Label>
-						<Input
-							id="verify-email"
-							type="email"
-							value={email}
-							onChange={(event) => setEmail(event.target.value)}
-							required
-						/>
-					</div>
-					<Button type="submit" disabled={verify.isPending}>
-						Verify email
-					</Button>
-				</form>
 				<div className="mt-5 flex flex-col divide-y">
 					{verifications.data.length === 0 ? (
 						<p className="py-4 text-muted-foreground text-sm">
