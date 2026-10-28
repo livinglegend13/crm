@@ -611,7 +611,7 @@ export class OutreachDraftsService {
 		}
 		const claimed = await this.db.$transaction(async (tx) => {
 			await assertNoCampaignReply(tx, draft.run.input);
-			await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${senderAddress}))`;
+			await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${senderAddress}))`;
 			const now = new Date();
 			const usage = await tx.outreachDraft.groupBy({
 				by: ["senderEmail"],

@@ -17,11 +17,11 @@ export function ThreadFeedback({
 	const trpc = useTRPC();
 	const mutation = useMutation(
 		trpc.inbox.feedback.mutationOptions({
-			onSuccess: (_result, variables) => {
+			onSuccess: () => {
 				toast.success("Inbox feedback saved.");
-				router.replace(
-					`${window.location.pathname}?view=${variables.label === "RESTORE" ? "ACTIVE" : "HIDDEN"}`,
-				);
+				const params = new URLSearchParams(window.location.search);
+				params.delete("thread");
+				router.replace(`${window.location.pathname}?${params.toString()}`);
 				router.refresh();
 			},
 			onError: (error) => toast.error(error.message),
