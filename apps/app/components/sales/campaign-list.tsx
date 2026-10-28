@@ -408,9 +408,6 @@ export function CampaignList({
 							<p className="mt-3 text-muted-foreground text-sm">
 								{campaign.targetCount}{" "}
 								{campaign.targetCount === 1 ? "target" : "targets"} ·{" "}
-								{campaign.serviceLine === "FILO_STORAGE"
-									? `${campaign.qualifiedCount} meet Filo gate · `
-									: ""}
 								{campaign.stepCount} email steps · {campaign.linkedinStepCount}{" "}
 								LinkedIn steps · {campaign.serviceName} ·{" "}
 								{marketName(campaign.marketCountryCode)}

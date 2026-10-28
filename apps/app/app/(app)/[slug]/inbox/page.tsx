@@ -55,7 +55,7 @@ async function InboxContent({
 		: null;
 
 	return (
-		<PageShell className="min-h-0" contained>
+		<PageShell>
 			<PageShellHeader>
 				<PageShellHeading>
 					<PageShellTitle>Inbox</PageShellTitle>
@@ -65,7 +65,7 @@ async function InboxContent({
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>
-			<PageShellContent className="min-h-0">
+			<PageShellContent>
 				<section className="mb-6">
 					<h2 className="font-medium text-base">Drafts ({drafts.length})</h2>
 					{drafts.length === 0 ? (
@@ -110,10 +110,10 @@ async function InboxContent({
 						</Link>
 					</div>
 				) : (
-					<div className="grid min-h-0 flex-1 overflow-hidden rounded-lg border md:grid-cols-[minmax(15rem,20rem)_minmax(0,1fr)]">
+					<div className="grid min-h-96 overflow-hidden rounded-lg border md:h-[min(70vh,48rem)] md:grid-cols-[minmax(15rem,20rem)_minmax(0,1fr)]">
 						<nav
 							aria-label="Conversations"
-							className="min-h-0 overflow-y-auto border-b md:border-r md:border-b-0"
+							className="max-h-80 overflow-y-auto border-b md:max-h-none md:border-r md:border-b-0"
 						>
 							{threads.map((thread) => (
 								<Link

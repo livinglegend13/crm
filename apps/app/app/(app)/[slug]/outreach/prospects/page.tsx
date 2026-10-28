@@ -41,8 +41,8 @@ async function ProspectsContent() {
 				<PageShellHeading>
 					<PageShellTitle>Prospecting</PageShellTitle>
 					<PageShellDescription>
-						Find companies for a service campaign. Review evidence before
-						qualification and outreach.
+						Find a company or contact, add them to a service campaign, then
+						review the outreach draft.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>

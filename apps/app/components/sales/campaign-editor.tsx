@@ -829,13 +829,9 @@ export function CampaignEditor({
 										<p className="font-medium text-sm">{target.companyName}</p>
 										<p className="text-muted-foreground text-xs">
 											{target.contactName ?? "Buyer contact needed"} ·{" "}
-											{row.serviceLine !== "FILO_STORAGE"
-												? "Service fit needs research"
-												: target.decision === "MEETS_GATE"
-													? "Meets gate"
-													: target.decision === "BELOW_GATE"
-														? "Below gate"
-														: "Evidence needed"}
+											{target.contactEmail
+												? "Ready for research and draft"
+												: "Choose a buyer contact"}
 										</p>
 									</div>
 									<Button

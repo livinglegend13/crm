@@ -29,9 +29,9 @@ type Decision = "ALL" | "EVIDENCE_NEEDED" | "MEETS_GATE" | "BELOW_GATE";
 function decisionLabel(value: Decision) {
 	return {
 		ALL: "All decisions",
-		EVIDENCE_NEEDED: "Evidence needed",
-		MEETS_GATE: "Meets 1 PB gate",
-		BELOW_GATE: "Below 1 PB gate",
+		EVIDENCE_NEEDED: "Storage unknown",
+		MEETS_GATE: "Large storage footprint",
+		BELOW_GATE: "Smaller storage footprint",
 	}[value];
 }
 
@@ -106,7 +106,7 @@ export function ProspectBoard({
 					</Select>
 					<p className="text-muted-foreground text-sm">
 						{selectedCampaign?.serviceGuidance ||
-							"Create a campaign to set service qualification guidance."}
+							"Create a service campaign to guide research and outreach."}
 					</p>
 				</div>
 			) : null}
@@ -131,7 +131,7 @@ export function ProspectBoard({
 				</div>
 				{isFilo ? (
 					<div className="w-52 space-y-2">
-						<Label htmlFor="prospect-decision">Qualification</Label>
+						<Label htmlFor="prospect-decision">Optional storage profile</Label>
 						<Select
 							value={decision}
 							onValueChange={(value: Decision) => {
@@ -166,11 +166,12 @@ export function ProspectBoard({
 					? `Prospect search failed: ${prospects.error.message}`
 					: prospects.isPending
 						? `Searching ${market} companies…`
-						: `${prospects.data?.total ?? 0} ${market} companies match.${isFilo ? " Filo fit needs a documented 12-month average." : " Research each service fit before outreach."}`}
+						: `${prospects.data?.total ?? 0} ${market} companies match. Select a contact and add them to the campaign.`}
 			</p>
 			{prospects.isPending || prospects.isError ? null : rows.length === 0 ? (
 				<div className="rounded-lg border border-dashed p-6 text-sm">
-					No {market} companies match these filters.
+					No {market} companies match these filters. Check the linked company
+					country on the contact record, then search again.
 				</div>
 			) : (
 				<div className="space-y-3">
@@ -190,9 +191,9 @@ export function ProspectBoard({
 									</p>
 								</div>
 								<Badge variant="outline">
-									{isFilo
-										? decisionLabel(row.review?.decision ?? "EVIDENCE_NEEDED")
-										: "Service research needed"}
+									{row.campaignIds.includes(selectedCampaignId)
+										? "In campaign"
+										: "Available"}
 								</Badge>
 							</div>
 							{row.contacts.length ? (
@@ -210,7 +211,7 @@ export function ProspectBoard({
 							)}
 							{isFilo && row.review?.evidenceSource ? (
 								<p className="mt-2 text-muted-foreground text-sm">
-									Evidence: {row.review.evidenceSource}
+									Storage research: {row.review.evidenceSource}
 								</p>
 							) : null}
 							<div className="mt-4 flex flex-wrap gap-2">
@@ -226,10 +227,11 @@ export function ProspectBoard({
 									>
 										{editingId === row.companyId
 											? "Close review"
-											: "Review evidence"}
+											: "Storage research"}
 									</Button>
 								) : null}
 								<AddToCampaign
+									key={`${row.companyId}-${selectedCampaignId}`}
 									row={row}
 									campaigns={(campaigns.data ?? []).filter(
 										(campaign) => campaign.id === selectedCampaignId,
@@ -276,9 +278,9 @@ function AddToCampaign({
 }) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
-	const [campaignId, setCampaignId] = useState("");
+	const [campaignId, setCampaignId] = useState(campaigns[0]?.id ?? "");
 	const [contactId, setContactId] = useState(
-		row.review?.buyerContactId ?? "none",
+		row.review?.buyerContactId ?? row.contacts[0]?.id ?? "none",
 	);
 	const add = useMutation(
 		trpc.gtm.addTarget.mutationOptions({
@@ -488,8 +490,8 @@ function ReviewEditor({ row }: { row: Prospect }) {
 				</Select>
 			</div>
 			<p className="text-muted-foreground text-sm">
-				A gate decision needs a documented 12-month average. Annual new data
-				does not count.
+				Storage capacity is optional research. It does not control campaign
+				enrollment.
 			</p>
 			<div className="flex flex-wrap gap-3">
 				<Button type="submit" disabled={save.isPending}>

@@ -132,7 +132,6 @@ export function GtmInsights({
 								<p className="mt-1 text-muted-foreground">
 									{row.companies} companies · {row.campaigns} campaigns ·{" "}
 									{row.campaignTargets} targets
-									{row.qualified ? ` · ${row.qualified} meet Filo gate` : ""}
 									{" · "}
 									{row.drafts} drafts · {row.sent} sent · {row.replies} replies
 								</p>
