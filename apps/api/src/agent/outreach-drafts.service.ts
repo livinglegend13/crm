@@ -38,6 +38,7 @@ import {
 } from "../microsoft/sender-mailboxes";
 import { AgentAccessService } from "./agent-access.service";
 import { AgentTriggerService } from "./agent-trigger.service";
+import { GTM } from "./gtm.config";
 import { senderAvailability } from "./outreach-rotation";
 import { OUTREACH_ROTATION } from "./outreach-rotation.config";
 import { OUTREACH_VERIFICATION } from "./outreach-verification.config";
@@ -50,7 +51,7 @@ async function assertNoCampaignReply(
 	if (!current.success || current.data.stepPosition === 0) return;
 	const runs = await tx.agentRun.findMany({
 		where: {
-			agentId: "terraeagle-sales-outbound-strategist",
+			agentId: GTM.outboundAgentId,
 			input: {
 				path: ["campaignTargetId"],
 				equals: current.data.campaignTargetId,
@@ -95,6 +96,7 @@ export class OutreachDraftsService {
 		const original = await this.db.agentRun.findFirst({
 			where: {
 				id: input.runId,
+				agentId: GTM.outboundAgentId,
 				initiatedById: userId,
 				status: "SUCCEEDED",
 				agent: { status: "LIVE" },
@@ -258,6 +260,7 @@ export class OutreachDraftsService {
 		const runs = await this.db.agentRun.findMany({
 			where: {
 				initiatedById: userId,
+				agentId: GTM.outboundAgentId,
 				status: "SUCCEEDED",
 				agent: { status: { not: "DELETED" } },
 			},
@@ -331,6 +334,7 @@ export class OutreachDraftsService {
 		const run = await this.db.agentRun.findFirst({
 			where: {
 				id: input.runId,
+				agentId: GTM.outboundAgentId,
 				initiatedById: userId,
 				status: "SUCCEEDED",
 				agent: { status: { not: "DELETED" } },
@@ -427,6 +431,7 @@ export class OutreachDraftsService {
 				runId: input.runId,
 				userId,
 				run: {
+					agentId: GTM.outboundAgentId,
 					initiatedById: userId,
 					status: "SUCCEEDED",
 					agent: { status: { not: "DELETED" } },
@@ -513,7 +518,12 @@ export class OutreachDraftsService {
 			);
 		}
 		const draft = await this.db.outreachDraft.findFirst({
-			where: { runId: input.runId, userId, status: "APPROVED" },
+			where: {
+				runId: input.runId,
+				userId,
+				status: "APPROVED",
+				run: { agentId: GTM.outboundAgentId },
+			},
 			include: {
 				run: {
 					select: {

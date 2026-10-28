@@ -1,6 +1,7 @@
 const DAY_MS = 24 * 60 * 60_000;
 
 export const GTM = {
+	outboundAgentId: "terraeagle-sales-outbound-strategist",
 	market: "IN",
 	periodMinDays: 364,
 	periodMaxDays: 366,
