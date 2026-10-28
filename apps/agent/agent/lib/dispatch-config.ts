@@ -34,6 +34,21 @@ export const DISPATCH = {
 		dayMs: DAY_MS,
 		callCueMaxCharacters: 1600,
 	},
+	followUp: {
+		scan: 200,
+		assessPerTick: 3,
+		modelTimeoutMs: 20_000,
+		lookbackDays: 90,
+		maxExplicitDays: 365,
+		messageCount: 4,
+		maxBodyChars: 3500,
+		maxOutputTokens: 350,
+		inboundBusinessDays: 1,
+		outboundBusinessDays: 3,
+		localOffsetMinutes: 330,
+		localReminderUtcHour: 4,
+		dayMs: DAY_MS,
+	},
 
 	task: {
 		leaseMs: 10 * MINUTE_MS,

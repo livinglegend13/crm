@@ -720,3 +720,10 @@ script did not create.
 **`taskFromToken` keys on the `task:` marker, not a fixed prefix**
 (`test/crm-token.spec.ts`). **A channel handler must not assume the token it receives
 is byte-identical to the one it sent.**
+# Manual email follow-up assessment
+
+The dispatch schedule assesses recent synced email threads.
+It assigns the next action to the CRM user, the customer, or a review queue.
+It extracts an explicit due date only from a supported quote in the latest message.
+It uses a business-day reminder when no clear date exists.
+It writes one follow-up row per user and thread without sending mail.

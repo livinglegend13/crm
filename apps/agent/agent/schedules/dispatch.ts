@@ -8,6 +8,7 @@ import {
 	queueDueAgentRuns,
 } from "../lib/custom-agent-dispatch";
 import { brief, drainAll, taskAuth } from "../lib/dispatch";
+import { assessEmailFollowUps } from "../lib/email-follow-up";
 import { reconcileStaleTasks } from "../lib/stale-tasks";
 
 export default defineSchedule({
@@ -16,6 +17,7 @@ export default defineSchedule({
 		waitUntil(
 			Promise.all([
 				sweepBlankFacts(),
+				assessEmailFollowUps(),
 
 				(async () => {
 					await reconcileStaleTasks();

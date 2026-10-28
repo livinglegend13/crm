@@ -332,3 +332,10 @@ Read it before touching any amount, total, chart or rate.
 - **Background writes need polling, not invalidation** — `refetchInterval` while
   `PENDING`/`RUNNING`, via `isEnriching()` and `ENRICHMENT_POLL_MS`. **Lists poll too,
   not just the sheet.**
+# Manual email follow-up queue
+
+The Microsoft mailbox sync stores sent and received messages in email threads.
+The agent assesses the latest synced message for each user and stores one follow-up state per thread.
+The Inbox API returns only the signed-in user's follow-up rows.
+The user can snooze, complete, or reopen a row.
+New mail resets these actions after the agent assesses it.

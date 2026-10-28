@@ -13,6 +13,7 @@ import {
 	PageShellTitle,
 } from "@/components/page-shell";
 import { getServerTrpcClient } from "@/lib/trpc/server";
+import { FollowUpQueue } from "./follow-up-queue";
 
 export const metadata: Metadata = { title: "Inbox" };
 
@@ -43,9 +44,10 @@ async function InboxContent({
 		searchParams,
 	]);
 	const client = getServerTrpcClient();
-	const [threads, drafts] = await Promise.all([
+	const [threads, drafts, followUps] = await Promise.all([
 		client.inbox.list.query(),
 		client.outreachDrafts.list.query(),
+		client.inbox.followUps.query(),
 	]);
 	const selectedId = requested ?? threads[0]?.id;
 	if (requested && !threads.some((thread) => thread.id === requested))
@@ -66,6 +68,7 @@ async function InboxContent({
 				</PageShellHeading>
 			</PageShellHeader>
 			<PageShellContent>
+				<FollowUpQueue initialRows={followUps} />
 				<section className="mb-6">
 					<h2 className="font-medium text-base">Drafts ({drafts.length})</h2>
 					{drafts.length === 0 ? (

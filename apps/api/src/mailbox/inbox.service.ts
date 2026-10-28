@@ -1,5 +1,11 @@
 import type { Db } from "@crm/db";
-import { Injectable, NotFoundException } from "@nestjs/common";
+import type { inboxFollowUpAction } from "@crm/validation/inbox";
+import {
+	BadRequestException,
+	Injectable,
+	NotFoundException,
+} from "@nestjs/common";
+import type { z } from "zod";
 import { InjectDatabase } from "../database/database.constants";
 
 type StoredMessage = {
@@ -34,6 +40,100 @@ function messageOf(message: StoredMessage) {
 @Injectable()
 export class InboxService {
 	constructor(@InjectDatabase() private readonly db: Db) {}
+
+	async followUps(userId: string) {
+		const rows = await this.db.emailFollowUp.findMany({
+			where: { userId },
+			orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }],
+			take: 100,
+			select: {
+				id: true,
+				threadId: true,
+				owner: true,
+				reason: true,
+				evidenceQuote: true,
+				dueAt: true,
+				dueSource: true,
+				confidence: true,
+				snoozedUntil: true,
+				dismissedAt: true,
+				thread: {
+					select: {
+						subject: true,
+						lastMessageAt: true,
+						company: { select: { id: true, name: true } },
+						contact: {
+							select: { id: true, firstName: true, lastName: true },
+						},
+						messages: {
+							where: { syncedByUserId: userId },
+							orderBy: { sentAt: "desc" },
+							take: 1,
+							select: {
+								id: true,
+								direction: true,
+								fromEmail: true,
+								fromName: true,
+								snippet: true,
+								body: true,
+								sentAt: true,
+								gmailMessageId: true,
+								outlookWebLink: true,
+							},
+						},
+					},
+				},
+			},
+		});
+		return rows.map((row) => ({
+			id: row.id,
+			threadId: row.threadId,
+			subject: row.thread.subject,
+			company: row.thread.company,
+			contact: row.thread.contact
+				? {
+						id: row.thread.contact.id,
+						name: [row.thread.contact.firstName, row.thread.contact.lastName]
+							.filter(Boolean)
+							.join(" "),
+					}
+				: null,
+			owner: row.owner,
+			reason: row.reason,
+			evidenceQuote: row.evidenceQuote,
+			dueAt: row.dueAt?.toISOString() ?? null,
+			dueSource: row.dueSource,
+			confidence: row.confidence,
+			snoozedUntil: row.snoozedUntil?.toISOString() ?? null,
+			dismissedAt: row.dismissedAt?.toISOString() ?? null,
+			lastMessageAt: row.thread.lastMessageAt.toISOString(),
+			lastMessage: row.thread.messages[0]
+				? messageOf(row.thread.messages[0])
+				: null,
+		}));
+	}
+
+	async followUpAction(
+		userId: string,
+		input: z.infer<typeof inboxFollowUpAction>,
+	) {
+		const until = input.until ? new Date(input.until) : null;
+		if (
+			input.action === "SNOOZE" &&
+			(!until || Number.isNaN(until.getTime()) || until <= new Date())
+		)
+			throw new BadRequestException("Choose a future reminder time.");
+		const outcome = await this.db.emailFollowUp.updateMany({
+			where: { userId, threadId: input.threadId },
+			data:
+				input.action === "DISMISS"
+					? { dismissedAt: new Date(), snoozedUntil: null }
+					: input.action === "SNOOZE"
+						? { snoozedUntil: until, dismissedAt: null }
+						: { dismissedAt: null, snoozedUntil: null },
+		});
+		return { updated: outcome.count === 1 };
+	}
 
 	async list(userId: string) {
 		const threads = await this.db.emailThread.findMany({
