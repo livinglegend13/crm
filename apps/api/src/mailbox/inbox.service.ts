@@ -281,9 +281,14 @@ export class InboxService {
 				row.feedback.some((item) => item.label === "RELEVANT"),
 			);
 			if (restored) return input.view === "ACTIVE";
+			const hasRelevantFollowUp = rows.some((row) =>
+				row.followUps.some((item) => item.relevance === "RELEVANT"),
+			);
 			const explicit = rows.some((row) =>
 				row.feedback.some(
-					(item) => item.label === "NOT_RELEVANT" || item.label === "SPAM",
+					(item) =>
+						item.label === "SPAM" ||
+						(item.label === "NOT_RELEVANT" && !hasRelevantFollowUp),
 				),
 			);
 			const inbound = rows
@@ -295,10 +300,7 @@ export class InboxService {
 			const classified =
 				rows.some((row) =>
 					row.followUps.some((item) => item.relevance === "NOT_RELEVANT"),
-				) &&
-				!rows.some((row) =>
-					row.followUps.some((item) => item.relevance === "RELEVANT"),
-				);
+				) && !hasRelevantFollowUp;
 			const hidden = explicit || inherited || classified;
 			return input.view === "HIDDEN" ? hidden : !hidden;
 		});
