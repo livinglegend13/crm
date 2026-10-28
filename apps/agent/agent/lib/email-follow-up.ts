@@ -178,7 +178,7 @@ export async function assessEmailFollowUps(): Promise<number> {
 			},
 			feedback: { select: { userId: true, label: true } },
 			followUps: {
-				select: { userId: true, assessedMessageId: true },
+				select: { userId: true, assessedMessageId: true, relevance: true },
 			},
 		},
 	});
@@ -198,7 +198,10 @@ export async function assessEmailFollowUps(): Promise<number> {
 			if (!latest) continue;
 			if (
 				thread.followUps.some(
-					(row) => row.userId === userId && row.assessedMessageId === latest.id,
+					(row) =>
+						row.userId === userId &&
+						row.assessedMessageId === latest.id &&
+						row.relevance !== "UNASSESSED",
 				)
 			)
 				continue;

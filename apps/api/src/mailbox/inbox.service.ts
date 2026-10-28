@@ -75,7 +75,7 @@ export class InboxService {
 		const rows = await this.db.emailFollowUp.findMany({
 			where: {
 				userId,
-				relevance: "RELEVANT",
+				relevance: { in: ["RELEVANT", "UNASSESSED"] },
 				thread: {
 					feedback: {
 						none: { userId, label: { in: ["NOT_RELEVANT", "SPAM"] } },

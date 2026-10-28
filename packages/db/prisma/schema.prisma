@@ -1469,7 +1469,7 @@ model EmailFollowUp {
   dueAt DateTime?
   dueSource String
   confidence String
-  relevance String @default("RELEVANT")
+  relevance String @default("UNASSESSED")
   snoozedUntil DateTime?
   dismissedAt DateTime?
   createdAt DateTime @default(now())

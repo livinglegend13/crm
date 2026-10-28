@@ -50,6 +50,7 @@ The dispatch tick also queues one campaign target run per minute across READY In
 The dispatch schedule also queues Reoon checks for contacts with new, changed, or expired email verification. It queues five checks per tick and at most 100 checks per rolling day. A pending task or a check attempted within the last day suppresses another task. A missing Reoon key removes this capability. The direct lane calls Reoon and stores the result on the contact.
 
 The email follow-up pass assesses sales relevance alongside the next action. It reads user feedback examples and treats newsletter, automated alert, and unrelated mail as not relevant. The inbox hides those assessments. Explicit user feedback takes precedence and stops further assessment for that user and thread.
+Existing follow-ups start with UNASSESSED relevance and receive a fresh classification on the next agent pass.
 
 `schedules/dispatch.ts`, split by `DIRECT_KINDS` in `@crm/db/agent-tasks`.
 
