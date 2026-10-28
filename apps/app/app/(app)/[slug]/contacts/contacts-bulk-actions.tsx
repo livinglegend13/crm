@@ -21,6 +21,7 @@ import {
 	BulkOwnerMenu,
 	reportBulk,
 } from "@/components/crm/bulk-actions";
+import { CampaignBulkMenu } from "@/components/crm/campaign-bulk-menu";
 import { CompanyMenuSearch } from "@/components/crm/company-picker";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -163,6 +164,7 @@ export function ContactsBulkActions({
 			open={menuOpen}
 			onOpenChange={setMenuOpen}
 		>
+			<CampaignBulkMenu ids={ids} kind="contact" onDone={onDone} />
 			<BulkOwnerMenu
 				users={users.data ?? []}
 				unassignedLabel="Nobody"

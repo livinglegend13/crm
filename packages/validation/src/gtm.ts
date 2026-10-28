@@ -459,6 +459,17 @@ export const addCampaignTargetInput = campaignIdInput.extend({
 	contactId: z.string().nullable(),
 });
 
+export const addCampaignTargetsInput = campaignIdInput.extend({
+	kind: z.enum(["company", "contact"]),
+	ids: z.array(z.string().min(1)).min(1).max(100),
+});
+
+export const addCampaignTargetsOutput = z.object({
+	added: z.number().int(),
+	skipped: z.number().int(),
+	reasons: z.array(z.string()),
+});
+
 export const removeCampaignTargetInput = campaignIdInput.extend({
 	targetId: z.string().min(1),
 });
@@ -497,6 +508,7 @@ export type CreateCampaignInput = z.infer<typeof createCampaignInput>;
 export type UpdateCampaignInput = z.infer<typeof updateCampaignInput>;
 export type SaveCampaignStepsInput = z.infer<typeof saveCampaignStepsInput>;
 export type AddCampaignTargetInput = z.infer<typeof addCampaignTargetInput>;
+export type AddCampaignTargetsInput = z.infer<typeof addCampaignTargetsInput>;
 export type RemoveCampaignTargetInput = z.infer<
 	typeof removeCampaignTargetInput
 >;

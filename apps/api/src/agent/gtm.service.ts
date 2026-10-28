@@ -7,6 +7,7 @@ import {
 import { agentRunResult } from "@crm/validation/agent-run-result";
 import type {
 	AddCampaignTargetInput,
+	AddCampaignTargetsInput,
 	AddProposalKnowledgeInput,
 	CampaignCallTaskInput,
 	CreateCampaignInput,
@@ -1102,6 +1103,78 @@ export class GtmService {
 			update: { contactId: input.contactId },
 		});
 		return this.campaign(userId, input.id);
+	}
+
+	async addTargets(userId: string, input: AddCampaignTargetsInput) {
+		await this.access.assertMember(userId);
+		const campaign = await this.db.gtmCampaign.findUnique({
+			where: { id: input.id },
+			select: { id: true, marketCountryCode: true },
+		});
+		if (!campaign) throw new NotFoundException("Campaign not found.");
+		const ids = [...new Set(input.ids)];
+		const selected =
+			input.kind === "company"
+				? await this.db.company.findMany({
+						where: {
+							id: { in: ids },
+							archivedAt: null,
+							AND: [marketCompanies(campaign.marketCountryCode)],
+						},
+						select: { id: true },
+					})
+				: await this.db.contact.findMany({
+						where: {
+							id: { in: ids },
+							archivedAt: null,
+							company: {
+								archivedAt: null,
+								AND: [marketCompanies(campaign.marketCountryCode)],
+							},
+						},
+						select: { id: true, companyId: true },
+					});
+		const targets = new Map<string, string | null>();
+		for (const row of selected) {
+			const companyId = "companyId" in row ? row.companyId : row.id;
+			if (typeof companyId === "string" && !targets.has(companyId)) {
+				targets.set(companyId, input.kind === "contact" ? row.id : null);
+			}
+		}
+		const existing = await this.db.gtmCampaignTarget.findMany({
+			where: { campaignId: input.id, companyId: { in: [...targets.keys()] } },
+			select: { companyId: true },
+		});
+		const existingIds = new Set(existing.map((row) => row.companyId));
+		const additions = [...targets].filter(
+			([companyId]) => !existingIds.has(companyId),
+		);
+		const created = await this.db.gtmCampaignTarget.createMany({
+			data: additions.map(([companyId, contactId]) => ({
+				campaignId: input.id,
+				companyId,
+				contactId,
+			})),
+			skipDuplicates: true,
+		});
+		const reasons: string[] = [];
+		const unavailable = ids.length - selected.length;
+		if (unavailable)
+			reasons.push(
+				`${unavailable} records lack a company in the campaign country or are archived.`,
+			);
+		const repeated = selected.length - targets.size;
+		if (repeated)
+			reasons.push(`${repeated} contacts share a company already selected.`);
+		if (existing.length)
+			reasons.push(
+				`${existing.length} companies are already in this campaign.`,
+			);
+		return {
+			added: created.count,
+			skipped: input.ids.length - created.count,
+			reasons,
+		};
 	}
 
 	async removeTarget(userId: string, input: RemoveCampaignTargetInput) {

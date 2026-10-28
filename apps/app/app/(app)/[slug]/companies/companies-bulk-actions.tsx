@@ -18,6 +18,7 @@ import {
 	BulkOwnerMenu,
 	reportBulk,
 } from "@/components/crm/bulk-actions";
+import { CampaignBulkMenu } from "@/components/crm/campaign-bulk-menu";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 
@@ -139,6 +140,7 @@ export function CompaniesBulkActions({
 
 	return (
 		<BulkActionsMenu pending={pending}>
+			<CampaignBulkMenu ids={ids} kind="company" onDone={onDone} />
 			<BulkOwnerMenu
 				users={users.data ?? []}
 				unassignedLabel="Nobody"

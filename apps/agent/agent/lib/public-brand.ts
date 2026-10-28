@@ -95,7 +95,8 @@ export async function publicBrandByDomain(
 			outcome: "skipped",
 			reason: "Public company site could not be read.",
 		};
-	if (new URL(page.url).hostname !== url.hostname) {
+	const resolvedHost = new URL(page.url).hostname.toLowerCase();
+	if (resolvedHost !== url.hostname && resolvedHost !== `www.${url.hostname}`) {
 		return {
 			outcome: "skipped",
 			reason: "Company site redirects to another domain.",

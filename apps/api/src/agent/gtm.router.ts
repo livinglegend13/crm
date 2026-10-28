@@ -1,7 +1,10 @@
 import {
 	type AddCampaignTargetInput,
+	type AddCampaignTargetsInput,
 	type AddProposalKnowledgeInput,
 	addCampaignTargetInput,
+	addCampaignTargetsInput,
+	addCampaignTargetsOutput,
 	addProposalKnowledgeInput,
 	type CampaignCallTaskInput,
 	type CreateCampaignInput,
@@ -232,6 +235,17 @@ export class GtmRouter {
 		@Input() input: AddCampaignTargetInput,
 	) {
 		return this.gtm.addTarget(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: addCampaignTargetsInput,
+		output: addCampaignTargetsOutput,
+	})
+	addTargets(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: AddCampaignTargetsInput,
+	) {
+		return this.gtm.addTargets(ctx.user.id, input);
 	}
 
 	@Mutation({
