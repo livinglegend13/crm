@@ -24,7 +24,7 @@ export default defineDynamic({
 
 			if (purpose === "team-agent") {
 				return defineInstructions({
-					markdown: `This is one background run of a deployed team agent. Call agent_runner exactly once and pass the run id from your user message. Do not call research tools or perform work yourself. Relay the specialist's structured factual completion summary. Never claim an external action that the specialist did not log.`,
+					markdown: `This is one background run of a deployed team agent. Call agent_runner exactly once and pass the run id from your user message. Do not call research tools or perform work yourself. Relay the specialist's factual completion summary. Never claim an external action that the specialist did not log.`,
 				});
 			}
 

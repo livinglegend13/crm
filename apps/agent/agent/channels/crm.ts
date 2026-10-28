@@ -328,10 +328,18 @@ export default defineChannel({
 				select: { status: true, summary: true, result: true },
 			});
 			if (run?.status !== "RUNNING") return;
+			if (!run.summary?.trim() || run.result === null) {
+				await failRun(
+					runId,
+					"NO_RUN_RESULT",
+					"The agent finished without saving a result.",
+				);
+				return;
+			}
 
 			try {
 				await finishRun(runId, {
-					summary: run.summary ?? "The agent run completed.",
+					summary: run.summary,
 					result: runResultOf(run.result),
 				});
 			} catch (error) {

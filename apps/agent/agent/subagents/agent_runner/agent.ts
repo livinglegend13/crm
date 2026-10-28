@@ -1,7 +1,6 @@
 import { db } from "@crm/db";
 import { DEFAULT_AGENT_MODEL } from "@crm/db/settings";
 import { defineAgent, defineDynamic } from "eve";
-import { z } from "zod";
 import { azureModelConfigured, fallbackModel } from "../../lib/azure-model";
 import { AZURE_MODEL } from "../../lib/azure-model-config";
 import { attribute, purposeOf } from "../../lib/session-purpose";
@@ -44,10 +43,6 @@ const agent: ReturnType<typeof defineAgent> = defineAgent({
 	...(azureModelConfigured()
 		? { modelContextWindowTokens: AZURE_MODEL.contextWindowTokens }
 		: {}),
-	outputSchema: z.object({
-		summary: z.string().min(1).max(1000),
-		result: z.record(z.string(), z.unknown()).nullable(),
-	}),
 	limits: {
 		maxInputTokensPerSession: 500_000,
 		maxOutputTokensPerSession: 40_000,

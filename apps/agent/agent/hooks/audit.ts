@@ -181,7 +181,7 @@ async function persistRunEvent(
 		const { message } = completedMessage.parse(data);
 		if (message?.trim()) {
 			await tx.agentRun.updateMany({
-				where: { id: runId, status: "RUNNING" },
+				where: { id: runId, status: "RUNNING", summary: null },
 				data: { summary: message.slice(0, 1000) },
 			});
 		}
