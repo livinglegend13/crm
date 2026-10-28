@@ -1141,6 +1141,29 @@ export class GtmService {
 				targets.set(companyId, input.kind === "contact" ? row.id : null);
 			}
 		}
+		if (input.kind === "company" && targets.size) {
+			const contacts = await this.db.contact.findMany({
+				where: {
+					companyId: { in: [...targets.keys()] },
+					archivedAt: null,
+					email: { not: null },
+				},
+				select: { id: true, companyId: true },
+			});
+			const byCompany = new Map<string, string[]>();
+			for (const contact of contacts) {
+				if (contact.companyId) {
+					byCompany.set(contact.companyId, [
+						...(byCompany.get(contact.companyId) ?? []),
+						contact.id,
+					]);
+				}
+			}
+			for (const companyId of targets.keys()) {
+				const choices = byCompany.get(companyId) ?? [];
+				if (choices.length === 1) targets.set(companyId, choices[0] ?? null);
+			}
+		}
 		const existing = await this.db.gtmCampaignTarget.findMany({
 			where: { campaignId: input.id, companyId: { in: [...targets.keys()] } },
 			select: { companyId: true },
@@ -1170,6 +1193,13 @@ export class GtmService {
 			reasons.push(
 				`${existing.length} companies are already in this campaign.`,
 			);
+		if (input.kind === "company") {
+			const unassigned = additions.filter(([, contactId]) => !contactId).length;
+			if (unassigned)
+				reasons.push(
+					`${unassigned} companies need a contact choice before an email draft can be created.`,
+				);
+		}
 		return {
 			added: created.count,
 			skipped: input.ids.length - created.count,
