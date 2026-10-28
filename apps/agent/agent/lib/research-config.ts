@@ -4,7 +4,7 @@ export const RESEARCH = {
 	company: {
 		maxPages: 4,
 		maxPageChars: 4_000,
-		maxOutputTokens: 2_000,
+		maxOutputTokens: 5_000,
 		paths: ["/", "/about", "/services", "/news"],
 	},
 	brand: {
