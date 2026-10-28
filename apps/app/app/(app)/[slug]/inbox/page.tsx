@@ -240,7 +240,9 @@ async function InboxContent({
 										? "Your response is pending"
 										: selectedFollowUp.owner === "CUSTOMER"
 											? "Customer response is pending"
-											: "Review needed"}
+											: selectedFollowUp.owner === "NONE"
+												? "No follow-up needed"
+												: "Review needed"}
 									{selectedFollowUp.dueAt
 										? ` · Due ${new Date(selectedFollowUp.dueAt).toLocaleString("en-IN")}`
 										: ""}

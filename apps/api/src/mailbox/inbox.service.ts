@@ -82,9 +82,7 @@ export class InboxService {
 					feedback: {
 						none: { userId, label: { in: ["NOT_RELEVANT", "SPAM"] } },
 					},
-					messages: {
-						some: { syncedByUserId: userId, direction: "OUTBOUND" },
-					},
+					messages: { some: { syncedByUserId: userId } },
 				},
 			},
 			orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }],

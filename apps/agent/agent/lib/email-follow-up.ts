@@ -23,6 +23,20 @@ type Mail = {
 	sentAt: Date;
 };
 
+function declinedReply(mail: Mail): string | null {
+	if (mail.direction !== "INBOUND") return null;
+	const opening = (mail.body ?? mail.snippet ?? "")
+		.split(/\n\s*\n/, 1)[0]
+		?.replace(/\s+/g, " ")
+		.trim();
+	if (!opening) return null;
+	return /^(?:thank you[ .,!-]*|thanks[ .,!-]*)?(?:we are |we're |i am |i'm )?not interested[ .,!-]*$/i.test(
+		opening,
+	)
+		? opening
+		: null;
+}
+
 function defaultDue(at: Date, businessDays: number): Date {
 	const local = new Date(
 		at.getTime() + DISPATCH.followUp.localOffsetMinutes * 60_000,
@@ -72,6 +86,17 @@ async function assess(
 	feedback: { senderEmail: string; subject: string | null; label: string }[],
 ) {
 	const fallback = defaultAssessment(mail);
+	const decline = declinedReply(mail);
+	if (decline)
+		return {
+			owner: "NONE",
+			relevance: "RELEVANT",
+			reason: "The customer declined. No follow-up is due.",
+			evidenceQuote: decline,
+			dueAt: null,
+			dueSource: "NONE",
+			confidence: "HIGH",
+		};
 	if (!azureModelConfigured()) return fallback;
 	const history = messages.map((message) => ({
 		direction: message.direction,
@@ -178,7 +203,12 @@ export async function assessEmailFollowUps(): Promise<number> {
 			},
 			feedback: { select: { userId: true, label: true } },
 			followUps: {
-				select: { userId: true, assessedMessageId: true, relevance: true },
+				select: {
+					userId: true,
+					assessedMessageId: true,
+					relevance: true,
+					owner: true,
+				},
 			},
 		},
 	});
@@ -201,7 +231,8 @@ export async function assessEmailFollowUps(): Promise<number> {
 					(row) =>
 						row.userId === userId &&
 						row.assessedMessageId === latest.id &&
-						row.relevance !== "UNASSESSED",
+						row.relevance !== "UNASSESSED" &&
+						(!declinedReply(latest) || row.owner === "NONE"),
 				)
 			)
 				continue;
