@@ -244,6 +244,25 @@ export class CompaniesService {
 		return {
 			...rest,
 			fields: await this.fields.valuesFor("COMPANY", id),
+			cyberExposure: await this.db.activity
+				.findFirst({
+					where: {
+						companyId: id,
+						subject: { startsWith: "Cyber exposure check — " },
+					},
+					orderBy: { occurredAt: "desc" },
+					select: { body: true, occurredAt: true, createdAt: true },
+				})
+				.then((activity) =>
+					activity
+						? {
+								body: activity.body ?? "",
+								checkedAt: (
+									activity.occurredAt ?? activity.createdAt
+								).toISOString(),
+							}
+						: null,
+				),
 			serviceCampaigns: await this.db.gtmCampaignTarget.findMany({
 				where: { companyId: id },
 				select: {

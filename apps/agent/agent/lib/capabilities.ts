@@ -73,6 +73,14 @@ export function capabilitiesFrom(
 			),
 		},
 		{
+			id: "PUBLIC_CYBER_EXPOSURE",
+			from: "Hudson Rock, XposedOrNot, and LeakCheck public endpoints",
+			label: "Cyber exposure evidence",
+			gives:
+				"source counts and dates for a company domain and up to three known work addresses",
+			enabled: true,
+		},
+		{
 			id: "PUBLIC_BRAND_METADATA",
 			from: "Public company homepage",
 			label: "Public brand metadata",

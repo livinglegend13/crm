@@ -333,6 +333,38 @@ function CompanyOverview({ company }: { company: Company }) {
 		<DetailSheetBody>
 			<DetailSheetSplit>
 				<DetailSheetMain>
+					{company.domain ? (
+						<DetailSheetSection title="Cyber exposure evidence">
+							{company.cyberExposure ? (
+								<>
+									<p className="mb-2 text-muted-foreground text-sm">
+										Checked <LocalDay date={company.cyberExposure.checkedAt} />.
+										Public-source signals do not measure breach probability.
+									</p>
+									<div className="grid gap-2">
+										{company.cyberExposure.body
+											.split("\n\n")
+											.map((paragraph) => (
+												<DetailSheetProse key={paragraph}>
+													{paragraph}
+												</DetailSheetProse>
+											))}
+										<Link
+											href="https://leakcheck.io/"
+											className="text-primary text-sm hover:underline"
+										>
+											Powered by LeakCheck
+										</Link>
+									</div>
+								</>
+							) : (
+								<DetailSheetProse>
+									No public exposure check yet. Select Research above to check
+									this company.
+								</DetailSheetProse>
+							)}
+						</DetailSheetSection>
+					) : null}
 					{company.serviceCampaigns.length ? (
 						<DetailSheetSection title="Outreach campaigns">
 							<div className="grid gap-2">

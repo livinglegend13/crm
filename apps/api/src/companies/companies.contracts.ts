@@ -205,6 +205,9 @@ export const companyDetailOutput = z.object({
 	owner: ownerSummaryOutput.nullable(),
 	contacts: z.array(companyDetailContactOutput),
 	fields: z.array(companyRecordFieldOutput),
+	cyberExposure: z
+		.object({ body: z.string(), checkedAt: z.string() })
+		.nullable(),
 	serviceCampaigns: z.array(
 		z.object({
 			campaign: z.object({
