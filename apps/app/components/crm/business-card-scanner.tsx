@@ -60,7 +60,6 @@ async function compressCardPhoto(file: File) {
 
 export function BusinessCardScanner() {
 	const trpc = useTRPC();
-	const workspaceUrl = useWorkspaceUrl();
 	const fileId = useId();
 	const noteId = useId();
 	const metId = useId();
@@ -69,7 +68,6 @@ export function BusinessCardScanner() {
 	const [note, setNote] = useState("");
 	const [recentlyMet, setRecentlyMet] = useState(false);
 	const [autoSend, setAutoSend] = useState(false);
-	const [chatId, setChatId] = useState<string | null>(null);
 	const list = useQuery({
 		...trpc.businessCards.list.queryOptions(),
 		refetchInterval: 3000,
@@ -101,7 +99,7 @@ export function BusinessCardScanner() {
 			return;
 		}
 		const contentBase64 = toBase64(bytes);
-		const response = await create.mutateAsync({
+		await create.mutateAsync({
 			clientRequestId: crypto.randomUUID(),
 			commandType: "CHAT",
 			message: `Business card capture request\n${JSON.stringify({ recentlyMet, autoSend: autoSend && recentlyMet, meetingNote: note.trim() || null })}\nRead the attached card. Stage visible contact and company details for review. Do not create a contact or send email yet.`,
@@ -115,10 +113,9 @@ export function BusinessCardScanner() {
 				},
 			],
 		});
-		setChatId(response.id);
 		setFile(null);
 		toast.success(
-			"The card scan started. Review its details below when ready.",
+			"The card scan started. Stay here to review the contact and email below.",
 		);
 	};
 	return (
@@ -190,13 +187,12 @@ export function BusinessCardScanner() {
 							{create.isPending ? "Starting scan…" : "Scan card"}
 						</Button>
 					</div>
-					{chatId ? (
-						<Link
-							href={workspaceUrl(`/chat/${chatId}`)}
-							className="text-primary underline"
-						>
-							View scan progress in chat
-						</Link>
+					{create.isSuccess ? (
+						<p className="text-muted-foreground text-sm">
+							The scanned card appears below. Check its details and email, then
+							select Save contact. The CRM sends after verification when you
+							selected automatic sending.
+						</p>
 					) : null}
 				</section>
 				<section className="flex flex-col gap-4">

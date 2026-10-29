@@ -148,7 +148,7 @@ export default defineTool({
 			recentlyMet: request.recentlyMet,
 			autoSend: request.autoSend && request.recentlyMet,
 			message:
-				"Review the scanned details before adding this contact to the CRM.",
+				"The scan is staged, not saved. Open Scan business cards in the CRM and select Save contact and queue email after checking the details. Automatic sending starts after email verification. Do not confirm in chat; chat cannot save or send this card.",
 		};
 	},
 });
