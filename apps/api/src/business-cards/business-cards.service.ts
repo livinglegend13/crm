@@ -16,6 +16,7 @@ import {
 	NotFoundException,
 } from "@nestjs/common";
 import type { z } from "zod";
+import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { InjectDatabase } from "../database/database.constants";
 import { MailboxTokenService } from "../mailbox/mailbox-token.service";
 import { GraphClient } from "../microsoft/graph.client";
@@ -29,6 +30,7 @@ export class BusinessCardsService {
 
 	constructor(
 		@InjectDatabase() private readonly db: Db,
+		private readonly agent: AgentTriggerService,
 		private readonly tokens: MailboxTokenService,
 		private readonly graph: GraphClient,
 	) {}
@@ -309,6 +311,13 @@ export class BusinessCardsService {
 				select: { id: true, status: true, contactId: true, campaignId: true },
 			});
 		});
+		if (saved.status === "PENDING_VERIFICATION" && saved.contactId) {
+			try {
+				await this.agent.emailVerificationRequested(saved.contactId);
+			} catch (error) {
+				this.logger.error("Business card verification was not queued", error);
+			}
+		}
 		return saved;
 	}
 
