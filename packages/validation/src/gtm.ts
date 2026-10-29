@@ -363,6 +363,16 @@ export const campaignDetail = campaignSummary.extend({
 	linkedinSequence,
 	linkedinEvents: z.array(linkedinCampaignEvent),
 	targets: z.array(campaignTarget),
+	businessCardCaptures: z.array(
+		z.object({
+			id: z.string(),
+			status: z.string(),
+			contactId: z.string().nullable(),
+			contactName: z.string().nullable(),
+			recipientEmail: z.string().nullable(),
+			createdAt: z.string(),
+		}),
+	),
 });
 
 export const campaignIdInput = z.object({ id: z.string().min(1) });

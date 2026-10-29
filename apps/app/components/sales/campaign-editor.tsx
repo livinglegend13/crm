@@ -184,6 +184,41 @@ export function CampaignEditor({
 	);
 	return (
 		<div className="space-y-6">
+			{row.businessCardCaptures.length > 0 ? (
+				<section className="rounded-lg border bg-card p-5">
+					<h2 className="font-medium">People met in person</h2>
+					<p className="text-muted-foreground mt-1 text-sm">
+						Each scanned card has its own thank-you status.
+					</p>
+					<div className="mt-3 space-y-2">
+						{row.businessCardCaptures.map((capture) => (
+							<div
+								key={capture.id}
+								className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm"
+							>
+								<span>
+									{capture.contactName ??
+										capture.recipientEmail ??
+										"Unnamed contact"}
+								</span>
+								<span className="text-muted-foreground">
+									{capture.status.replaceAll("_", " ").toLowerCase()}
+								</span>
+								{capture.contactId ? (
+									<Link
+										className="text-primary underline"
+										href={workspaceUrl(
+											`/contacts?record=contact:${capture.contactId}`,
+										)}
+									>
+										Open contact
+									</Link>
+								) : null}
+							</div>
+						))}
+					</div>
+				</section>
+			) : null}
 			<section className="rounded-lg border bg-card p-5">
 				<h2 className="font-medium">Sales handoff</h2>
 				<ol className="mt-3 grid gap-3 text-sm sm:grid-cols-3">

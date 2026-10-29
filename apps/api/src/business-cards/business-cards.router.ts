@@ -1,0 +1,57 @@
+import {
+	businessCardExtraction,
+	confirmBusinessCardInput,
+} from "@crm/validation/business-card";
+import {
+	Ctx,
+	Input,
+	Mutation,
+	Query,
+	Router,
+	UseMiddlewares,
+} from "nestjs-trpc";
+import { z } from "zod";
+import type { AuthedTrpcContext } from "../trpc/context.types";
+import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
+import { BusinessCardsService } from "./business-cards.service";
+
+const captureRow = z.object({
+	id: z.string(),
+	extraction: businessCardExtraction,
+	meetingNote: z.string().nullable(),
+	recentlyMet: z.boolean(),
+	autoSend: z.boolean(),
+	status: z.string(),
+	contactId: z.string().nullable(),
+	campaignId: z.string().nullable(),
+	sendError: z.string().nullable(),
+	createdAt: z.string(),
+	sentAt: z.string().nullable(),
+});
+
+@Router({ alias: "businessCards" })
+@UseMiddlewares(AuthMiddleware)
+export class BusinessCardsRouter {
+	constructor(private readonly cards: BusinessCardsService) {}
+
+	@Query({ output: z.array(captureRow) })
+	list(@Ctx() ctx: AuthedTrpcContext) {
+		return this.cards.list(ctx.user.id);
+	}
+
+	@Mutation({
+		input: confirmBusinessCardInput,
+		output: z.object({
+			id: z.string(),
+			status: z.string(),
+			contactId: z.string().nullable(),
+			campaignId: z.string().nullable(),
+		}),
+	})
+	confirm(
+		@Input() input: z.infer<typeof confirmBusinessCardInput>,
+		@Ctx() ctx: AuthedTrpcContext,
+	) {
+		return this.cards.confirm(ctx.user.id, input);
+	}
+}

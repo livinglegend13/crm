@@ -48,6 +48,7 @@ model User {
   conversationShares      AgentConversationShare[]      @relation("ConversationShareCreator")
   conversationSubmissions AgentConversationSubmission[] @relation("ConversationSubmissionAuthor")
   conversationFeedback    AgentConversationFeedback[]   @relation("ConversationFeedbackAuthor")
+  businessCardCaptures   BusinessCardCapture[]
   slackMemberMatch        SlackMemberMatch?
 
   members     Member[]
@@ -404,6 +405,7 @@ model Contact {
   fieldValues     FieldValue[]
   visitors        TrackedVisitor[]   @relation("VisitorContact")
   submissions     FormSubmission[]   @relation("SubmissionContact")
+  businessCardCaptures BusinessCardCapture[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
@@ -672,11 +674,42 @@ model AgentConversationSubmission {
   acceptedAt DateTime?
 
   attachments AgentConversationAttachment[]
+  businessCardCapture BusinessCardCapture?
 
   @@unique([conversationId, inputRequestId])
   @@index([conversationId, createdAt])
   @@index([status, createdAt])
   @@map("agentConversationSubmission")
+}
+
+model BusinessCardCapture {
+  id           String @id @default(cuid())
+  submissionId String? @unique
+  submission   AgentConversationSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  userId       String
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  extraction   Json
+  meetingNote  String? @db.Text
+  recentlyMet  Boolean @default(false)
+  autoSend     Boolean @default(false)
+  status       String @default("REVIEW")
+  contactId    String?
+  contact      Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  campaignId   String?
+  campaign     GtmCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  senderEmail  String?
+  recipientEmail String?
+  subject      String?
+  body         String? @db.Text
+  sendStartedAt DateTime?
+  sentAt       DateTime?
+  sendError    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("businessCardCapture")
 }
 
 model AgentConversationAttachment {
@@ -972,6 +1005,7 @@ model GtmCampaign {
   endMinute         Int      @default(1020)
   steps             GtmCampaignStep[]
   targets           GtmCampaignTarget[]
+  businessCardCaptures BusinessCardCapture[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

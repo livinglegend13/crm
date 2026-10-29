@@ -382,7 +382,13 @@ export class GtmService {
 			take: GTM.maxCampaigns,
 			include: {
 				service: true,
-				_count: { select: { steps: true, targets: true } },
+				_count: {
+					select: {
+						steps: true,
+						targets: true,
+						businessCardCaptures: { where: { userId } },
+					},
+				},
 			},
 		});
 		const qualified = await Promise.all(
@@ -417,7 +423,7 @@ export class GtmService {
 				startMinute: row.startMinute,
 				endMinute: row.endMinute,
 			},
-			targetCount: row._count.targets,
+			targetCount: row._count.targets + row._count.businessCardCaptures,
 			qualifiedCount: qualified[index] ?? 0,
 			stepCount: row._count.steps,
 			closelyCampaignName: row.closelyCampaignName,
@@ -446,6 +452,18 @@ export class GtmService {
 						contact: {
 							select: { firstName: true, lastName: true, email: true },
 						},
+					},
+				},
+				businessCardCaptures: {
+					where: { userId },
+					orderBy: { createdAt: "desc" },
+					select: {
+						id: true,
+						status: true,
+						contactId: true,
+						recipientEmail: true,
+						createdAt: true,
+						contact: { select: { firstName: true, lastName: true } },
 					},
 				},
 			},
@@ -544,7 +562,7 @@ export class GtmService {
 				startMinute: row.startMinute,
 				endMinute: row.endMinute,
 			},
-			targetCount: row.targets.length,
+			targetCount: row.targets.length + row.businessCardCaptures.length,
 			qualifiedCount:
 				row.serviceLine === "FILO_STORAGE"
 					? row.targets.filter(
@@ -572,6 +590,18 @@ export class GtmService {
 				delayDays: step.delayDays,
 				subjectPrompt: step.subjectPrompt,
 				bodyPrompt: step.bodyPrompt,
+			})),
+			businessCardCaptures: row.businessCardCaptures.map((capture) => ({
+				id: capture.id,
+				status: capture.status,
+				contactId: capture.contactId,
+				contactName: capture.contact
+					? [capture.contact.firstName, capture.contact.lastName]
+							.filter(Boolean)
+							.join(" ")
+					: null,
+				recipientEmail: capture.recipientEmail,
+				createdAt: capture.createdAt.toISOString(),
 			})),
 			targets: row.targets.map((target) => ({
 				id: target.id,

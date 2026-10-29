@@ -6,6 +6,7 @@ import { ActivitiesModule } from "./activities/activities.module";
 import { AgentModule } from "./agent/agent.module";
 import { OutreachModule } from "./agent/outreach.module";
 import { ApiKeysModule } from "./api-keys/api-keys.module";
+import { BusinessCardsModule } from "./business-cards/business-cards.module";
 import { ArchiveModule } from "./archive/archive.module";
 import { AuthModule } from "./auth/auth.module";
 import { BackfillModule } from "./backfill/backfill.module";
@@ -59,6 +60,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		ApiKeysModule,
 		CompaniesModule,
 		ContactsModule,
+		BusinessCardsModule,
 		ConversationsModule,
 		CurrencyModule,
 		DealsModule,

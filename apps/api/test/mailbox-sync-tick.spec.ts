@@ -3,6 +3,7 @@ import {
 	GoogleSyncStatus,
 	type MailboxSyncModel as MailboxSync,
 } from "@crm/db";
+import type { BusinessCardsService } from "../src/business-cards/business-cards.service";
 import type { GoogleConnectionService } from "../src/google/google-connection.service";
 import type { GoogleSyncService } from "../src/google/google-sync.service";
 import {
@@ -123,6 +124,7 @@ function build(
 		provider as unknown as MicrosoftSyncService,
 		noConnections as unknown as GoogleConnectionService,
 		noConnections as unknown as MicrosoftConnectionService,
+		{ sendDue: async () => 0 } as unknown as BusinessCardsService,
 	);
 }
 

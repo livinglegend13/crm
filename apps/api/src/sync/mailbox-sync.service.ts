@@ -1,5 +1,6 @@
 import { syncError } from "@crm/telemetry";
 import { Injectable, Logger } from "@nestjs/common";
+import { BusinessCardsService } from "../business-cards/business-cards.service";
 import { GoogleConnectionService } from "../google/google-connection.service";
 import { GoogleSyncService } from "../google/google-sync.service";
 import {
@@ -31,6 +32,7 @@ export class MailboxSyncService {
 		private readonly microsoft: MicrosoftSyncService,
 		private readonly googleConnections: GoogleConnectionService,
 		private readonly microsoftConnections: MicrosoftConnectionService,
+		private readonly businessCards: BusinessCardsService,
 	) {}
 
 	async runDue(): Promise<TickSummary> {
@@ -46,6 +48,11 @@ export class MailboxSyncService {
 
 		await this.googleConnections.reconcileAll();
 		await this.microsoftConnections.reconcileAll();
+		try {
+			await this.businessCards.sendDue();
+		} catch (error) {
+			this.logger.error("Business card follow-up delivery failed", error);
+		}
 
 		const due = await this.state.due(new Date());
 
