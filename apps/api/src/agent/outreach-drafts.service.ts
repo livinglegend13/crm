@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
 	MICROSOFT_PROVIDER_ID,
+	OUTLOOK_MAIL_SCOPE,
 	OUTLOOK_READ_SHARED_SCOPE,
 	OUTLOOK_SEND_SHARED_SCOPE,
 } from "@crm/auth";
@@ -19,6 +20,7 @@ import {
 import {
 	hasOutreachSignature,
 	withOutreachSignature,
+	withPersonalSignature,
 } from "@crm/validation/outreach-signature";
 import { REOON } from "@crm/validation/reoon";
 import {
@@ -184,7 +186,11 @@ export class OutreachDraftsService {
 	async senders(userId: string) {
 		await this.access.assertMember(userId);
 		await this.microsoft.onConnected(userId);
-		const addresses = outreachSenders();
+		const user = await this.db.user.findUniqueOrThrow({
+			where: { id: userId },
+			select: { email: true, emailSignature: true, name: true },
+		});
+		const addresses = [...outreachSenders(), user.email.toLowerCase()];
 		const [scopes, refresh, rows, pendingReplyAlerts, unknownReplyAlerts] =
 			await Promise.all([
 				this.tokens.grantedScopes(userId, MICROSOFT_PROVIDER_ID),
@@ -215,18 +221,28 @@ export class OutreachDraftsService {
 			lastStartedAt: byAddress.get(address)?._max.sendStartedAt ?? null,
 		}));
 		const rotation = senderAvailability(rotationRows, new Date());
+		const sharedRecommendation = senderAvailability(
+			rotationRows.filter((row) => outreachSenders().includes(row.address)),
+			new Date(),
+		).recommended;
 		const connected =
 			addresses.length > 0 && scopes.has(OUTLOOK_SEND_SHARED_SCOPE) && refresh;
 		const readConnected =
-			addresses.length > 0 && scopes.has(OUTLOOK_READ_SHARED_SCOPE) && refresh;
+			addresses.length > 0 &&
+			(scopes.has(OUTLOOK_READ_SHARED_SCOPE) ||
+				scopes.has(OUTLOOK_MAIL_SCOPE)) &&
+			refresh;
 		return {
 			addresses,
+			personalAddress: user.email.toLowerCase(),
+			personalSignature:
+				user.emailSignature?.trim() || `Regards,\n${user.name}\nTerraeagle`,
 			sendingEnabled: process.env.OUTREACH_SENDING_ENABLED === "true",
 			verificationRequired: process.env.REOON_VERIFICATION_REQUIRED === "true",
 			replyAlertsEnabled: process.env.OUTREACH_REPLY_ALERTS_ENABLED === "true",
 			pendingReplyAlerts,
 			unknownReplyAlerts,
-			recommendedSender: rotation.recommended,
+			recommendedSender: sharedRecommendation,
 			rotation: {
 				maxPerMailboxPerDay: OUTREACH_ROTATION.maxPerMailboxPerDay,
 				minimumGapMinutes: OUTREACH_ROTATION.minimumGapMs / 60_000,
@@ -234,7 +250,11 @@ export class OutreachDraftsService {
 			connected,
 			readConnected,
 			mailboxes: addresses.map((address) => {
-				const row = bySource.get(sharedOutlookSource(address));
+				const row = bySource.get(
+					address === user.email.toLowerCase()
+						? "outlook"
+						: sharedOutlookSource(address),
+				);
 				const used = rotationRows.find((entry) => entry.address === address);
 				return {
 					address,
@@ -353,13 +373,26 @@ export class OutreachDraftsService {
 		if (run.result === null || !draftFieldsFromRunResult(run.result)) {
 			throw new BadRequestException("This run has no saved email draft.");
 		}
+		const personalSender = await this.db.user.findUniqueOrThrow({
+			where: { id: userId },
+			select: { email: true, emailSignature: true, name: true },
+		});
 		if (
 			input.senderEmail &&
-			!outreachSenders().includes(input.senderEmail.toLowerCase())
+			![...outreachSenders(), personalSender.email.toLowerCase()].includes(
+				input.senderEmail.toLowerCase(),
+			)
 		) {
 			throw new BadRequestException("Choose a configured sender mailbox.");
 		}
-		const body = withOutreachSignature(input.body, input.senderEmail);
+		const body =
+			input.senderEmail?.toLowerCase() === personalSender.email.toLowerCase()
+				? withPersonalSignature(
+						input.body,
+						personalSender.emailSignature ||
+							`Regards,\n${personalSender.name}\nTerraeagle`,
+					)
+				: withOutreachSignature(input.body, input.senderEmail);
 		const existing = await this.db.outreachDraft.findUnique({
 			where: { runId_userId: { runId: run.id, userId } },
 		});
@@ -463,10 +496,26 @@ export class OutreachDraftsService {
 				"Add a valid recipient email before approval.",
 			);
 		}
-		if (!edit.senderEmail || !outreachSenders().includes(edit.senderEmail)) {
+		const personalSender = await this.db.user.findUniqueOrThrow({
+			where: { id: userId },
+			select: { email: true, emailSignature: true, name: true },
+		});
+		const isPersonal =
+			edit.senderEmail?.toLowerCase() === personalSender.email.toLowerCase();
+		if (
+			!edit.senderEmail ||
+			(!isPersonal && !outreachSenders().includes(edit.senderEmail))
+		) {
 			throw new BadRequestException("Choose a configured sender mailbox.");
 		}
-		if (!hasOutreachSignature(edit.body, edit.senderEmail)) {
+		const expectedSignature =
+			personalSender.emailSignature?.trim() ||
+			`Regards,\n${personalSender.name}\nTerraeagle`;
+		if (
+			isPersonal
+				? !edit.body.trimEnd().endsWith(expectedSignature)
+				: !hasOutreachSignature(edit.body, edit.senderEmail)
+		) {
 			throw new BadRequestException(
 				"Save this draft with the selected sender signature before approval.",
 			);
@@ -548,9 +597,16 @@ export class OutreachDraftsService {
 				"This draft changed. Reload it before sending.",
 			);
 		}
+		const personalEmail = (
+			await this.db.user.findUniqueOrThrow({
+				where: { id: userId },
+				select: { email: true },
+			})
+		).email.toLowerCase();
 		if (
 			!draft.senderEmail ||
-			!outreachSenders().includes(draft.senderEmail) ||
+			(!outreachSenders().includes(draft.senderEmail) &&
+				draft.senderEmail !== personalEmail) ||
 			!draft.recipientEmail ||
 			!z.email().safeParse(draft.recipientEmail).success
 		) {
@@ -591,7 +647,10 @@ export class OutreachDraftsService {
 				);
 			}
 		}
-		if (!hasOutreachSignature(draft.body, senderAddress)) {
+		if (
+			senderAddress !== personalEmail &&
+			!hasOutreachSignature(draft.body, senderAddress)
+		) {
 			throw new BadRequestException(
 				"The signature does not match this sender mailbox. Edit and approve the draft again.",
 			);

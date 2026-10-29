@@ -80,6 +80,8 @@ export function recipientFromRunInput(value: unknown) {
 
 export const outreachSendersOutput = z.object({
 	addresses: z.array(z.email()),
+	personalAddress: z.email(),
+	personalSignature: z.string(),
 	sendingEnabled: z.boolean(),
 	verificationRequired: z.boolean(),
 	replyAlertsEnabled: z.boolean(),

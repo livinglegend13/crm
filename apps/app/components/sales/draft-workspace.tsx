@@ -15,6 +15,7 @@ import { Textarea } from "@crm/ui/components/textarea";
 import {
 	outreachSenderName,
 	withOutreachSignature,
+	withPersonalSignature,
 } from "@crm/validation/outreach-signature";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -131,6 +132,8 @@ export function DraftWorkspace({
 						key={selected.runId}
 						draft={selected}
 						senders={senders.data?.addresses ?? []}
+						personalAddress={senders.data?.personalAddress ?? ""}
+						personalSignature={senders.data?.personalSignature ?? ""}
 						canSend={
 							senders.data?.connected === true && senders.data.sendingEnabled
 						}
@@ -204,6 +207,8 @@ function MailboxConnections({ status }: { status: Senders | undefined }) {
 function DraftEditor({
 	draft,
 	senders,
+	personalAddress,
+	personalSignature,
 	canSend,
 	verificationRequired,
 	senderReason,
@@ -211,6 +216,8 @@ function DraftEditor({
 }: {
 	draft: Draft;
 	senders: string[];
+	personalAddress: string;
+	personalSignature: string;
 	canSend: boolean;
 	verificationRequired: boolean;
 	senderReason: string | null;
@@ -239,7 +246,9 @@ function DraftEditor({
 	const locked = ["SENDING", "SENT", "SEND_UNKNOWN"].includes(draft.status);
 	const displayedBody =
 		effectiveSenderEmail && !bodyTouched && !locked
-			? withOutreachSignature(body, effectiveSenderEmail)
+			? effectiveSenderEmail === personalAddress
+				? withPersonalSignature(body, personalSignature)
+				: withOutreachSignature(body, effectiveSenderEmail)
 			: body;
 	const [pointers, setPointers] = useState("");
 	const save = useMutation(
@@ -337,7 +346,19 @@ function DraftEditor({
 				<Select
 					value={effectiveSenderEmail}
 					onValueChange={(address) => {
-						setBody(withOutreachSignature(displayedBody, address));
+						const cleanBody =
+							personalSignature &&
+							displayedBody.trimEnd().endsWith(personalSignature)
+								? displayedBody
+										.trimEnd()
+										.slice(0, -personalSignature.length)
+										.trimEnd()
+								: displayedBody;
+						setBody(
+							address === personalAddress
+								? withPersonalSignature(cleanBody, personalSignature)
+								: withOutreachSignature(cleanBody, address),
+						);
 						setBodyTouched(true);
 						setSenderEmail(address);
 					}}
@@ -351,7 +372,9 @@ function DraftEditor({
 							<SelectItem key={address} value={address}>
 								{outreachSenderName(address)
 									? `${outreachSenderName(address)} · ${address}`
-									: address}
+									: address === personalAddress
+										? `My mailbox · ${address}`
+										: address}
 							</SelectItem>
 						))}
 					</SelectContent>
@@ -368,6 +391,11 @@ function DraftEditor({
 				{outreachSenderName(effectiveSenderEmail) ? (
 					<p className="text-muted-foreground text-xs">
 						Signature: {outreachSenderName(effectiveSenderEmail)} · Terraeagle
+					</p>
+				) : null}
+				{effectiveSenderEmail === personalAddress ? (
+					<p className="text-muted-foreground text-xs">
+						Uses your signature from General settings.
 					</p>
 				) : null}
 			</div>

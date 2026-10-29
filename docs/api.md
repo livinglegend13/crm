@@ -2,6 +2,8 @@
 
 Business card capture deletes photos after extraction. The sync tick deletes unfinished capture photos after three days. Each user stores a separate signature for new personal-mailbox messages.
 
+Inbox queries show messages synced from the current user's mailbox. They also show messages synced from configured mailx and maily mailboxes to all CRM users. Outreach can send from the signed-in user's address or a configured shared sender. Personal sends use that user's saved signature. Shared sends keep the sender persona signature.
+
 ## Terraeagle GTM records
 
 The GTM router stores India prospect reviews and campaign plans. It queues approved team-agent runs for individual campaign targets. The agent owns research and draft wording; the API validates the India target and stores run context. A Filo review records a documented 12-month average storage capacity. The 1 PB gate uses that average only for Filo campaigns. Campaigns select Filo storage, Cybersecurity, AI, or FinOps. A campaign plan stores targets, sequence instructions, and an Asia/Kolkata window. The campaign planner queues a summary-only agent run and validates its structured plan at the API boundary, including JSON text output. READY plans queue research and drafts during that window. Follow-up drafts wait for the previous step to be sent and stop after a recorded reply. A send-time check blocks later steps when a reply exists. The window does not schedule sends. Each outreach draft still needs individual approval.

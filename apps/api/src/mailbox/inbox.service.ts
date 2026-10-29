@@ -1,4 +1,4 @@
-import type { Db } from "@crm/db";
+import type { Db, Prisma } from "@crm/db";
 import type {
 	inboxFollowUpAction,
 	inboxThreadFeedbackInput,
@@ -14,6 +14,15 @@ import { InjectDatabase } from "../database/database.constants";
 import { outreachSenders } from "../microsoft/sender-mailboxes";
 import { INBOX } from "./inbox.config";
 import { messageMailboxes } from "./inbox-mailboxes";
+
+function visibleMessage(userId: string): Prisma.EmailMessageWhereInput {
+	return {
+		OR: [
+			{ syncedByUserId: userId },
+			{ mailboxAddress: { in: outreachSenders() } },
+		],
+	};
+}
 
 function subjectKey(value: string | null): string {
 	return (value ?? "")
@@ -82,7 +91,7 @@ export class InboxService {
 					feedback: {
 						none: { userId, label: { in: ["NOT_RELEVANT", "SPAM"] } },
 					},
-					messages: { some: { syncedByUserId: userId } },
+					messages: { some: visibleMessage(userId) },
 				},
 			},
 			orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }],
@@ -108,7 +117,7 @@ export class InboxService {
 							select: { id: true, firstName: true, lastName: true },
 						},
 						messages: {
-							where: { syncedByUserId: userId },
+							where: visibleMessage(userId),
 							orderBy: { sentAt: "desc" },
 							take: 1,
 							select: {
@@ -210,7 +219,7 @@ export class InboxService {
 		});
 		const hiddenSenders = new Set(feedback.map((row) => row.senderEmail));
 		const threads = await this.db.emailThread.findMany({
-			where: { messages: { some: { syncedByUserId: userId } } },
+			where: { messages: { some: visibleMessage(userId) } },
 			orderBy: { lastMessageAt: "desc" },
 			take: INBOX.maxThreads,
 			select: {
@@ -228,7 +237,7 @@ export class InboxService {
 					select: { id: true, firstName: true, lastName: true },
 				},
 				messages: {
-					where: { syncedByUserId: userId },
+					where: visibleMessage(userId),
 					orderBy: { sentAt: "desc" },
 					take: 10,
 					select: {
@@ -367,7 +376,7 @@ export class InboxService {
 		const thread = await this.db.emailThread.findFirst({
 			where: {
 				id: input.threadId,
-				messages: { some: { syncedByUserId: userId } },
+				messages: { some: visibleMessage(userId) },
 			},
 			select: {
 				id: true,
@@ -376,7 +385,7 @@ export class InboxService {
 				companyId: true,
 				lastMessageAt: true,
 				messages: {
-					where: { syncedByUserId: userId, direction: "INBOUND" },
+					where: { AND: [visibleMessage(userId), { direction: "INBOUND" }] },
 					orderBy: { sentAt: "desc" },
 					take: 1,
 					select: { direction: true, fromEmail: true },
@@ -402,7 +411,7 @@ export class InboxService {
 										INBOX.groupWindowDays * INBOX.dayMs,
 								),
 							},
-							messages: { some: { syncedByUserId: userId } },
+							messages: { some: visibleMessage(userId) },
 						},
 						select: {
 							id: true,
@@ -410,7 +419,9 @@ export class InboxService {
 							companyId: true,
 							subject: true,
 							messages: {
-								where: { syncedByUserId: userId, direction: "INBOUND" },
+								where: {
+									AND: [visibleMessage(userId), { direction: "INBOUND" }],
+								},
 								orderBy: { sentAt: "desc" },
 								take: 1,
 								select: { direction: true, fromEmail: true },
@@ -478,7 +489,7 @@ export class InboxService {
 		const thread = await this.db.emailThread.findFirst({
 			where: {
 				id,
-				messages: { some: { syncedByUserId: userId } },
+				messages: { some: visibleMessage(userId) },
 			},
 			select: {
 				id: true,
@@ -493,7 +504,7 @@ export class InboxService {
 					select: { id: true, firstName: true, lastName: true },
 				},
 				messages: {
-					where: { syncedByUserId: userId },
+					where: visibleMessage(userId),
 					orderBy: { sentAt: "desc" },
 					select: {
 						id: true,
@@ -530,7 +541,7 @@ export class InboxService {
 										INBOX.groupWindowDays * INBOX.dayMs,
 								),
 							},
-							messages: { some: { syncedByUserId: userId } },
+							messages: { some: visibleMessage(userId) },
 						},
 						select: {
 							id: true,
@@ -539,7 +550,7 @@ export class InboxService {
 							companyId: true,
 							messageCount: true,
 							messages: {
-								where: { syncedByUserId: userId },
+								where: visibleMessage(userId),
 								orderBy: { sentAt: "desc" },
 								select: {
 									id: true,

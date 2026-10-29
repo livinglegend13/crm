@@ -1540,6 +1540,7 @@ model EmailMessage {
 
   rfcMessageId     String  @unique
   syncedByUserId   String?
+  mailboxAddress   String?
   gmailMessageId   String?
   outlookMessageId String?
   outlookWebLink   String?

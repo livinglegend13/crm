@@ -53,3 +53,18 @@ export function hasOutreachSignature(
 			.endsWith(`Regards,\n${name}\nTerraeagle`)
 	);
 }
+
+export function withPersonalSignature(body: string, signature: string): string {
+	const normalized = body.replaceAll("\r\n", "\n").trimEnd();
+	const ending = signature.trim();
+	if (!ending || normalized.endsWith(ending)) return normalized;
+	const withoutCompany = normalized.replace(
+		/\n{2,}(?:(?:best regards|kind regards|regards|best|thanks|sincerely)[,.]?\s*\n)?[^\n]{2,80}\nTerraeagle\s*$/i,
+		"",
+	);
+	const withoutShort = withoutCompany.replace(
+		/\n{2,}[—–-]\s*[^\n]{2,80}\s*$/u,
+		"",
+	);
+	return `${withoutShort.trimEnd()}\n\n${ending}`;
+}

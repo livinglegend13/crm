@@ -77,7 +77,15 @@ export class ThreadWriterService {
 				},
 			},
 		});
-		if (existing?.thread.activity) return false;
+		if (existing?.thread.activity) {
+			if (outreachSenders().includes(options.mailbox.toLowerCase())) {
+				await this.db.emailMessage.update({
+					where: { rfcMessageId: parsed.rfcMessageId },
+					data: { mailboxAddress: options.mailbox.toLowerCase() },
+				});
+			}
+			return false;
+		}
 
 		const repair = existing !== null;
 		const participants = [parsed.from, ...parsed.recipients];
@@ -149,6 +157,7 @@ export class ThreadWriterService {
 							threadId: record.id,
 							rfcMessageId: parsed.rfcMessageId,
 							syncedByUserId: row.userId,
+							mailboxAddress: options.mailbox.toLowerCase(),
 							gmailMessageId: parsed.gmailMessageId ?? null,
 							outlookMessageId: parsed.outlookMessageId ?? null,
 							outlookWebLink: parsed.outlookWebLink ?? null,
