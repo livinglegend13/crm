@@ -591,18 +591,27 @@ export class GtmService {
 				subjectPrompt: step.subjectPrompt,
 				bodyPrompt: step.bodyPrompt,
 			})),
-			businessCardCaptures: row.businessCardCaptures.map((capture) => ({
-				id: capture.id,
-				status: capture.status,
-				contactId: capture.contactId,
-				contactName: capture.contact
-					? [capture.contact.firstName, capture.contact.lastName]
-							.filter(Boolean)
-							.join(" ")
-					: null,
-				recipientEmail: capture.recipientEmail,
-				createdAt: capture.createdAt.toISOString(),
-			})),
+			businessCardCaptures: row.businessCardCaptures
+				.filter(
+					(capture, index, captures) =>
+						captures.findIndex(
+							(entry) =>
+								(entry.contactId ?? entry.id) ===
+								(capture.contactId ?? capture.id),
+						) === index,
+				)
+				.map((capture) => ({
+					id: capture.id,
+					status: capture.status,
+					contactId: capture.contactId,
+					contactName: capture.contact
+						? [capture.contact.firstName, capture.contact.lastName]
+								.filter(Boolean)
+								.join(" ")
+						: null,
+					recipientEmail: capture.recipientEmail,
+					createdAt: capture.createdAt.toISOString(),
+				})),
 			targets: row.targets.map((target) => ({
 				id: target.id,
 				companyId: target.companyId,
