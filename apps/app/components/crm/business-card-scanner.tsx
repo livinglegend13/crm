@@ -173,7 +173,7 @@ export function BusinessCardScanner() {
 							disabled={!recentlyMet}
 							onCheckedChange={(value) => setAutoSend(value === true)}
 						/>
-						Send a thank-you automatically after email verification
+						Send a thank-you automatically after saving
 					</label>
 					<p className="text-muted-foreground text-sm">
 						Automatic email uses your Microsoft 365 mailbox. Review the
@@ -190,8 +190,8 @@ export function BusinessCardScanner() {
 					{create.isSuccess ? (
 						<p className="text-muted-foreground text-sm">
 							The scanned card appears below. Check its details and email, then
-							select Save contact. The CRM sends after verification when you
-							selected automatic sending.
+							select Save contact. The CRM sends after saving when you selected
+							automatic sending.
 						</p>
 					) : null}
 				</section>
@@ -231,11 +231,15 @@ function ReviewCard({
 	const messageDirty = subject !== row.subject || body !== row.body;
 	const confirm = useMutation(
 		trpc.businessCards.confirm.mutationOptions({
-			onSuccess: async () => {
+			onSuccess: async (result) => {
 				await queryClient.invalidateQueries({
 					queryKey: trpc.businessCards.list.pathKey(),
 				});
-				toast.success("Contact saved to the conference campaign.");
+				toast.success(
+					result.status === "SENT"
+						? "Contact saved. Microsoft accepted the thank-you email."
+						: "Contact saved to the conference campaign.",
+				);
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -260,7 +264,7 @@ function ReviewCard({
 				toast.success(
 					result.status === "SENT"
 						? "Microsoft accepted the email."
-						: "Email queued. Verification and sending status appear here.",
+						: "Email queued. Sending status appears here.",
 				);
 			},
 			onError: (error) => toast.error(error.message),
@@ -394,7 +398,7 @@ function ReviewCard({
 							disabled={!recentlyMet}
 							onCheckedChange={(value) => setAutoSend(value === true)}
 						/>
-						Send the edited email after verification
+						Send the edited email after saving
 					</label>
 					{messageFields(false)}
 					<div>
@@ -422,7 +426,7 @@ function ReviewCard({
 							}
 						>
 							{autoSend && recentlyMet
-								? "Save contact and queue email"
+								? "Save contact and send thank-you"
 								: "Save contact"}
 						</Button>
 					</div>
@@ -477,8 +481,9 @@ function ReviewCard({
 							) : null}
 						</div>
 					) : null}
-					{row.status === "PENDING_VERIFICATION" ? (
-						<p>Waiting for email verification before sending.</p>
+					{row.status === "PENDING_SEND" ||
+					row.status === "PENDING_VERIFICATION" ? (
+						<p>Waiting for Microsoft 365 to accept the email.</p>
 					) : null}
 					{row.status === "SENT" ? (
 						<p>

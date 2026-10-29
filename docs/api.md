@@ -8,6 +8,8 @@ Outreach delivery also requires `OUTREACH_SENDING_ENABLED=true`. This server-sid
 
 Contact creation and email changes queue Reoon verification without waiting for a send attempt. The send gate requires a current safe result for the active CRM contact. The contact record and outreach draft show the verification state. A missing or stale result queues another check and blocks sending. An unsafe result blocks sending without another check.
 
+Reviewed business-card thank-you emails use a separate send path. A recent-meeting opt-in, reviewed email address, current contact address, and Microsoft mailbox access gate sending. Reoon results do not gate this path. General outreach still uses the Reoon gate.
+
 Outlook sync links the sent copy of an approved draft to its RFC message ID and Microsoft conversation ID. Reply matching uses those IDs before subject matching. This handles replies with edited subjects after the sent copy syncs. Subject matching remains the fallback for messages without the IDs.
 
 The inbox groups linked records by contact and normalized subject within 30 days. Company-only records also require the same external sender. The original email messages stay unchanged. The inbox shows 25 conversation groups per page. User feedback marks a whole visible conversation group as unrelated or spam, hides matching future senders, and removes its follow-up cards. Restore feedback marks the group relevant. The agent uses saved feedback examples when it assesses new mail. Inbox reads inspect at most 1000 recent stored threads per request.

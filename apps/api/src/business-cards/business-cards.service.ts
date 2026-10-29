@@ -8,7 +8,6 @@ import {
 	businessCardThankYou,
 	confirmBusinessCardInput,
 } from "@crm/validation/business-card";
-import { REOON } from "@crm/validation/reoon";
 import {
 	ConflictException,
 	Injectable,
@@ -16,7 +15,6 @@ import {
 	NotFoundException,
 } from "@nestjs/common";
 import type { z } from "zod";
-import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { InjectDatabase } from "../database/database.constants";
 import { MailboxTokenService } from "../mailbox/mailbox-token.service";
 import { GraphClient } from "../microsoft/graph.client";
@@ -30,7 +28,6 @@ export class BusinessCardsService {
 
 	constructor(
 		@InjectDatabase() private readonly db: Db,
-		private readonly agent: AgentTriggerService,
 		private readonly tokens: MailboxTokenService,
 		private readonly graph: GraphClient,
 	) {}
@@ -306,19 +303,25 @@ export class BusinessCardsService {
 					recipientEmail: extraction.email,
 					subject: input.subject,
 					body: input.body,
-					status: input.autoSend ? "PENDING_VERIFICATION" : "SAVED",
+					status: input.autoSend ? "PENDING_SEND" : "SAVED",
 				},
 				select: { id: true, status: true, contactId: true, campaignId: true },
 			});
 		});
-		if (saved.status === "PENDING_VERIFICATION" && saved.contactId) {
+		if (saved.status === "PENDING_SEND") {
 			try {
-				await this.agent.emailVerificationRequested(saved.contactId);
+				await this.sendDue(saved.id);
 			} catch (error) {
-				this.logger.error("Business card verification was not queued", error);
+				this.logger.error(
+					"Business card email was not sent immediately",
+					error,
+				);
 			}
 		}
-		return saved;
+		return this.db.businessCardCapture.findUniqueOrThrow({
+			where: { id: saved.id },
+			select: { id: true, status: true, contactId: true, campaignId: true },
+		});
 	}
 
 	async editMessage(
@@ -373,7 +376,7 @@ export class BusinessCardsService {
 		}
 		const claimed = await this.db.businessCardCapture.updateMany({
 			where: { id: card.id, userId, status: "SAVED" },
-			data: { status: "PENDING_VERIFICATION", autoSend: true },
+			data: { status: "PENDING_SEND", autoSend: true },
 		});
 		if (claimed.count !== 1)
 			throw new ConflictException(
@@ -391,20 +394,26 @@ export class BusinessCardsService {
 		if (process.env.OUTREACH_SENDING_ENABLED !== "true") return 0;
 		const pending = await this.db.businessCardCapture.findMany({
 			where: {
-				status: "PENDING_VERIFICATION",
 				autoSend: true,
+				recentlyMet: true,
+				OR: [
+					{ status: { in: ["PENDING_SEND", "PENDING_VERIFICATION"] } },
+					{
+						status: "BLOCKED",
+						sendError: "Email verification marked this address unsafe.",
+					},
+				],
 				...(cardId ? { id: cardId } : {}),
 			},
 			orderBy: { createdAt: "asc" },
 			take: 10,
 			include: {
 				user: { select: { email: true } },
-				contact: { include: { emailVerification: true } },
+				contact: true,
 			},
 		});
 		let sent = 0;
 		for (const card of pending) {
-			const verification = card.contact?.emailVerification;
 			if (
 				!card.recipientEmail ||
 				!card.senderEmail ||
@@ -425,23 +434,6 @@ export class BusinessCardsService {
 				});
 				continue;
 			}
-			if (
-				!verification ||
-				verification.email.toLowerCase() !== card.recipientEmail.toLowerCase()
-			)
-				continue;
-			if (verification.checkedAt.getTime() < Date.now() - REOON.maximumAgeMs)
-				continue;
-			if (!verification.safe) {
-				await this.db.businessCardCapture.update({
-					where: { id: card.id },
-					data: {
-						status: "BLOCKED",
-						sendError: "Email verification marked this address unsafe.",
-					},
-				});
-				continue;
-			}
 			if (card.senderEmail.toLowerCase() !== card.user.email.toLowerCase())
 				continue;
 			const scopes = await this.tokens.grantedScopes(
@@ -452,7 +444,7 @@ export class BusinessCardsService {
 			const token = await this.tokens.accessTokenFor(card.userId, "outlook");
 			if (token.outcome !== "ok") continue;
 			const claimed = await this.db.businessCardCapture.updateMany({
-				where: { id: card.id, status: "PENDING_VERIFICATION" },
+				where: { id: card.id, status: card.status },
 				data: { status: "SENDING", sendStartedAt: new Date() },
 			});
 			if (claimed.count !== 1) continue;
