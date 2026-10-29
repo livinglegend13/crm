@@ -1,6 +1,4 @@
-import { Button } from "@crm/ui/components/button";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 import {
 	PageShell,
@@ -18,16 +16,15 @@ import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
 import { contactsSearchParams } from "./contacts-search-params";
 import { ContactsTable } from "./contacts-table";
 import { CreateContactSheet } from "./create-contact-sheet";
+import { ScanCardLink } from "./scan-card-link";
 
 export const metadata: Metadata = {
 	title: "Contacts",
 };
 
-export default async function ContactsPage({
+export default function ContactsPage({
 	searchParams,
-	params,
 }: PageProps<"/[slug]/contacts">) {
-	const { slug } = await params;
 	return (
 		<PageShell className="min-h-0">
 			<PageShellHeader>
@@ -36,9 +33,7 @@ export default async function ContactsPage({
 					<PageShellDescription>Everyone in the pipeline.</PageShellDescription>
 				</PageShellHeading>
 				<PageShellActions>
-					<Button asChild variant="outline">
-						<Link href={`/${slug}/contacts/cards`}>Scan business card</Link>
-					</Button>
+					<ScanCardLink />
 					<CreateContactSheet />
 				</PageShellActions>
 			</PageShellHeader>
