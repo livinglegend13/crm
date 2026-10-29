@@ -47,8 +47,9 @@ async function CampaignContent({
 				<PageShellHeading>
 					<PageShellTitle>{campaign.name}</PageShellTitle>
 					<PageShellDescription>
-						Configure this service campaign plan. The plan does not send email
-						automatically.
+						{campaign.serviceName === "Relationship follow-up"
+							? "Contacts from scanned business cards. Thank-you emails need your opt-in and a verified address."
+							: "Configure this service campaign plan. The plan does not send email automatically."}
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>

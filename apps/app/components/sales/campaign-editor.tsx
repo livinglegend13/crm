@@ -182,43 +182,59 @@ export function CampaignEditor({
 			},
 		}),
 	);
+	if (row.serviceName === "Relationship follow-up") {
+		return (
+			<section className="rounded-lg border bg-card p-5">
+				<div className="flex flex-wrap items-center justify-between gap-3">
+					<div>
+						<h2 className="font-medium">People met in person</h2>
+						<p className="text-muted-foreground mt-1 text-sm">
+							Review each saved card and its thank-you status.
+						</p>
+					</div>
+					<Button asChild>
+						<Link href={workspaceUrl("/business-cards")}>
+							Scan another card
+						</Link>
+					</Button>
+				</div>
+				<div className="mt-4 space-y-2">
+					{row.businessCardCaptures.length === 0 ? (
+						<p className="text-muted-foreground text-sm">
+							No contacts have joined this campaign.
+						</p>
+					) : null}
+					{row.businessCardCaptures.map((capture) => (
+						<div
+							key={capture.id}
+							className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm"
+						>
+							<span>
+								{capture.contactName ??
+									capture.recipientEmail ??
+									"Unnamed contact"}
+							</span>
+							<span className="text-muted-foreground">
+								{capture.status.replaceAll("_", " ").toLowerCase()}
+							</span>
+							{capture.contactId ? (
+								<Link
+									className="text-primary underline"
+									href={workspaceUrl(
+										`/contacts?record=contact:${capture.contactId}`,
+									)}
+								>
+									Open contact
+								</Link>
+							) : null}
+						</div>
+					))}
+				</div>
+			</section>
+		);
+	}
 	return (
 		<div className="space-y-6">
-			{row.businessCardCaptures.length > 0 ? (
-				<section className="rounded-lg border bg-card p-5">
-					<h2 className="font-medium">People met in person</h2>
-					<p className="text-muted-foreground mt-1 text-sm">
-						Each scanned card has its own thank-you status.
-					</p>
-					<div className="mt-3 space-y-2">
-						{row.businessCardCaptures.map((capture) => (
-							<div
-								key={capture.id}
-								className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm"
-							>
-								<span>
-									{capture.contactName ??
-										capture.recipientEmail ??
-										"Unnamed contact"}
-								</span>
-								<span className="text-muted-foreground">
-									{capture.status.replaceAll("_", " ").toLowerCase()}
-								</span>
-								{capture.contactId ? (
-									<Link
-										className="text-primary underline"
-										href={workspaceUrl(
-											`/contacts?record=contact:${capture.contactId}`,
-										)}
-									>
-										Open contact
-									</Link>
-								) : null}
-							</div>
-						))}
-					</div>
-				</section>
-			) : null}
 			<section className="rounded-lg border bg-card p-5">
 				<h2 className="font-medium">Sales handoff</h2>
 				<ol className="mt-3 grid gap-3 text-sm sm:grid-cols-3">
