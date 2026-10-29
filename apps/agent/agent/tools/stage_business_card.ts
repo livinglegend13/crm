@@ -115,9 +115,13 @@ export default defineTool({
 		}));
 		const user = await db.user.findUniqueOrThrow({
 			where: { id: userId },
-			select: { name: true },
+			select: { name: true, emailSignature: true },
 		});
-		const draft = businessCardThankYou(extraction.firstName, user.name);
+		const draft = businessCardThankYou(
+			extraction.firstName,
+			user.name,
+			user.emailSignature,
+		);
 		const capture = await db.$transaction(async (tx) => {
 			const saved = await tx.businessCardCapture.upsert({
 				where: { submissionId },

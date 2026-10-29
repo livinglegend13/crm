@@ -1,5 +1,12 @@
 import { Inject } from "@nestjs/common";
-import { Ctx, Query, Router, UseMiddlewares } from "nestjs-trpc";
+import {
+	Ctx,
+	Input,
+	Mutation,
+	Query,
+	Router,
+	UseMiddlewares,
+} from "nestjs-trpc";
 import { z } from "zod";
 import { AuthService } from "../auth/auth.service";
 import type { AuthedTrpcContext } from "../trpc/context.types";
@@ -27,6 +34,22 @@ export class UsersRouter {
 	@Query()
 	async me(@Ctx() ctx: AuthedTrpcContext) {
 		return this.auth.getProfile(ctx.user.id);
+	}
+
+	@Query({ output: z.string() })
+	async emailSignature(@Ctx() ctx: AuthedTrpcContext) {
+		return this.users.emailSignature(ctx.user.id);
+	}
+
+	@Mutation({
+		input: z.object({ signature: z.string().max(4000) }),
+		output: z.string(),
+	})
+	async setEmailSignature(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: { signature: string },
+	) {
+		return this.users.setEmailSignature(ctx.user.id, input.signature);
 	}
 
 	@Query({

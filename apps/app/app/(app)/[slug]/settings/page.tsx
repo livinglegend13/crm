@@ -14,6 +14,7 @@ import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
 import { AgentModel, AzureAgentModel } from "./agent-model";
 import { ArchiveRetention } from "./archive-retention";
+import { EmailSignature } from "./email-signature";
 import { ResearchKey } from "./research-key";
 import { WorkspaceForm } from "./workspace-form";
 
@@ -58,12 +59,14 @@ async function Settings() {
 		queryClient.prefetchQuery(trpc.settings.modelCatalog.queryOptions()),
 		queryClient.prefetchQuery(trpc.settings.researchKey.queryOptions()),
 		queryClient.prefetchQuery(trpc.settings.archiveRetention.queryOptions()),
+		queryClient.prefetchQuery(trpc.users.emailSignature.queryOptions()),
 	]);
 
 	return (
 		<HydrateClient>
 			<div className="flex max-w-3xl flex-col gap-6">
 				<WorkspaceForm />
+				<EmailSignature />
 				<ResearchKey />
 				<ArchiveRetention />
 				{azureDeployment ? (

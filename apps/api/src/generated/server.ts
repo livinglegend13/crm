@@ -957,6 +957,13 @@ const appRouter = t.router({
   users: t.router({
     me: publicProcedure
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<UsersRouter["me"]>>),
+    emailSignature: publicProcedure
+      .output(z.string())
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    setEmailSignature: publicProcedure
+      .input(z.object({ signature: z.string().max(4000) }))
+      .output(z.string())
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     list: publicProcedure
       .output(z.array(
 	z.object({

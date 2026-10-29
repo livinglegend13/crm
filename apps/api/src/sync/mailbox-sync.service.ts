@@ -49,6 +49,13 @@ export class MailboxSyncService {
 		await this.googleConnections.reconcileAll();
 		await this.microsoftConnections.reconcileAll();
 		try {
+			const removed = await this.businessCards.purgeExpiredImages();
+			if (removed > 0)
+				this.logger.log(`Removed ${removed} expired business card images`);
+		} catch (error) {
+			this.logger.error("Business card image cleanup failed", error);
+		}
+		try {
 			await this.businessCards.sendDue();
 		} catch (error) {
 			this.logger.error("Business card follow-up delivery failed", error);

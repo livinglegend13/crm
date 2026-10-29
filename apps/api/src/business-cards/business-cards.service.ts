@@ -18,6 +18,7 @@ import type { z } from "zod";
 import { InjectDatabase } from "../database/database.constants";
 import { MailboxTokenService } from "../mailbox/mailbox-token.service";
 import { GraphClient } from "../microsoft/graph.client";
+import { BUSINESS_CARDS } from "./business-cards.config";
 
 const CAMPAIGN_NAME = "Conference and impromptu visits";
 const SERVICE_SLUG = "relationship-follow-up";
@@ -31,6 +32,18 @@ export class BusinessCardsService {
 		private readonly tokens: MailboxTokenService,
 		private readonly graph: GraphClient,
 	) {}
+
+	async purgeExpiredImages(): Promise<number> {
+		const cutoff = new Date(Date.now() - BUSINESS_CARDS.imageRetentionMs);
+		return this.db.$executeRaw`
+			DELETE FROM "agentConversationAttachment" AS attachment
+			USING "agentConversationSubmission" AS submission
+			WHERE attachment."submissionId" = submission.id
+				AND attachment."createdAt" < ${cutoff}
+				AND attachment."mediaType" LIKE 'image/%'
+				AND submission.message->>'text' LIKE 'Business card capture request%'
+		`;
+	}
 
 	async list(userId: string) {
 		const rows = await this.db.businessCardCapture.findMany({
@@ -51,7 +64,7 @@ export class BusinessCardsService {
 				subject: true,
 				body: true,
 				senderEmail: true,
-				user: { select: { name: true, email: true } },
+				user: { select: { name: true, email: true, emailSignature: true } },
 				createdAt: true,
 				sentAt: true,
 			},
@@ -59,7 +72,11 @@ export class BusinessCardsService {
 		return rows.map((row) => {
 			const extraction = businessCardExtraction.parse(row.extraction);
 			const { user, ...saved } = row;
-			const draft = businessCardThankYou(extraction.firstName, user.name);
+			const draft = businessCardThankYou(
+				extraction.firstName,
+				user.name,
+				user.emailSignature,
+			);
 			return {
 				...saved,
 				extraction,

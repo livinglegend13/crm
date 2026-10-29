@@ -13,6 +13,23 @@ export interface UserOption {
 export class UsersService {
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
+	async emailSignature(userId: string): Promise<string> {
+		const user = await this.db.user.findUniqueOrThrow({
+			where: { id: userId },
+			select: { emailSignature: true },
+		});
+		return user.emailSignature ?? "";
+	}
+
+	async setEmailSignature(userId: string, signature: string): Promise<string> {
+		const saved = await this.db.user.update({
+			where: { id: userId },
+			data: { emailSignature: signature.trim() || null },
+			select: { emailSignature: true },
+		});
+		return saved.emailSignature ?? "";
+	}
+
 	async list(): Promise<UserOption[]> {
 		return this.db.user.findMany({
 			select: { id: true, name: true, email: true, image: true },

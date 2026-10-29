@@ -68,10 +68,11 @@ async function InboxContent({
 	const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
 	const view =
 		viewParam === "HIDDEN" ? ("HIDDEN" as const) : ("ACTIVE" as const);
-	const [threads, drafts, followUps] = await Promise.all([
+	const [threads, drafts, followUps, microsoft] = await Promise.all([
 		client.inbox.list.query({ page, view, mailbox: mailbox || undefined }),
 		client.outreachDrafts.list.query(),
 		client.inbox.followUps.query(),
+		client.microsoft.status.query(),
 	]);
 	const selectedId = threads.items.some((item) => item.id === requested)
 		? requested
@@ -95,6 +96,23 @@ async function InboxContent({
 				</PageShellHeading>
 			</PageShellHeader>
 			<PageShellContent>
+				{!microsoft.sources.some(
+					(source) => source.source === "outlook" && source.connected,
+				) ? (
+					<div className="mb-6 rounded-lg border p-4">
+						<h2 className="font-medium">Connect your Microsoft 365 inbox</h2>
+						<p className="mt-1 text-muted-foreground text-sm">
+							Your personal conversations stay linked to your CRM account.
+							Connect your mailbox to see replies and follow-ups.
+						</p>
+						<Link
+							className="mt-3 inline-block text-primary underline"
+							href={`/${slug}/settings/connections/microsoft`}
+						>
+							Connect my inbox
+						</Link>
+					</div>
+				) : null}
 				<FollowUpQueue initialRows={followUps} />
 				<section className="mb-6">
 					<h2 className="font-medium text-base">Drafts ({drafts.length})</h2>

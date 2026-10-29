@@ -48,9 +48,13 @@ export const businessCardMessageInput = z.object({
 
 export const businessCardSendInput = z.object({ id: z.string().min(1) });
 
-export function businessCardThankYou(firstName: string, senderName: string) {
+export function businessCardThankYou(
+	firstName: string,
+	senderName: string,
+	signature?: string | null,
+) {
 	return {
 		subject: "Good meeting you",
-		body: `Hi ${firstName},\n\nThank you for meeting with me. I enjoyed our conversation and learning more about your work.\n\nI look forward to exploring potential collaboration between your team and Terraeagle. Would you be open to a short call next week to discuss where we could work together?\n\nRegards,\n${senderName}\nTerraeagle`,
+		body: `Hi ${firstName},\n\nThank you for meeting with me. I enjoyed our conversation and learning more about your work.\n\nI look forward to exploring potential collaboration between your team and Terraeagle. Would you be open to a short call next week to discuss where we could work together?\n\n${signature?.trim() || `Regards,\n${senderName}\nTerraeagle`}`,
 	};
 }
