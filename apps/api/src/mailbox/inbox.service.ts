@@ -1,3 +1,4 @@
+import { workspaceRoleOf } from "@crm/auth";
 import type { Db, Prisma } from "@crm/db";
 import type {
 	inboxFollowUpAction,
@@ -6,6 +7,7 @@ import type {
 } from "@crm/validation/inbox";
 import {
 	BadRequestException,
+	ForbiddenException,
 	Injectable,
 	NotFoundException,
 } from "@nestjs/common";
@@ -82,7 +84,14 @@ function messageOf(message: StoredMessage) {
 export class InboxService {
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
+	private async assertMember(userId: string) {
+		if (!(await workspaceRoleOf(userId))) {
+			throw new ForbiddenException("You are not a member of this workspace.");
+		}
+	}
+
 	async followUps(userId: string) {
+		await this.assertMember(userId);
 		const rows = await this.db.emailFollowUp.findMany({
 			where: {
 				userId,
@@ -186,6 +195,7 @@ export class InboxService {
 		userId: string,
 		input: z.infer<typeof inboxFollowUpAction>,
 	) {
+		await this.assertMember(userId);
 		const until = input.until ? new Date(input.until) : null;
 		if (
 			input.action === "SNOOZE" &&
@@ -205,6 +215,7 @@ export class InboxService {
 	}
 
 	async list(userId: string, input: z.infer<typeof inboxThreadListInput>) {
+		await this.assertMember(userId);
 		const user = await this.db.user.findUniqueOrThrow({
 			where: { id: userId },
 			select: { email: true },
@@ -373,6 +384,7 @@ export class InboxService {
 		userId: string,
 		input: z.infer<typeof inboxThreadFeedbackInput>,
 	) {
+		await this.assertMember(userId);
 		const thread = await this.db.emailThread.findFirst({
 			where: {
 				id: input.threadId,
@@ -478,6 +490,7 @@ export class InboxService {
 	}
 
 	async thread(userId: string, id: string) {
+		await this.assertMember(userId);
 		const user = await this.db.user.findUniqueOrThrow({
 			where: { id: userId },
 			select: { email: true },
