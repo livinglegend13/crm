@@ -96,8 +96,12 @@ async function InboxContent({
 				</PageShellHeading>
 			</PageShellHeader>
 			<PageShellContent>
-				{!microsoft.sources.some(
-					(source) => source.source === "outlook" && source.connected,
+				{!microsoft.hasRefreshToken ||
+				!microsoft.sources.some(
+					(source) =>
+						source.source === "outlook" &&
+						source.connected &&
+						source.status !== "NEEDS_RECONNECT",
 				) ? (
 					<div className="mb-6 rounded-lg border p-4">
 						<h2 className="font-medium">Connect your Microsoft 365 inbox</h2>
