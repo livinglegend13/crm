@@ -8,7 +8,7 @@ export function ScanCardLink() {
 	const workspaceUrl = useWorkspaceUrl();
 	return (
 		<Button asChild variant="outline">
-			<Link href={workspaceUrl("/contacts/cards")}>Scan business card</Link>
+			<Link href={workspaceUrl("/business-cards")}>Scan business card</Link>
 		</Button>
 	);
 }
