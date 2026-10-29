@@ -13,6 +13,16 @@ export const businessCardExtraction = z.object({
 
 export type BusinessCardExtraction = z.infer<typeof businessCardExtraction>;
 
+export const businessCardMatchCandidate = z.object({
+	id: z.string(),
+	name: z.string(),
+	companyName: z.string(),
+	email: z.string().nullable(),
+	reason: z.enum(["email", "phone", "name"]),
+});
+
+export const businessCardMatchCandidates = z.array(businessCardMatchCandidate);
+
 export const businessCardRequest = z.object({
 	recentlyMet: z.boolean(),
 	autoSend: z.boolean(),
@@ -21,6 +31,7 @@ export const businessCardRequest = z.object({
 
 export const confirmBusinessCardInput = z.object({
 	id: z.string().min(1),
+	existingContactId: z.string().nullable(),
 	extraction: businessCardExtraction,
 	meetingNote: z.string().trim().max(5000).nullable(),
 	recentlyMet: z.boolean(),

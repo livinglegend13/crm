@@ -1,5 +1,6 @@
 import {
 	businessCardExtraction,
+	businessCardMatchCandidate,
 	confirmBusinessCardInput,
 } from "@crm/validation/business-card";
 import {
@@ -18,6 +19,7 @@ import { BusinessCardsService } from "./business-cards.service";
 const captureRow = z.object({
 	id: z.string(),
 	extraction: businessCardExtraction,
+	matchCandidates: z.array(businessCardMatchCandidate),
 	meetingNote: z.string().nullable(),
 	recentlyMet: z.boolean(),
 	autoSend: z.boolean(),

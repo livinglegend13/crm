@@ -167,6 +167,9 @@ function ReviewCard({
 	const [meetingNote, setMeetingNote] = useState(row.meetingNote ?? "");
 	const [recentlyMet, setRecentlyMet] = useState(row.recentlyMet);
 	const [autoSend, setAutoSend] = useState(row.autoSend);
+	const [existingContactId, setExistingContactId] = useState<string | null>(
+		null,
+	);
 	const confirm = useMutation(
 		trpc.businessCards.confirm.mutationOptions({
 			onSuccess: async () => {
@@ -208,6 +211,35 @@ function ReviewCard({
 			</div>
 			{row.status === "REVIEW" ? (
 				<>
+					{row.matchCandidates.length ? (
+						<div className="flex flex-col gap-2 rounded-lg border p-3 text-sm">
+							<p className="font-medium">Possible existing contacts</p>
+							<p className="text-muted-foreground">
+								Choose a contact to add the meeting note to its record. A
+								matching email always reuses its existing record.
+							</p>
+							{row.matchCandidates.map((match) => (
+								<Button
+									key={match.id}
+									variant={
+										existingContactId === match.id ? "secondary" : "outline"
+									}
+									className="justify-start"
+									onClick={() => setExistingContactId(match.id)}
+								>
+									{match.name} · {match.companyName} ·{" "}
+									{match.email ?? match.reason}
+								</Button>
+							))}
+							<Button
+								variant="ghost"
+								className="justify-start"
+								onClick={() => setExistingContactId(null)}
+							>
+								Create a new contact when the email differs
+							</Button>
+						</div>
+					) : null}
 					<div className="grid gap-3 sm:grid-cols-2">
 						{field("firstName", "First name")}
 						{field("lastName", "Last name")}
@@ -256,6 +288,7 @@ function ReviewCard({
 							onClick={() =>
 								confirm.mutate({
 									id: row.id,
+									existingContactId,
 									extraction: {
 										...extraction,
 										lastName: extraction.lastName || null,

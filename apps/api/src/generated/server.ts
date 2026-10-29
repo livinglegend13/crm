@@ -18,7 +18,7 @@ import { agentListOutput, agentReviseInput, agentReviseOutput, agentIdInput, age
 import { gtmServices, saveGtmServiceInput, prospectsInput, prospectsOutput, saveFiloReviewInput, filoReview, campaignsOutput, campaignIdInput, campaignDetail, proposalKnowledgeList, campaignWorkflowAgents, addProposalKnowledgeInput, updateProposalKnowledgeStatusInput, campaignCallTaskInput, campaignCallTaskOutput, requestCampaignPlanInput, runCampaignAgentOutput, campaignPlanRunIdInput, campaignPlanStatus, createCampaignInput, runCampaignAgentInput, updateCampaignInput, saveCampaignStepsInput, saveLinkedinSequenceInput, addCampaignTargetInput, addCampaignTargetsInput, addCampaignTargetsOutput, removeCampaignTargetInput, gtmInsights } from "@crm/validation/gtm";
 import { outreachDraftList, outreachStats, outreachSendersOutput, saveOutreachDraftInput, outreachDraft, approveOutreachDraftInput, sendOutreachDraftInput, sendOutreachDraftOutput, regenerateOutreachDraftInput, regenerateOutreachDraftOutput } from "@crm/validation/outreach-draft";
 import { apiKeyListInput, apiKeyListOutput, createApiKeyInput, createApiKeyOutput, revokeApiKeyInput, revokeApiKeyOutput } from "../api-keys/api-keys.contracts";
-import { businessCardExtraction, confirmBusinessCardInput } from "@crm/validation/business-card";
+import { businessCardExtraction, businessCardMatchCandidate, confirmBusinessCardInput } from "@crm/validation/business-card";
 import { companyListInput, companyListOutput, companyIdInput, companyDetailOutput, companyOptionsInput, companyOptionOutput, companyCreateInput, companySummaryOutput, companyUpdateArgs, companyArchiveResultOutput, companyBulkOwnerInput, companyBulkResultOutput, companyBulkInput, companyEnrichOutput, companyResearchOutput, setPrimaryContactInput, companySetPrimaryContactOutput } from "../companies/companies.contracts";
 import { contactListInput, contactListOutput, contactIdInput, contactByIdOutput, contactCreateInput, contactBasicOutput, contactUpdateArgs, contactNameOutput, contactEnrichOutput, contactBulkOwnerInput, bulkResultOutput, contactBulkCompanyInput, contactBulkInput, factDecisionInput, decideFactOutput } from "../contacts/contacts.contracts";
 import { conversationListInput, conversationListOutput, builderListOutput, builderResourceSearchInput, builderResourcesOutput, conversationIdInput, builderConversationDetailOutput, conversationEventsInput, conversationEventsOutput, conversationSaveInput, conversationIdOutput, builderConversationCreateInput, builderConversationSubmitInput, builderQuestionResponseInput, builderResponseRatingInput, builderResponseRatingOutput, conversationShareStatusOutput, conversationShareTokenOutput, sharedConversationInput, sharedConversationOutput } from "../conversations/conversations.contracts";
@@ -275,6 +275,7 @@ const appRouter = t.router({
       .output(z.array(z.object({
 	id: z.string(),
 	extraction: businessCardExtraction,
+	matchCandidates: z.array(businessCardMatchCandidate),
 	meetingNote: z.string().nullable(),
 	recentlyMet: z.boolean(),
 	autoSend: z.boolean(),

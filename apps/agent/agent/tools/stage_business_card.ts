@@ -48,12 +48,77 @@ export default defineTool({
 		}
 		const request = businessCardRequest.parse(JSON.parse(encoded));
 		const extraction = businessCardExtraction.parse(input);
+		const websiteDomain = extraction.website
+			? new URL(extraction.website).hostname.replace(/^www\./, "").toLowerCase()
+			: null;
+		const matches = await db.contact.findMany({
+			where: {
+				archivedAt: null,
+				OR: [
+					...(extraction.email
+						? [
+								{
+									email: {
+										equals: extraction.email,
+										mode: "insensitive" as const,
+									},
+								},
+							]
+						: []),
+					{
+						company: {
+							OR: [
+								{
+									name: { equals: extraction.companyName, mode: "insensitive" },
+								},
+								...(websiteDomain ? [{ domain: websiteDomain }] : []),
+							],
+						},
+						OR: [
+							...(extraction.phone ? [{ phone: extraction.phone }] : []),
+							{
+								firstName: {
+									equals: extraction.firstName,
+									mode: "insensitive",
+								},
+								lastName: extraction.lastName
+									? { equals: extraction.lastName, mode: "insensitive" }
+									: null,
+							},
+						],
+					},
+				],
+			},
+			select: {
+				id: true,
+				firstName: true,
+				lastName: true,
+				email: true,
+				phone: true,
+				company: { select: { name: true } },
+			},
+			take: 5,
+		});
+		const matchCandidates = matches.map((contact) => ({
+			id: contact.id,
+			name: [contact.firstName, contact.lastName].filter(Boolean).join(" "),
+			companyName: contact.company?.name ?? "Unknown company",
+			email: contact.email,
+			reason:
+				contact.email &&
+				extraction.email?.toLowerCase() === contact.email.toLowerCase()
+					? "email"
+					: contact.phone && extraction.phone === contact.phone
+						? "phone"
+						: "name",
+		}));
 		const capture = await db.businessCardCapture.upsert({
 			where: { submissionId },
 			create: {
 				submissionId,
 				userId,
 				extraction,
+				matchCandidates,
 				meetingNote: request.meetingNote,
 				recentlyMet: request.recentlyMet,
 				autoSend: request.autoSend && request.recentlyMet,
@@ -65,6 +130,7 @@ export default defineTool({
 			captureId: capture.id,
 			status: capture.status,
 			extraction,
+			matchCandidates,
 			recentlyMet: request.recentlyMet,
 			autoSend: request.autoSend && request.recentlyMet,
 			message:

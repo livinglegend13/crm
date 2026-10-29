@@ -423,7 +423,7 @@ export class GtmService {
 				startMinute: row.startMinute,
 				endMinute: row.endMinute,
 			},
-			targetCount: row._count.targets + row._count.businessCardCaptures,
+			targetCount: row._count.targets,
 			qualifiedCount: qualified[index] ?? 0,
 			stepCount: row._count.steps,
 			closelyCampaignName: row.closelyCampaignName,
@@ -562,7 +562,7 @@ export class GtmService {
 				startMinute: row.startMinute,
 				endMinute: row.endMinute,
 			},
-			targetCount: row.targets.length + row.businessCardCaptures.length,
+			targetCount: row.targets.length,
 			qualifiedCount:
 				row.serviceLine === "FILO_STORAGE"
 					? row.targets.filter(
@@ -1121,17 +1121,32 @@ export class GtmService {
 			if (!contact)
 				throw new BadRequestException("Choose a contact at this company.");
 		}
-		await this.db.gtmCampaignTarget.upsert({
-			where: {
-				campaignId_companyId: { campaignId: input.id, companyId: company.id },
-			},
-			create: {
-				campaignId: input.id,
-				companyId: company.id,
-				contactId: input.contactId,
-			},
-			update: { contactId: input.contactId },
-		});
+		if (input.contactId) {
+			await this.db.gtmCampaignTarget.upsert({
+				where: {
+					campaignId_contactId: {
+						campaignId: input.id,
+						contactId: input.contactId,
+					},
+				},
+				create: {
+					campaignId: input.id,
+					companyId: company.id,
+					contactId: input.contactId,
+				},
+				update: {},
+			});
+		} else {
+			const existing = await this.db.gtmCampaignTarget.findFirst({
+				where: { campaignId: input.id, companyId: company.id, contactId: null },
+				select: { id: true },
+			});
+			if (!existing) {
+				await this.db.gtmCampaignTarget.create({
+					data: { campaignId: input.id, companyId: company.id },
+				});
+			}
+		}
 		return this.campaign(userId, input.id);
 	}
 
@@ -1164,17 +1179,26 @@ export class GtmService {
 						},
 						select: { id: true, companyId: true },
 					});
-		const targets = new Map<string, string | null>();
+		const targets = new Map<
+			string,
+			{ companyId: string; contactId: string | null }
+		>();
 		for (const row of selected) {
 			const companyId = "companyId" in row ? row.companyId : row.id;
-			if (typeof companyId === "string" && !targets.has(companyId)) {
-				targets.set(companyId, input.kind === "contact" ? row.id : null);
+			if (typeof companyId === "string") {
+				const contactId = input.kind === "contact" ? row.id : null;
+				targets.set(contactId ?? `company:${companyId}`, {
+					companyId,
+					contactId,
+				});
 			}
 		}
 		if (input.kind === "company" && targets.size) {
 			const contacts = await this.db.contact.findMany({
 				where: {
-					companyId: { in: [...targets.keys()] },
+					companyId: {
+						in: [...targets.values()].map((target) => target.companyId),
+					},
 					archivedAt: null,
 					email: { not: null },
 				},
@@ -1189,21 +1213,29 @@ export class GtmService {
 					]);
 				}
 			}
-			for (const companyId of targets.keys()) {
+			for (const target of targets.values()) {
+				const companyId = target.companyId;
 				const choices = byCompany.get(companyId) ?? [];
-				if (choices.length === 1) targets.set(companyId, choices[0] ?? null);
+				if (choices.length === 1) target.contactId = choices[0] ?? null;
 			}
 		}
 		const existing = await this.db.gtmCampaignTarget.findMany({
-			where: { campaignId: input.id, companyId: { in: [...targets.keys()] } },
-			select: { companyId: true },
+			where: {
+				campaignId: input.id,
+				companyId: {
+					in: [...targets.values()].map((target) => target.companyId),
+				},
+			},
+			select: { companyId: true, contactId: true },
 		});
-		const existingIds = new Set(existing.map((row) => row.companyId));
+		const existingIds = new Set(
+			existing.map((row) => row.contactId ?? `company:${row.companyId}`),
+		);
 		const additions = [...targets].filter(
-			([companyId]) => !existingIds.has(companyId),
+			([key, target]) => !existingIds.has(target.contactId ?? key),
 		);
 		const created = await this.db.gtmCampaignTarget.createMany({
-			data: additions.map(([companyId, contactId]) => ({
+			data: additions.map(([, { companyId, contactId }]) => ({
 				campaignId: input.id,
 				companyId,
 				contactId,
@@ -1216,15 +1248,14 @@ export class GtmService {
 			reasons.push(
 				`${unavailable} records lack a company in the campaign country or are archived.`,
 			);
-		const repeated = selected.length - targets.size;
-		if (repeated)
-			reasons.push(`${repeated} contacts share a company already selected.`);
-		if (existing.length)
+		if (selected.length > created.count)
 			reasons.push(
-				`${existing.length} companies are already in this campaign.`,
+				`${selected.length - created.count} selected records already belong to this campaign.`,
 			);
 		if (input.kind === "company") {
-			const unassigned = additions.filter(([, contactId]) => !contactId).length;
+			const unassigned = additions.filter(
+				([, target]) => !target.contactId,
+			).length;
 			if (unassigned)
 				reasons.push(
 					`${unassigned} companies need a contact choice before an email draft can be created.`,

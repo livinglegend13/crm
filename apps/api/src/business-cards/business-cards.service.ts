@@ -2,6 +2,7 @@ import { MICROSOFT_PROVIDER_ID, OUTLOOK_SEND_SHARED_SCOPE } from "@crm/auth";
 import type { Db } from "@crm/db";
 import {
 	businessCardExtraction,
+	businessCardMatchCandidates,
 	businessCardThankYou,
 	confirmBusinessCardInput,
 } from "@crm/validation/business-card";
@@ -38,6 +39,7 @@ export class BusinessCardsService {
 			select: {
 				id: true,
 				extraction: true,
+				matchCandidates: true,
 				meetingNote: true,
 				recentlyMet: true,
 				autoSend: true,
@@ -52,6 +54,7 @@ export class BusinessCardsService {
 		return rows.map((row) => ({
 			...row,
 			extraction: businessCardExtraction.parse(row.extraction),
+			matchCandidates: businessCardMatchCandidates.parse(row.matchCandidates),
 			createdAt: row.createdAt.toISOString(),
 			sentAt: row.sentAt?.toISOString() ?? null,
 		}));
@@ -63,13 +66,29 @@ export class BusinessCardsService {
 	) {
 		const capture = await this.db.businessCardCapture.findFirst({
 			where: { id: input.id, userId },
-			select: { id: true, status: true, contactId: true },
+			select: {
+				id: true,
+				status: true,
+				contactId: true,
+				matchCandidates: true,
+			},
 		});
 		if (!capture) throw new NotFoundException("Card scan not found.");
 		if (capture.status !== "REVIEW") {
 			throw new ConflictException("This card scan was already saved.");
 		}
 		const extraction = businessCardExtraction.parse(input.extraction);
+		const matchCandidates = businessCardMatchCandidates.parse(
+			capture.matchCandidates,
+		);
+		if (
+			input.existingContactId &&
+			!matchCandidates.some((match) => match.id === input.existingContactId)
+		) {
+			throw new ConflictException(
+				"This contact was not a card match. Review the scan again.",
+			);
+		}
 		if (input.autoSend && (!input.recentlyMet || !extraction.email)) {
 			throw new ConflictException(
 				"Automatic thank-you requires a recent meeting and a work email.",
@@ -115,7 +134,25 @@ export class BusinessCardsService {
 				},
 				select: { id: true },
 			});
-			let contact = extraction.email
+			let contact = input.existingContactId
+				? await tx.contact.findFirst({
+						where: { id: input.existingContactId, archivedAt: null },
+						select: {
+							id: true,
+							companyId: true,
+							email: true,
+							lastName: true,
+							phone: true,
+							title: true,
+						},
+					})
+				: null;
+			if (input.existingContactId && !contact) {
+				throw new ConflictException(
+					"The matched contact is no longer available.",
+				);
+			}
+			contact ??= extraction.email
 				? await tx.contact.findFirst({
 						where: {
 							email: { equals: extraction.email, mode: "insensitive" },
@@ -124,6 +161,7 @@ export class BusinessCardsService {
 						select: {
 							id: true,
 							companyId: true,
+							email: true,
 							lastName: true,
 							phone: true,
 							title: true,
@@ -133,6 +171,15 @@ export class BusinessCardsService {
 			if (contact?.companyId && contact.companyId !== company.id) {
 				throw new ConflictException(
 					"This email belongs to a contact at another company. Review that contact first.",
+				);
+			}
+			if (
+				contact?.email &&
+				extraction.email &&
+				contact.email.toLowerCase() !== extraction.email.toLowerCase()
+			) {
+				throw new ConflictException(
+					"The matched contact has a different email. Review the card address.",
 				);
 			}
 			contact ??= await tx.contact.create({
@@ -148,6 +195,7 @@ export class BusinessCardsService {
 				select: {
 					id: true,
 					companyId: true,
+					email: true,
 					lastName: true,
 					phone: true,
 					title: true,
@@ -155,6 +203,7 @@ export class BusinessCardsService {
 			});
 			if (
 				!contact.companyId ||
+				(!contact.email && extraction.email) ||
 				(!contact.lastName && extraction.lastName) ||
 				(!contact.phone && extraction.phone) ||
 				(!contact.title && extraction.title)
@@ -163,6 +212,7 @@ export class BusinessCardsService {
 					where: { id: contact.id },
 					data: {
 						companyId: contact.companyId ?? company.id,
+						email: contact.email ?? extraction.email,
 						lastName: contact.lastName ?? extraction.lastName,
 						phone: contact.phone ?? extraction.phone,
 						title: contact.title ?? extraction.title,
@@ -213,6 +263,20 @@ export class BusinessCardsService {
 					description: "Contacts met at conferences and impromptu visits.",
 				},
 				select: { id: true },
+			});
+			await tx.gtmCampaignTarget.upsert({
+				where: {
+					campaignId_contactId: {
+						campaignId: campaign.id,
+						contactId: contact.id,
+					},
+				},
+				create: {
+					campaignId: campaign.id,
+					companyId: company.id,
+					contactId: contact.id,
+				},
+				update: {},
 			});
 			return tx.businessCardCapture.update({
 				where: { id: capture.id },

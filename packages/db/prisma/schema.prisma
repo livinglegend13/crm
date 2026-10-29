@@ -689,6 +689,7 @@ model BusinessCardCapture {
   userId       String
   user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
   extraction   Json
+  matchCandidates Json @default("[]")
   meetingNote  String? @db.Text
   recentlyMet  Boolean @default(false)
   autoSend     Boolean @default(false)
@@ -1097,7 +1098,7 @@ model GtmCampaignTarget {
   contact     Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
 
-  @@unique([campaignId, companyId])
+  @@unique([campaignId, contactId])
   @@index([companyId])
   @@map("gtmCampaignTarget")
 }
