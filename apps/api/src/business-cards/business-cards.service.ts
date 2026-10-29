@@ -3,6 +3,8 @@ import type { Db } from "@crm/db";
 import {
 	businessCardExtraction,
 	businessCardMatchCandidates,
+	businessCardMessageInput,
+	businessCardSendInput,
 	businessCardThankYou,
 	confirmBusinessCardInput,
 } from "@crm/validation/business-card";
@@ -47,17 +49,29 @@ export class BusinessCardsService {
 				contactId: true,
 				campaignId: true,
 				sendError: true,
+				subject: true,
+				body: true,
+				senderEmail: true,
+				user: { select: { name: true, email: true } },
 				createdAt: true,
 				sentAt: true,
 			},
 		});
-		return rows.map((row) => ({
-			...row,
-			extraction: businessCardExtraction.parse(row.extraction),
-			matchCandidates: businessCardMatchCandidates.parse(row.matchCandidates),
-			createdAt: row.createdAt.toISOString(),
-			sentAt: row.sentAt?.toISOString() ?? null,
-		}));
+		return rows.map((row) => {
+			const extraction = businessCardExtraction.parse(row.extraction);
+			const { user, ...saved } = row;
+			const draft = businessCardThankYou(extraction.firstName, user.name);
+			return {
+				...saved,
+				extraction,
+				matchCandidates: businessCardMatchCandidates.parse(row.matchCandidates),
+				subject: row.subject ?? draft.subject,
+				body: row.body ?? draft.body,
+				senderEmail: row.senderEmail ?? user.email,
+				createdAt: row.createdAt.toISOString(),
+				sentAt: row.sentAt?.toISOString() ?? null,
+			};
+		});
 	}
 
 	async confirm(
@@ -96,13 +110,12 @@ export class BusinessCardsService {
 		}
 		const user = await this.db.user.findUniqueOrThrow({
 			where: { id: userId },
-			select: { name: true, email: true },
+			select: { email: true },
 		});
 		const countryCode = extraction.countryCode?.toUpperCase() ?? "IN";
 		const websiteDomain = extraction.website
 			? new URL(extraction.website).hostname.replace(/^www\./, "").toLowerCase()
 			: null;
-		const draft = businessCardThankYou(extraction.firstName, user.name);
 		const saved = await this.db.$transaction(async (tx) => {
 			const claimed = await tx.businessCardCapture.updateMany({
 				where: { id: input.id, userId, status: "REVIEW" },
@@ -289,8 +302,8 @@ export class BusinessCardsService {
 					campaignId: campaign.id,
 					senderEmail: user.email,
 					recipientEmail: extraction.email,
-					subject: draft.subject,
-					body: draft.body,
+					subject: input.subject,
+					body: input.body,
 					status: input.autoSend ? "PENDING_VERIFICATION" : "SAVED",
 				},
 				select: { id: true, status: true, contactId: true, campaignId: true },
@@ -299,10 +312,80 @@ export class BusinessCardsService {
 		return saved;
 	}
 
-	async sendDue() {
+	async editMessage(
+		userId: string,
+		input: z.infer<typeof businessCardMessageInput>,
+	) {
+		const updated = await this.db.businessCardCapture.updateMany({
+			where: { id: input.id, userId, status: "SAVED" },
+			data: { subject: input.subject, body: input.body },
+		});
+		if (updated.count !== 1) {
+			throw new ConflictException("This email is no longer editable.");
+		}
+		return { id: input.id };
+	}
+
+	async requestSend(
+		userId: string,
+		input: z.infer<typeof businessCardSendInput>,
+	) {
+		if (process.env.OUTREACH_SENDING_ENABLED !== "true") {
+			throw new ConflictException("Email sending is disabled for this CRM.");
+		}
+		const card = await this.db.businessCardCapture.findFirst({
+			where: { id: input.id, userId },
+			select: {
+				id: true,
+				status: true,
+				recentlyMet: true,
+				recipientEmail: true,
+				subject: true,
+				body: true,
+				contact: { select: { email: true, archivedAt: true } },
+			},
+		});
+		if (!card) throw new NotFoundException("Card scan not found.");
+		if (card.status !== "SAVED")
+			throw new ConflictException(
+				"This email has already entered the send queue.",
+			);
+		if (
+			!card.recentlyMet ||
+			!card.recipientEmail ||
+			!card.subject ||
+			!card.body ||
+			card.contact?.archivedAt ||
+			card.contact?.email?.toLowerCase() !== card.recipientEmail.toLowerCase()
+		) {
+			throw new ConflictException(
+				"A recent meeting and a current contact email are required.",
+			);
+		}
+		const claimed = await this.db.businessCardCapture.updateMany({
+			where: { id: card.id, userId, status: "SAVED" },
+			data: { status: "PENDING_VERIFICATION", autoSend: true },
+		});
+		if (claimed.count !== 1)
+			throw new ConflictException(
+				"This email has already entered the send queue.",
+			);
+		await this.sendDue(card.id);
+		const updated = await this.db.businessCardCapture.findUniqueOrThrow({
+			where: { id: card.id },
+			select: { status: true },
+		});
+		return updated;
+	}
+
+	async sendDue(cardId?: string) {
 		if (process.env.OUTREACH_SENDING_ENABLED !== "true") return 0;
 		const pending = await this.db.businessCardCapture.findMany({
-			where: { status: "PENDING_VERIFICATION", autoSend: true },
+			where: {
+				status: "PENDING_VERIFICATION",
+				autoSend: true,
+				...(cardId ? { id: cardId } : {}),
+			},
 			orderBy: { createdAt: "asc" },
 			take: 10,
 			include: {

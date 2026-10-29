@@ -2,6 +2,7 @@ import { db } from "@crm/db";
 import {
 	businessCardExtraction,
 	businessCardRequest,
+	businessCardThankYou,
 } from "@crm/validation/business-card";
 import { defineTool } from "eve/tools";
 import { z } from "zod";
@@ -112,19 +113,32 @@ export default defineTool({
 						? "phone"
 						: "name",
 		}));
-		const capture = await db.businessCardCapture.upsert({
-			where: { submissionId },
-			create: {
-				submissionId,
-				userId,
-				extraction,
-				matchCandidates,
-				meetingNote: request.meetingNote,
-				recentlyMet: request.recentlyMet,
-				autoSend: request.autoSend && request.recentlyMet,
-			},
-			update: {},
-			select: { id: true, status: true },
+		const user = await db.user.findUniqueOrThrow({
+			where: { id: userId },
+			select: { name: true },
+		});
+		const draft = businessCardThankYou(extraction.firstName, user.name);
+		const capture = await db.$transaction(async (tx) => {
+			const saved = await tx.businessCardCapture.upsert({
+				where: { submissionId },
+				create: {
+					submissionId,
+					userId,
+					extraction,
+					matchCandidates,
+					meetingNote: request.meetingNote,
+					recentlyMet: request.recentlyMet,
+					autoSend: request.autoSend && request.recentlyMet,
+					subject: draft.subject,
+					body: draft.body,
+				},
+				update: {},
+				select: { id: true, status: true },
+			});
+			await tx.agentConversationAttachment.deleteMany({
+				where: { submissionId },
+			});
+			return saved;
 		});
 		return {
 			captureId: capture.id,

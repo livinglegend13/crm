@@ -1,6 +1,8 @@
 import {
 	businessCardExtraction,
 	businessCardMatchCandidate,
+	businessCardMessageInput,
+	businessCardSendInput,
 	confirmBusinessCardInput,
 } from "@crm/validation/business-card";
 import {
@@ -27,6 +29,9 @@ const captureRow = z.object({
 	contactId: z.string().nullable(),
 	campaignId: z.string().nullable(),
 	sendError: z.string().nullable(),
+	subject: z.string(),
+	body: z.string(),
+	senderEmail: z.string(),
 	createdAt: z.string(),
 	sentAt: z.string().nullable(),
 });
@@ -55,5 +60,27 @@ export class BusinessCardsRouter {
 		@Ctx() ctx: AuthedTrpcContext,
 	) {
 		return this.cards.confirm(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: businessCardMessageInput,
+		output: z.object({ id: z.string() }),
+	})
+	editMessage(
+		@Input() input: z.infer<typeof businessCardMessageInput>,
+		@Ctx() ctx: AuthedTrpcContext,
+	) {
+		return this.cards.editMessage(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: businessCardSendInput,
+		output: z.object({ status: z.string() }),
+	})
+	requestSend(
+		@Input() input: z.infer<typeof businessCardSendInput>,
+		@Ctx() ctx: AuthedTrpcContext,
+	) {
+		return this.cards.requestSend(ctx.user.id, input);
 	}
 }

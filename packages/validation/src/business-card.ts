@@ -36,11 +36,21 @@ export const confirmBusinessCardInput = z.object({
 	meetingNote: z.string().trim().max(5000).nullable(),
 	recentlyMet: z.boolean(),
 	autoSend: z.boolean(),
+	subject: z.string().trim().min(1).max(200),
+	body: z.string().trim().min(1).max(10000),
 });
+
+export const businessCardMessageInput = z.object({
+	id: z.string().min(1),
+	subject: z.string().trim().min(1).max(200),
+	body: z.string().trim().min(1).max(10000),
+});
+
+export const businessCardSendInput = z.object({ id: z.string().min(1) });
 
 export function businessCardThankYou(firstName: string, senderName: string) {
 	return {
 		subject: "Good meeting you",
-		body: `Hi ${firstName},\n\nIt was a pleasure meeting you. Thank you for taking the time to speak with me.\n\nI would welcome a short conversation to explore where Terraeagle's cybersecurity, AI, and FinOps work could support your priorities. Would a 20-minute call next week suit you?\n\nRegards,\n${senderName}\nTerraeagle`,
+		body: `Hi ${firstName},\n\nThank you for meeting with me. I enjoyed our conversation and learning more about your work.\n\nI look forward to exploring potential collaboration between your team and Terraeagle. Would you be open to a short call next week to discuss where we could work together?\n\nRegards,\n${senderName}\nTerraeagle`,
 	};
 }
