@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { AgentModule } from "../agent/agent.module";
 import { CompaniesModule } from "../companies/companies.module";
 import { TrpcModule } from "../trpc/trpc.module";
+import { DeliveryFailureService } from "./delivery-failure.service";
 import { InboxRouter } from "./inbox.router";
 import { InboxService } from "./inbox.service";
 import { MailboxApiClient } from "./mailbox-api.client";
@@ -20,6 +21,7 @@ import { ThreadWriterService } from "./thread-writer.service";
 		MailboxMatchService,
 		SyncStateService,
 		ThreadWriterService,
+		DeliveryFailureService,
 	],
 	exports: [
 		MailboxApiClient,
@@ -27,6 +29,7 @@ import { ThreadWriterService } from "./thread-writer.service";
 		MailboxMatchService,
 		SyncStateService,
 		ThreadWriterService,
+		DeliveryFailureService,
 	],
 })
 export class MailboxModule {}

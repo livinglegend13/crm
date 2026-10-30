@@ -2,7 +2,7 @@
 
 Business card capture deletes photos after extraction. The sync tick deletes unfinished capture photos after three days. Each user stores a separate signature for new personal-mailbox messages.
 
-Opening WhatsApp from a contact or saved card writes a NOTE activity with `channel: whatsapp` and `status: initiated` before opening the link. The CRM does not claim delivery. The dashboard counts these activities for the signed-in user. Its email count includes only accepted CRM outreach drafts and scanned-card emails. Both counts expose paginated details for that user.
+Opening WhatsApp from a contact or saved card writes a NOTE activity with `channel: whatsapp` and `status: initiated` before opening the link. The CRM does not claim delivery. The dashboard counts these activities for the signed-in user. Its email count merges synced personal Outlook sent messages with CRM sends. It matches copies by RFC ID or sender, recipient, subject, and time. Confirmed bounces are excluded. Both counts expose paginated details for that user.
 
 Inbox queries show messages synced from the current user's mailbox. They also show messages synced from configured mailx and maily mailboxes to all CRM users. Outreach can send from the signed-in user's address or a configured shared sender. Personal sends use that user's saved signature. Shared sends keep the sender persona signature.
 

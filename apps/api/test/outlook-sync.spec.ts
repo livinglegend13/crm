@@ -127,10 +127,17 @@ function harness(options: {
 	} as unknown as ThreadWriterService;
 
 	return {
-		service: new OutlookSyncService(graph, tokens, state, threads, {
-			match: async () => null,
-			deliverPending: async () => {},
-		} as never),
+		service: new OutlookSyncService(
+			graph,
+			tokens,
+			state,
+			threads,
+			{
+				match: async () => null,
+				deliverPending: async () => {},
+			} as never,
+			{ reconcile: async () => false } as never,
+		),
 		stored,
 		settled,
 		rateLimited,

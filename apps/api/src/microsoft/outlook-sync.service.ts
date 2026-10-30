@@ -3,6 +3,7 @@ import {
 	type MailboxSyncModel as MailboxSync,
 } from "@crm/db";
 import { Injectable, Logger } from "@nestjs/common";
+import { DeliveryFailureService } from "../mailbox/delivery-failure.service";
 import type { MailboxResult } from "../mailbox/mailbox-api.client";
 import type { MatchContext } from "../mailbox/mailbox-match.service";
 import { MailboxTokenService } from "../mailbox/mailbox-token.service";
@@ -60,6 +61,7 @@ export class OutlookSyncService {
 		private readonly state: SyncStateService,
 		private readonly threads: ThreadWriterService,
 		private readonly replies: OutreachRepliesService,
+		private readonly deliveryFailures: DeliveryFailureService,
 	) {}
 
 	async sync(row: MailboxSync): Promise<OutlookSyncOutcome> {
@@ -210,6 +212,7 @@ export class OutlookSyncService {
 
 				const parsed = this.parse(message);
 				if (!parsed) continue;
+				await this.deliveryFailures.reconcile(mailbox, parsed);
 				if (outreachSenders().includes(parsed.from.email)) {
 					await this.replies.captureSent(parsed.from.email, parsed);
 				}

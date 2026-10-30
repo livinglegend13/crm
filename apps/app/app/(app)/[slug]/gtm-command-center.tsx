@@ -79,7 +79,7 @@ export function GtmCommandCenter({ data }: { data: Snapshot }) {
 						<Metric value={data.readyCampaigns} label="Ready campaigns" />
 						<CommunicationMetric
 							value={data.emailsSent}
-							label="Your CRM emails sent"
+							label="Your emails sent"
 							channel="email"
 						/>
 						<CommunicationMetric
@@ -277,7 +277,7 @@ function CommunicationMetric({
 						<DialogDescription>
 							{channel === "whatsapp"
 								? "A click opens WhatsApp. The CRM cannot confirm delivery."
-								: "Emails sent through CRM outreach and scanned-card follow-ups."}
+								: "Synced personal Outlook messages and CRM sends. Confirmed delivery failures are excluded."}
 						</DialogDescription>
 					</DialogHeader>
 					<div className="divide-y px-4">

@@ -1117,6 +1117,7 @@ enum OutreachDraftStatus {
   SENDING
   SENT
   SEND_UNKNOWN
+  BOUNCED
 }
 
 model AgentRunEvent {
@@ -1546,6 +1547,7 @@ model EmailMessage {
   outlookWebLink   String?
 
   direction  EmailDirection
+  deliveryStatus String @default("SENT")
   fromEmail  String
   fromName   String?
   recipients Json
@@ -1557,6 +1559,7 @@ model EmailMessage {
   createdAt DateTime @default(now())
 
   @@index([threadId, sentAt])
+  @@index([syncedByUserId, mailboxAddress, direction, sentAt])
   @@map("emailMessage")
 }
 

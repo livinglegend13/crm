@@ -1,10 +1,12 @@
-import { ActivityType, type Db, DealStage } from "@crm/db";
+import { ActivityType, type Db, DealStage, EmailDirection } from "@crm/db";
 import { OPEN_DEAL_STAGES } from "@crm/db/deal-stage";
 import { activityMeta } from "@crm/validation/activity-meta";
+import { emailMessageRecipients } from "@crm/validation/email-message";
 import { Injectable } from "@nestjs/common";
 import { toCents } from "../crm/values";
 import { ConversionService } from "../currency/conversion.service";
 import { InjectDatabase } from "../database/database.constants";
+import { DASHBOARD_COMMUNICATIONS } from "./dashboard.config";
 import type {
 	CommunicationHistoryInput,
 	DashboardSummaryInput,
@@ -25,8 +27,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const MONTH_LABEL = new Intl.DateTimeFormat("en-US", { month: "short" });
 
-const COMMUNICATION_PAGE_SIZE = 20;
-
 function monthStart(from: Date, offset: number): Date {
 	return new Date(from.getFullYear(), from.getMonth() + offset, 1);
 }
@@ -43,7 +43,7 @@ export class DashboardService {
 	) {}
 
 	async communications(userId: string, input: CommunicationHistoryInput) {
-		const skip = input.page * COMMUNICATION_PAGE_SIZE;
+		const skip = input.page * DASHBOARD_COMMUNICATIONS.pageSize;
 		if (input.channel === "whatsapp") {
 			const where = {
 				createdById: userId,
@@ -56,7 +56,7 @@ export class DashboardService {
 					where,
 					orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 					skip,
-					take: COMMUNICATION_PAGE_SIZE,
+					take: DASHBOARD_COMMUNICATIONS.pageSize,
 					select: {
 						id: true,
 						body: true,
@@ -84,58 +84,175 @@ export class DashboardService {
 				})),
 			};
 		}
-		const [draftTotal, cardTotal, drafts, cards] = await Promise.all([
-			this.db.outreachDraft.count({ where: { userId, status: "SENT" } }),
-			this.db.businessCardCapture.count({ where: { userId, status: "SENT" } }),
+		const rows = await this.emailCommunications(userId);
+		const pageRows = rows.slice(skip, skip + DASHBOARD_COMMUNICATIONS.pageSize);
+		const [messages, drafts, cards] = await Promise.all([
+			this.db.emailMessage.findMany({
+				where: {
+					id: {
+						in: pageRows
+							.filter((row) => row.source === "Synced Outlook")
+							.map((row) => row.id),
+					},
+				},
+				select: { id: true, body: true },
+			}),
+			this.db.outreachDraft.findMany({
+				where: {
+					id: {
+						in: pageRows
+							.filter((row) => row.source === "CRM outreach")
+							.map((row) => row.id),
+					},
+				},
+				select: { id: true, body: true },
+			}),
+			this.db.businessCardCapture.findMany({
+				where: {
+					id: {
+						in: pageRows
+							.filter((row) => row.source === "Scanned card")
+							.map((row) => row.id),
+					},
+				},
+				select: { id: true, body: true },
+			}),
+		]);
+		const bodies = new Map(
+			[...messages, ...drafts, ...cards].map((row) => [row.id, row.body]),
+		);
+		return {
+			total: rows.length,
+			rows: pageRows.map((row) => ({
+				...row,
+				body: bodies.get(row.id) ?? null,
+			})),
+		};
+	}
+
+	private async emailCommunications(userId: string) {
+		const [user, drafts, cards] = await Promise.all([
+			this.db.user.findUniqueOrThrow({
+				where: { id: userId },
+				select: { email: true },
+			}),
 			this.db.outreachDraft.findMany({
 				where: { userId, status: "SENT" },
 				orderBy: [{ sentAt: "desc" }, { id: "desc" }],
-				take: skip + COMMUNICATION_PAGE_SIZE,
 				select: {
 					id: true,
 					subject: true,
 					recipientEmail: true,
-					body: true,
 					sentAt: true,
+					senderEmail: true,
+					sentRfcMessageId: true,
 				},
 			}),
 			this.db.businessCardCapture.findMany({
 				where: { userId, status: "SENT" },
 				orderBy: [{ sentAt: "desc" }, { id: "desc" }],
-				take: skip + COMMUNICATION_PAGE_SIZE,
 				select: {
 					id: true,
 					subject: true,
 					recipientEmail: true,
-					body: true,
 					sentAt: true,
+					senderEmail: true,
 					contactId: true,
 				},
 			}),
 		]);
+		const synced = await this.db.emailMessage.findMany({
+			where: {
+				syncedByUserId: userId,
+				mailboxAddress: { equals: user.email, mode: "insensitive" },
+				direction: EmailDirection.OUTBOUND,
+			},
+			select: {
+				id: true,
+				rfcMessageId: true,
+				fromEmail: true,
+				recipients: true,
+				subject: true,
+				sentAt: true,
+				deliveryStatus: true,
+				thread: { select: { contactId: true } },
+			},
+		});
+		const syncedRecipient = new Map(
+			synced.map((message) => [
+				message.id,
+				emailMessageRecipients
+					.parse(message.recipients)
+					.filter((recipient) => recipient.kind === "to")
+					.map((recipient) => recipient.email.toLowerCase()),
+			]),
+		);
+		const syncedIds = new Set(synced.map((message) => message.rfcMessageId));
+		const syncedByAddress = new Map<string, (typeof synced)[number][]>();
+		for (const message of synced) {
+			for (const recipient of syncedRecipient.get(message.id) ?? []) {
+				const key = `${message.fromEmail.toLowerCase()}|${recipient}|${message.subject?.trim().toLowerCase() ?? ""}`;
+				const list = syncedByAddress.get(key) ?? [];
+				list.push(message);
+				syncedByAddress.set(key, list);
+			}
+		}
+		const matched = (row: {
+			senderEmail: string | null;
+			recipientEmail: string | null;
+			subject: string | null;
+			sentAt: Date | null;
+			sentRfcMessageId?: string | null;
+		}) => {
+			if (row.sentRfcMessageId && syncedIds.has(row.sentRfcMessageId))
+				return true;
+			const sentAt = row.sentAt;
+			if (!sentAt || !row.recipientEmail || !row.senderEmail) return false;
+			const key = `${row.senderEmail.toLowerCase()}|${row.recipientEmail.toLowerCase()}|${row.subject?.trim().toLowerCase() ?? ""}`;
+			return (syncedByAddress.get(key) ?? []).some(
+				(message) =>
+					Math.abs(sentAt.getTime() - message.sentAt.getTime()) <=
+					DASHBOARD_COMMUNICATIONS.emailMatchWindowMs,
+			);
+		};
 		const rows = [
-			...drafts.map((row) => ({
-				id: row.id,
-				title: row.subject,
-				recipient: row.recipientEmail ?? "Recipient unavailable",
-				body: row.body,
-				at: row.sentAt?.toISOString() ?? "",
-				source: "CRM outreach",
-				contactId: null,
-			})),
-			...cards.map((row) => ({
-				id: row.id,
-				title: row.subject ?? "Thank-you email",
-				recipient: row.recipientEmail ?? "Recipient unavailable",
-				body: row.body,
-				at: row.sentAt?.toISOString() ?? "",
-				source: "Scanned card",
-				contactId: row.contactId,
-			})),
-		]
-			.sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id))
-			.slice(skip, skip + COMMUNICATION_PAGE_SIZE);
-		return { total: draftTotal + cardTotal, rows };
+			...synced
+				.filter((row) => row.deliveryStatus !== "BOUNCED")
+				.map((row) => ({
+					id: row.id,
+					title: row.subject ?? "Email",
+					recipient:
+						(syncedRecipient.get(row.id) ?? []).join(", ") ||
+						"Recipient unavailable",
+					body: null,
+					at: row.sentAt.toISOString(),
+					source: "Synced Outlook",
+					contactId: row.thread.contactId,
+				})),
+			...drafts
+				.filter((row) => !matched(row))
+				.map((row) => ({
+					id: row.id,
+					title: row.subject,
+					recipient: row.recipientEmail ?? "Recipient unavailable",
+					body: null,
+					at: row.sentAt?.toISOString() ?? "",
+					source: "CRM outreach",
+					contactId: null,
+				})),
+			...cards
+				.filter((row) => !matched(row))
+				.map((row) => ({
+					id: row.id,
+					title: row.subject ?? "Thank-you email",
+					recipient: row.recipientEmail ?? "Recipient unavailable",
+					body: null,
+					at: row.sentAt?.toISOString() ?? "",
+					source: "Scanned card",
+					contactId: row.contactId,
+				})),
+		].sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id));
+		return rows;
 	}
 
 	async summary(actingUserId: string, input: DashboardSummaryInput) {
@@ -410,8 +527,7 @@ export class DashboardService {
 			pendingDrafts,
 			campaigns,
 			whatsappInitiated,
-			emailDraftsSent,
-			cardEmailsSent,
+			emailsSent,
 		] = await Promise.all([
 			this.db.appSetting.findFirst({
 				select: {
@@ -493,8 +609,7 @@ export class DashboardService {
 					meta: { path: ["channel"], equals: "whatsapp" },
 				},
 			}),
-			this.db.outreachDraft.count({ where: { userId, status: "SENT" } }),
-			this.db.businessCardCapture.count({ where: { userId, status: "SENT" } }),
+			this.emailCommunications(userId).then((rows) => rows.length),
 		]);
 		const activity = [
 			...closely.map((row) => ({
@@ -533,7 +648,7 @@ export class DashboardService {
 			.sort((a, b) => b.at.localeCompare(a.at))
 			.slice(0, 12);
 		return {
-			emailsSent: emailDraftsSent + cardEmailsSent,
+			emailsSent,
 			whatsappInitiated,
 			linkedin: {
 				connected: Boolean(setting?.closelyLinkedinName),
