@@ -5,6 +5,8 @@ import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import { restMeta } from "../trpc/openapi";
 import {
+	communicationHistoryInput,
+	communicationHistoryOutput,
 	dashboardSummaryInput,
 	dashboardSummaryOutput,
 } from "./dashboard.contracts";
@@ -27,5 +29,16 @@ export class DashboardRouter {
 		@Input() input: z.infer<typeof dashboardSummaryInput>,
 	) {
 		return this.dashboard.summary(ctx.user.id, input);
+	}
+
+	@Query({
+		input: communicationHistoryInput,
+		output: communicationHistoryOutput,
+	})
+	communications(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof communicationHistoryInput>,
+	) {
+		return this.dashboard.communications(ctx.user.id, input);
 	}
 }

@@ -1,3 +1,4 @@
+import { whatsappInitiationInput } from "@crm/validation/whatsapp";
 import { Inject } from "@nestjs/common";
 import {
 	Ctx,
@@ -7,7 +8,7 @@ import {
 	Router,
 	UseMiddlewares,
 } from "nestjs-trpc";
-import type { z } from "zod";
+import { z } from "zod";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import { restMeta } from "../trpc/openapi";
@@ -36,6 +37,17 @@ export class ContactsRouter {
 	constructor(
 		@Inject(ContactsService) private readonly contacts: ContactsService,
 	) {}
+
+	@Mutation({
+		input: whatsappInitiationInput,
+		output: z.object({ url: z.string().url() }),
+	})
+	initiateWhatsApp(
+		@Input() input: z.infer<typeof whatsappInitiationInput>,
+		@Ctx() ctx: AuthedTrpcContext,
+	) {
+		return this.contacts.initiateWhatsApp(ctx.user.id, input);
+	}
 
 	@Query({
 		input: contactListInput,

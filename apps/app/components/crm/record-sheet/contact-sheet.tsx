@@ -40,6 +40,7 @@ import { ContactSocials } from "@/components/crm/social-links";
 import { DealStageMenu } from "@/components/crm/stage-change";
 import { Timeline } from "@/components/crm/timeline/timeline";
 import { WebsiteActivity } from "@/components/crm/website-activity";
+import { WhatsAppContactAction } from "@/components/crm/whatsapp-contact-action";
 import {
 	DetailSheetBody,
 	DetailSheetEmpty,
@@ -192,6 +193,12 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 									<span className="hidden sm:inline">Email</span>
 								</a>
 							</Button>
+						) : null}
+						{contact.phone ? (
+							<WhatsAppContactAction
+								contactId={contact.id}
+								firstName={contact.firstName}
+							/>
 						) : null}
 						{contact.company && !contact.isPrimaryContact ? (
 							<Button

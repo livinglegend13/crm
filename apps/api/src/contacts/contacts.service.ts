@@ -1,4 +1,5 @@
 import {
+	ActivityType,
 	type ContactBriefSections,
 	type Db,
 	type FactEvidence,
@@ -9,11 +10,17 @@ import {
 } from "@crm/db";
 import type { FieldDefinitionWithOptions } from "@crm/db/fields";
 import {
+	whatsappInitiationInput,
+	whatsappNumber,
+} from "@crm/validation/whatsapp";
+import {
+	BadRequestException,
 	ConflictException,
 	Injectable,
 	Logger,
 	NotFoundException,
 } from "@nestjs/common";
+import type { z } from "zod";
 import { AgentQueueService } from "../agent/agent-queue.service";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { ARCHIVE } from "../archive/archive-config";
@@ -102,6 +109,51 @@ export class ContactsService {
 		private readonly stamp: ActivityStampService,
 		private readonly fields: FieldsService,
 	) {}
+
+	async initiateWhatsApp(
+		userId: string,
+		input: z.infer<typeof whatsappInitiationInput>,
+	) {
+		const contact = await this.db.contact.findFirst({
+			where: { id: input.contactId, archivedAt: null },
+			select: {
+				id: true,
+				phone: true,
+				companyId: true,
+				company: { select: { countryCode: true } },
+			},
+		});
+		if (!contact) throw new NotFoundException("Contact not found.");
+		const number = whatsappNumber(
+			contact.phone,
+			contact.company?.countryCode ?? null,
+		);
+		if (!number) {
+			throw new BadRequestException(
+				"Add a phone number with a country code before opening WhatsApp.",
+			);
+		}
+		const activity = await this.db.activity.create({
+			data: {
+				type: ActivityType.NOTE,
+				subject: "WhatsApp initiated",
+				body: input.message,
+				occurredAt: new Date(),
+				companyId: contact.companyId,
+				contactId: contact.id,
+				createdById: userId,
+				meta: { channel: "whatsapp", status: "initiated", phone: number },
+			},
+			select: { createdAt: true },
+		});
+		await this.stamp.touch(
+			{ companyId: contact.companyId, contactId: contact.id },
+			activity.createdAt,
+		);
+		return {
+			url: `https://wa.me/${number}?text=${encodeURIComponent(input.message)}`,
+		};
+	}
 
 	async list(input: ContactListInput): Promise<ListResult<ContactRow>> {
 		const filterableFields = await this.fields.filterableFieldsFor("CONTACT");

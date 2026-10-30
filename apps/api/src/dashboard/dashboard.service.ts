@@ -5,7 +5,10 @@ import { Injectable } from "@nestjs/common";
 import { toCents } from "../crm/values";
 import { ConversionService } from "../currency/conversion.service";
 import { InjectDatabase } from "../database/database.constants";
-import type { DashboardSummaryInput } from "./dashboard.contracts";
+import type {
+	CommunicationHistoryInput,
+	DashboardSummaryInput,
+} from "./dashboard.contracts";
 
 const OWNER_SELECT = {
 	id: true,
@@ -22,6 +25,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const MONTH_LABEL = new Intl.DateTimeFormat("en-US", { month: "short" });
 
+const COMMUNICATION_PAGE_SIZE = 20;
+
 function monthStart(from: Date, offset: number): Date {
 	return new Date(from.getFullYear(), from.getMonth() + offset, 1);
 }
@@ -36,6 +41,102 @@ export class DashboardService {
 		@InjectDatabase() private readonly db: Db,
 		private readonly conversion: ConversionService,
 	) {}
+
+	async communications(userId: string, input: CommunicationHistoryInput) {
+		const skip = input.page * COMMUNICATION_PAGE_SIZE;
+		if (input.channel === "whatsapp") {
+			const where = {
+				createdById: userId,
+				type: ActivityType.NOTE,
+				meta: { path: ["channel"], equals: "whatsapp" },
+			} as const;
+			const [total, rows] = await Promise.all([
+				this.db.activity.count({ where }),
+				this.db.activity.findMany({
+					where,
+					orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+					skip,
+					take: COMMUNICATION_PAGE_SIZE,
+					select: {
+						id: true,
+						body: true,
+						createdAt: true,
+						contactId: true,
+						contact: {
+							select: { firstName: true, lastName: true, phone: true },
+						},
+					},
+				}),
+			]);
+			return {
+				total,
+				rows: rows.map((row) => ({
+					id: row.id,
+					title:
+						[row.contact?.firstName, row.contact?.lastName]
+							.filter(Boolean)
+							.join(" ") || "Contact",
+					recipient: row.contact?.phone ?? "Phone unavailable",
+					body: row.body,
+					at: row.createdAt.toISOString(),
+					source: "WhatsApp initiated",
+					contactId: row.contactId,
+				})),
+			};
+		}
+		const [draftTotal, cardTotal, drafts, cards] = await Promise.all([
+			this.db.outreachDraft.count({ where: { userId, status: "SENT" } }),
+			this.db.businessCardCapture.count({ where: { userId, status: "SENT" } }),
+			this.db.outreachDraft.findMany({
+				where: { userId, status: "SENT" },
+				orderBy: [{ sentAt: "desc" }, { id: "desc" }],
+				take: skip + COMMUNICATION_PAGE_SIZE,
+				select: {
+					id: true,
+					subject: true,
+					recipientEmail: true,
+					body: true,
+					sentAt: true,
+				},
+			}),
+			this.db.businessCardCapture.findMany({
+				where: { userId, status: "SENT" },
+				orderBy: [{ sentAt: "desc" }, { id: "desc" }],
+				take: skip + COMMUNICATION_PAGE_SIZE,
+				select: {
+					id: true,
+					subject: true,
+					recipientEmail: true,
+					body: true,
+					sentAt: true,
+					contactId: true,
+				},
+			}),
+		]);
+		const rows = [
+			...drafts.map((row) => ({
+				id: row.id,
+				title: row.subject,
+				recipient: row.recipientEmail ?? "Recipient unavailable",
+				body: row.body,
+				at: row.sentAt?.toISOString() ?? "",
+				source: "CRM outreach",
+				contactId: null,
+			})),
+			...cards.map((row) => ({
+				id: row.id,
+				title: row.subject ?? "Thank-you email",
+				recipient: row.recipientEmail ?? "Recipient unavailable",
+				body: row.body,
+				at: row.sentAt?.toISOString() ?? "",
+				source: "Scanned card",
+				contactId: row.contactId,
+			})),
+		]
+			.sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id))
+			.slice(skip, skip + COMMUNICATION_PAGE_SIZE);
+		return { total: draftTotal + cardTotal, rows };
+	}
 
 	async summary(actingUserId: string, input: DashboardSummaryInput) {
 		const mine = input.scope === "me";
@@ -308,6 +409,9 @@ export class DashboardService {
 			bookedThisWeek,
 			pendingDrafts,
 			campaigns,
+			whatsappInitiated,
+			emailDraftsSent,
+			cardEmailsSent,
 		] = await Promise.all([
 			this.db.appSetting.findFirst({
 				select: {
@@ -382,6 +486,15 @@ export class DashboardService {
 			this.db.gtmCampaign.count({
 				where: { ownerId: userId, status: "READY" },
 			}),
+			this.db.activity.count({
+				where: {
+					createdById: userId,
+					type: ActivityType.NOTE,
+					meta: { path: ["channel"], equals: "whatsapp" },
+				},
+			}),
+			this.db.outreachDraft.count({ where: { userId, status: "SENT" } }),
+			this.db.businessCardCapture.count({ where: { userId, status: "SENT" } }),
 		]);
 		const activity = [
 			...closely.map((row) => ({
@@ -420,6 +533,8 @@ export class DashboardService {
 			.sort((a, b) => b.at.localeCompare(a.at))
 			.slice(0, 12);
 		return {
+			emailsSent: emailDraftsSent + cardEmailsSent,
+			whatsappInitiated,
 			linkedin: {
 				connected: Boolean(setting?.closelyLinkedinName),
 				name: setting?.closelyLinkedinName ?? null,

@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useId, useState } from "react";
 import { toast } from "sonner";
+import { WhatsAppContactAction } from "@/components/crm/whatsapp-contact-action";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
@@ -19,15 +20,6 @@ function toBase64(bytes: Uint8Array) {
 		text += String.fromCharCode(...bytes.subarray(index, index + 8192));
 	}
 	return btoa(text);
-}
-
-function whatsappNumber(phone: string | null, countryCode: string | null) {
-	if (!phone) return null;
-	const digits = phone.replace(/\D/g, "");
-	if (phone.trim().startsWith("+")) return digits.length >= 10 ? digits : null;
-	if (countryCode?.toUpperCase() === "IN" && digits.length === 10)
-		return `91${digits}`;
-	return digits.length > 10 ? digits : null;
 }
 
 async function compressCardPhoto(file: File) {
@@ -234,9 +226,6 @@ function ReviewCard({
 	const [autoSend, setAutoSend] = useState(row.autoSend);
 	const [subject, setSubject] = useState(row.subject);
 	const [body, setBody] = useState(row.body);
-	const [whatsappBody, setWhatsappBody] = useState(
-		`Hi ${row.extraction.firstName}, it was great meeting you. I enjoyed our conversation and would like to explore potential collaboration. Would you be open to a short call next week? Regards, Terraeagle`,
-	);
 	const [checkedSentItems, setCheckedSentItems] = useState(false);
 	const [existingContactId, setExistingContactId] = useState<string | null>(
 		null,
@@ -298,7 +287,6 @@ function ReviewCard({
 			onError: (error) => toast.error(error.message),
 		}),
 	);
-	const phone = whatsappNumber(extraction.phone, extraction.countryCode);
 	const messageFields = (disabled: boolean) => (
 		<div className="flex flex-col gap-3">
 			<label
@@ -548,39 +536,11 @@ function ReviewCard({
 							</Button>
 						</div>
 					) : null}
-					{row.recentlyMet ? (
-						<div className="flex flex-col gap-3 rounded-lg border p-3">
-							<label htmlFor={`${row.id}-whatsapp`} className="font-medium">
-								WhatsApp follow-up
-							</label>
-							<Textarea
-								id={`${row.id}-whatsapp`}
-								value={whatsappBody}
-								onChange={(event) => setWhatsappBody(event.target.value)}
-								maxLength={2000}
-								rows={4}
-							/>
-							{phone ? (
-								<Button asChild variant="outline">
-									<a
-										href={`https://wa.me/${phone}?text=${encodeURIComponent(whatsappBody)}`}
-										target="_blank"
-										rel="noopener noreferrer"
-									>
-										Open WhatsApp to review and send
-									</a>
-								</Button>
-							) : (
-								<p className="text-muted-foreground">
-									Add the contact phone in international format to open
-									WhatsApp.
-								</p>
-							)}
-							<p className="text-muted-foreground">
-								WhatsApp opens on your device. Review the sender account and
-								press Send there.
-							</p>
-						</div>
+					{row.recentlyMet && row.contactId ? (
+						<WhatsAppContactAction
+							contactId={row.contactId}
+							firstName={row.extraction.firstName}
+						/>
 					) : null}
 					<div className="flex flex-wrap gap-4">
 						{row.contactId ? (

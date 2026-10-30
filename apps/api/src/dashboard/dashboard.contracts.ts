@@ -10,6 +10,30 @@ export const dashboardSummaryInput = z.object({
 
 export type DashboardSummaryInput = z.infer<typeof dashboardSummaryInput>;
 
+export const communicationHistoryInput = z.object({
+	channel: z.enum(["email", "whatsapp"]),
+	page: z.number().int().min(0).max(500).default(0),
+});
+
+export type CommunicationHistoryInput = z.infer<
+	typeof communicationHistoryInput
+>;
+
+export const communicationHistoryOutput = z.object({
+	total: z.number(),
+	rows: z.array(
+		z.object({
+			id: z.string(),
+			title: z.string(),
+			recipient: z.string(),
+			body: z.string().nullable(),
+			at: z.string(),
+			source: z.string(),
+			contactId: z.string().nullable(),
+		}),
+	),
+});
+
 const stageEnum = z.enum(
 	Object.values(DealStage) as [DealStage, ...DealStage[]],
 );
@@ -89,6 +113,8 @@ const recentActivityOutput = z.object({
 export const dashboardSummaryOutput = z.object({
 	scope: z.enum(DASHBOARD_SCOPES),
 	gtm: z.object({
+		emailsSent: z.number(),
+		whatsappInitiated: z.number(),
 		linkedin: z.object({
 			connected: z.boolean(),
 			name: z.string().nullable(),

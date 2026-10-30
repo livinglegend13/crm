@@ -1,12 +1,23 @@
 "use client";
 
+import { Button } from "@crm/ui/components/button";
 import {
 	Card,
 	CardDescription,
 	CardHeader,
 	CardTitle,
 } from "@crm/ui/components/card";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "@crm/ui/components/dialog";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useState } from "react";
+import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
@@ -59,13 +70,23 @@ export function GtmCommandCenter({ data }: { data: Snapshot }) {
 							href={workspaceUrl("/outreach/integrations")}
 						/>
 					</div>
-					<div className="grid grid-cols-3 gap-3">
+					<div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
 						<Metric
 							value={data.bookedThisWeek}
 							label="Calendar events this week"
 						/>
 						<Metric value={data.pendingDrafts} label="Open email drafts" />
 						<Metric value={data.readyCampaigns} label="Ready campaigns" />
+						<CommunicationMetric
+							value={data.emailsSent}
+							label="Your CRM emails sent"
+							channel="email"
+						/>
+						<CommunicationMetric
+							value={data.whatsappInitiated}
+							label="Your WhatsApp initiated"
+							channel="whatsapp"
+						/>
 					</div>
 					<section aria-labelledby="workflow-heading">
 						<h3 id="workflow-heading" className="mb-2 text-sm font-semibold">
@@ -215,5 +236,100 @@ function Metric({ value, label }: { value: number; label: string }) {
 			<span className="block text-2xl font-semibold tabular-nums">{value}</span>
 			<span className="block text-xs text-muted-foreground">{label}</span>
 		</div>
+	);
+}
+
+function CommunicationMetric({
+	value,
+	label,
+	channel,
+}: {
+	value: number;
+	label: string;
+	channel: "email" | "whatsapp";
+}) {
+	const trpc = useTRPC();
+	const workspaceUrl = useWorkspaceUrl();
+	const [open, setOpen] = useState(false);
+	const [page, setPage] = useState(0);
+	const history = useQuery({
+		...trpc.dashboard.communications.queryOptions({ channel, page }),
+		enabled: open,
+	});
+	return (
+		<>
+			<button
+				type="button"
+				onClick={() => setOpen(true)}
+				className="border bg-background p-3 text-left hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+			>
+				<span className="block text-2xl font-semibold tabular-nums">
+					{value}
+				</span>
+				<span className="block text-xs text-muted-foreground">
+					{label} · View details
+				</span>
+			</button>
+			<Dialog open={open} onOpenChange={setOpen}>
+				<DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+					<DialogHeader>
+						<DialogTitle>{label}</DialogTitle>
+						<DialogDescription>
+							{channel === "whatsapp"
+								? "A click opens WhatsApp. The CRM cannot confirm delivery."
+								: "Emails sent through CRM outreach and scanned-card follow-ups."}
+						</DialogDescription>
+					</DialogHeader>
+					<div className="divide-y px-4">
+						{history.isPending ? <p>Loading activity…</p> : null}
+						{history.data?.rows.map((row) => (
+							<details key={`${row.source}:${row.id}`} className="py-3">
+								<summary className="cursor-pointer font-medium">
+									{row.title} · {row.recipient}
+								</summary>
+								<p className="text-muted-foreground text-sm">
+									{row.source} · {new Date(row.at).toLocaleString()}
+								</p>
+								{row.body ? (
+									<p className="mt-2 whitespace-pre-wrap text-sm">{row.body}</p>
+								) : null}
+								{row.contactId ? (
+									<Link
+										href={workspaceUrl(
+											`/contacts?record=contact:${row.contactId}`,
+										)}
+										className="text-primary underline"
+									>
+										Open contact
+									</Link>
+								) : null}
+							</details>
+						))}
+						{history.data?.total === 0 ? (
+							<p className="py-4">No activity yet.</p>
+						) : null}
+					</div>
+					<div className="flex items-center justify-between px-4 pb-4">
+						<Button
+							variant="outline"
+							disabled={page === 0}
+							onClick={() => setPage(page - 1)}
+						>
+							Previous
+						</Button>
+						<span className="text-sm text-muted-foreground">
+							Page {page + 1}
+						</span>
+						<Button
+							variant="outline"
+							disabled={!history.data || (page + 1) * 20 >= history.data.total}
+							onClick={() => setPage(page + 1)}
+						>
+							Next
+						</Button>
+					</div>
+				</DialogContent>
+			</Dialog>
+		</>
 	);
 }
