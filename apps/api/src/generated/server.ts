@@ -306,6 +306,10 @@ const appRouter = t.router({
     requestSend: publicProcedure
       .input(businessCardSendInput)
       .output(z.object({ status: z.string() }))
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    retryUnknown: publicProcedure
+      .input(businessCardSendInput)
+      .output(z.object({ status: z.string() }))
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
   companies: t.router({

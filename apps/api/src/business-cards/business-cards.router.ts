@@ -83,4 +83,15 @@ export class BusinessCardsRouter {
 	) {
 		return this.cards.requestSend(ctx.user.id, input);
 	}
+
+	@Mutation({
+		input: businessCardSendInput,
+		output: z.object({ status: z.string() }),
+	})
+	retryUnknown(
+		@Input() input: z.infer<typeof businessCardSendInput>,
+		@Ctx() ctx: AuthedTrpcContext,
+	) {
+		return this.cards.retryUnknown(ctx.user.id, input);
+	}
 }

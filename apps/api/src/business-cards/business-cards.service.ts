@@ -407,6 +407,35 @@ export class BusinessCardsService {
 		return updated;
 	}
 
+	async retryUnknown(
+		userId: string,
+		input: z.infer<typeof businessCardSendInput>,
+	) {
+		if (process.env.OUTREACH_SENDING_ENABLED !== "true") {
+			throw new ConflictException("Email sending is disabled for this CRM.");
+		}
+		const card = await this.db.businessCardCapture.findFirst({
+			where: { id: input.id, userId },
+			select: { id: true, status: true },
+		});
+		if (!card) throw new NotFoundException("Card scan not found.");
+		if (card.status !== "SEND_UNKNOWN") {
+			throw new ConflictException("This email does not need a retry.");
+		}
+		const claimed = await this.db.businessCardCapture.updateMany({
+			where: { id: card.id, userId, status: "SEND_UNKNOWN" },
+			data: { status: "PENDING_SEND", sendError: null },
+		});
+		if (claimed.count !== 1) {
+			throw new ConflictException("Another retry started. Reload this card.");
+		}
+		await this.sendDue(card.id);
+		return this.db.businessCardCapture.findUniqueOrThrow({
+			where: { id: card.id },
+			select: { status: true },
+		});
+	}
+
 	async sendDue(cardId?: string) {
 		if (process.env.OUTREACH_SENDING_ENABLED !== "true") return 0;
 		const pending = await this.db.businessCardCapture.findMany({

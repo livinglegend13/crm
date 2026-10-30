@@ -21,6 +21,15 @@ function toBase64(bytes: Uint8Array) {
 	return btoa(text);
 }
 
+function whatsappNumber(phone: string | null, countryCode: string | null) {
+	if (!phone) return null;
+	const digits = phone.replace(/\D/g, "");
+	if (phone.trim().startsWith("+")) return digits.length >= 10 ? digits : null;
+	if (countryCode?.toUpperCase() === "IN" && digits.length === 10)
+		return `91${digits}`;
+	return digits.length > 10 ? digits : null;
+}
+
 async function compressCardPhoto(file: File) {
 	if (file.size > 40_000_000) {
 		throw new Error("Choose a camera photo smaller than 40 MB.");
@@ -225,6 +234,10 @@ function ReviewCard({
 	const [autoSend, setAutoSend] = useState(row.autoSend);
 	const [subject, setSubject] = useState(row.subject);
 	const [body, setBody] = useState(row.body);
+	const [whatsappBody, setWhatsappBody] = useState(
+		`Hi ${row.extraction.firstName}, it was great meeting you. I enjoyed our conversation and would like to explore potential collaboration. Would you be open to a short call next week? Regards, Terraeagle`,
+	);
+	const [checkedSentItems, setCheckedSentItems] = useState(false);
 	const [existingContactId, setExistingContactId] = useState<string | null>(
 		null,
 	);
@@ -270,6 +283,22 @@ function ReviewCard({
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const retryUnknown = useMutation(
+		trpc.businessCards.retryUnknown.mutationOptions({
+			onSuccess: async (result) => {
+				await queryClient.invalidateQueries({
+					queryKey: trpc.businessCards.list.pathKey(),
+				});
+				toast[result.status === "SENT" ? "success" : "error"](
+					result.status === "SENT"
+						? "Microsoft accepted the retry. Check Sent Items for delivery."
+						: "Microsoft did not confirm the retry. Check the card status.",
+				);
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const phone = whatsappNumber(extraction.phone, extraction.countryCode);
 	const messageFields = (disabled: boolean) => (
 		<div className="flex flex-col gap-3">
 			<label
@@ -490,6 +519,68 @@ function ReviewCard({
 							Sent{" "}
 							{row.sentAt ? new Date(row.sentAt).toLocaleString("en-IN") : ""}
 						</p>
+					) : null}
+					{row.status === "SEND_UNKNOWN" ? (
+						<div className="flex flex-col gap-3 rounded-lg border p-3">
+							<p>
+								Microsoft did not confirm this email. Check your Sent Items
+								before retrying.
+							</p>
+							<label
+								htmlFor={`${row.id}-sent-check`}
+								className="flex items-center gap-2"
+							>
+								<Checkbox
+									id={`${row.id}-sent-check`}
+									checked={checkedSentItems}
+									onCheckedChange={(value) =>
+										setCheckedSentItems(value === true)
+									}
+								/>
+								I checked Sent Items. This email is absent.
+							</label>
+							<Button
+								variant="outline"
+								disabled={!checkedSentItems || retryUnknown.isPending}
+								onClick={() => retryUnknown.mutate({ id: row.id })}
+							>
+								Retry email once
+							</Button>
+						</div>
+					) : null}
+					{row.recentlyMet ? (
+						<div className="flex flex-col gap-3 rounded-lg border p-3">
+							<label htmlFor={`${row.id}-whatsapp`} className="font-medium">
+								WhatsApp follow-up
+							</label>
+							<Textarea
+								id={`${row.id}-whatsapp`}
+								value={whatsappBody}
+								onChange={(event) => setWhatsappBody(event.target.value)}
+								maxLength={2000}
+								rows={4}
+							/>
+							{phone ? (
+								<Button asChild variant="outline">
+									<a
+										href={`https://wa.me/${phone}?text=${encodeURIComponent(whatsappBody)}`}
+										target="_blank"
+										rel="noopener noreferrer"
+									>
+										Open WhatsApp to review and send
+									</a>
+								</Button>
+							) : (
+								<p className="text-muted-foreground">
+									Add the contact phone in international format to open
+									WhatsApp.
+								</p>
+							)}
+							<p className="text-muted-foreground">
+								WhatsApp opens on your device. Review the sender account and
+								press Send there.
+							</p>
+						</div>
 					) : null}
 					<div className="flex flex-wrap gap-4">
 						{row.contactId ? (

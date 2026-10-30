@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import {
 	MailboxApiClient,
 	type MailboxResult,
@@ -68,6 +68,7 @@ export type GraphFolder = {
 
 @Injectable()
 export class GraphClient {
+	private readonly logger = new Logger(GraphClient.name);
 	constructor(private readonly api: MailboxApiClient) {}
 
 	async sendMail(
@@ -98,10 +99,19 @@ export class GraphClient {
 				signal: AbortSignal.timeout(30_000),
 			});
 			if (response.status === 202) return "accepted";
+			this.logger.warn({
+				message: "Microsoft Graph did not accept email",
+				status: response.status,
+				requestId: response.headers.get("request-id"),
+			});
 			if ([400, 401, 403, 404, 422].includes(response.status))
 				return "rejected";
 			return "unknown";
-		} catch {
+		} catch (error) {
+			this.logger.warn({
+				message: "Microsoft Graph email request failed",
+				error: error instanceof Error ? error.name : "UnknownError",
+			});
 			return "unknown";
 		}
 	}
