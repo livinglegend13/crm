@@ -11,6 +11,8 @@ import { LandingFooter } from "@/components/landing/landing-footer";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { ProductShot } from "@/components/landing/product-shot/product-shot";
 
+export const instant = false;
+
 async function isTerraeagleRequest() {
 	return (
 		(await headers()).get("host")?.split(":")[0]?.toLowerCase() ===
