@@ -1,5 +1,9 @@
 import { db, type Prisma } from "@crm/db";
-import { MAX_ATTEMPTS, RETIRED_OUTCOME } from "@crm/db/agent-tasks";
+import {
+	automaticEnrichmentEnabled,
+	MAX_ATTEMPTS,
+	RETIRED_OUTCOME,
+} from "@crm/db/agent-tasks";
 import { DISPATCH } from "./dispatch-config";
 
 export type LeasedTask = {
@@ -40,6 +44,7 @@ export async function claimDue(
 	if ("only" in kinds && list.length === 0) return [];
 
 	const onlyMode = "only" in kinds;
+	const autoEnrichment = automaticEnrichmentEnabled();
 
 	const claimed = await db.$queryRaw<LeasedTask[]>`
 		UPDATE "agentTask" AS t
@@ -52,6 +57,7 @@ export async function claimDue(
 				AND t2."dueAt" <= ${now}
 				AND (t2."leasedUntil" IS NULL OR t2."leasedUntil" < ${now})
 				AND t2."attempts" < ${MAX_ATTEMPTS}
+				AND (${autoEnrichment}::boolean OR t2.kind <> 'recheck')
 				AND CASE
 					WHEN ${onlyMode}::boolean THEN t2.kind = ANY(${list}::text[])
 					ELSE t2.kind <> ALL(${list}::text[])

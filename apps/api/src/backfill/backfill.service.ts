@@ -1,6 +1,6 @@
 import { onSignedIn } from "@crm/auth";
 import { type Db, EnrichmentStatus, type Prisma } from "@crm/db";
-import { PRIORITY } from "@crm/db/agent-tasks";
+import { automaticEnrichmentEnabled, PRIORITY } from "@crm/db/agent-tasks";
 import { readWorkspaceIdentity } from "@crm/db/workspace";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Inject, Injectable, Logger, type OnModuleInit } from "@nestjs/common";
@@ -63,6 +63,7 @@ export class BackfillService implements OnModuleInit {
 	}
 
 	async auto(): Promise<{ started: boolean }> {
+		if (!automaticEnrichmentEnabled()) return { started: false };
 		if (await this.cache.get(AUTO_KEY)) return { started: false };
 		await this.cache.set(AUTO_KEY, true, AUTO_EVERY_MS);
 

@@ -1,5 +1,5 @@
 import { type Db, type FieldEntity, Prisma } from "@crm/db";
-import { PRIORITY } from "@crm/db/agent-tasks";
+import { automaticEnrichmentEnabled, PRIORITY } from "@crm/db/agent-tasks";
 import { CRM_EVENT_CATALOG, type CrmEventType } from "@crm/db/crm-events";
 import { RECORD_ID_COLUMNS } from "@crm/db/fields";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
@@ -54,6 +54,7 @@ export class AgentTriggerService {
 		companyId: string,
 		reason = "New company",
 	): Promise<void> {
+		if (!automaticEnrichmentEnabled()) return;
 		await this.enqueue({
 			companyId,
 			kind: "brand",
@@ -98,6 +99,7 @@ export class AgentTriggerService {
 	}
 
 	async workspaceChanged(website: string, reason: string): Promise<void> {
+		if (!automaticEnrichmentEnabled()) return;
 		await this.enqueue({
 			kind: "workspace-profile",
 			reason: `${reason} (${website})`,
@@ -111,6 +113,7 @@ export class AgentTriggerService {
 		reason: string,
 		required = false,
 	): Promise<boolean> {
+		if (!required && !automaticEnrichmentEnabled()) return false;
 		return this.enqueue(
 			{
 				contactId,
@@ -244,7 +247,11 @@ export class AgentTriggerService {
 		keys: string[],
 		ids: string[],
 		reason: string,
+		automatic = false,
 	): Promise<{ queued: number; merged: number }> {
+		if (automatic && !automaticEnrichmentEnabled()) {
+			return { queued: 0, merged: 0 };
+		}
 		if (ids.length === 0 || keys.length === 0) {
 			return { queued: 0, merged: 0 };
 		}

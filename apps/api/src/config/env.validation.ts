@@ -78,6 +78,10 @@ export class EnvironmentVariables {
 
 	@IsOptional()
 	@IsString()
+	CRM_AUTOMATIC_ENRICHMENT_ENABLED?: string;
+
+	@IsOptional()
+	@IsString()
 	CLOSELY_WEBHOOK_SECRET?: string;
 
 	@IsOptional()

@@ -136,6 +136,7 @@ export class FieldsService {
 				[definition.key],
 				ids,
 				`New field: ${definition.label}`,
+				true,
 			);
 		}
 
@@ -233,6 +234,7 @@ export class FieldsService {
 				briefChanged
 					? `Brief changed: ${definition.label}`
 					: `Turned on: ${definition.label}`,
+				true,
 			);
 		}
 
@@ -353,6 +355,7 @@ export class FieldsService {
 			definitions.map((definition) => definition.key),
 			[recordId],
 			"New record",
+			true,
 		);
 	}
 

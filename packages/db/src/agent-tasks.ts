@@ -17,6 +17,10 @@ export const TASK_KINDS = [
 
 export type TaskKind = (typeof TASK_KINDS)[number];
 
+export function automaticEnrichmentEnabled(): boolean {
+	return process.env.CRM_AUTOMATIC_ENRICHMENT_ENABLED === "true";
+}
+
 export const DIRECT_KINDS = [
 	"brand",
 	"portrait",

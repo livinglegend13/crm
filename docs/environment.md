@@ -129,6 +129,7 @@ single place that knows what is set.
 | `BLOB_READ_WRITE_TOKEN` | Mirrors logos and photos into Blob |
 | `AI_GATEWAY_API_KEY` | The model. Not needed on Vercel (OIDC) |
 | `AZURE_RESOURCE_NAME` + `AZURE_MODEL_DEPLOYMENT` | A direct Azure OpenAI model for a self-hosted agent using the host managed identity. Grant Cognitive Services OpenAI User on the resource. |
+| `CRM_AUTOMATIC_ENRICHMENT_ENABLED` | Optional. Defaults to false. Set `true` for new-record enrichment, sign-in backfills, and scheduled rechecks. Manual record enrichment remains available. |
 | `AGENT_BRIDGE_SECRET` | The rep-facing Agent panel — see `agent.md` |
 
 `BLOB_READ_WRITE_TOKEN` is also in `env.validation.ts` and `apps/api/turbo.json`

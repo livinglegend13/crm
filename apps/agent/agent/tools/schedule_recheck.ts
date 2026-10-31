@@ -1,4 +1,4 @@
-import { PRIORITY } from "@crm/db/agent-tasks";
+import { automaticEnrichmentEnabled, PRIORITY } from "@crm/db/agent-tasks";
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { assertResearchPurpose } from "../lib/session-purpose";
@@ -36,6 +36,13 @@ export default defineTool({
 	}),
 	async execute({ contactId, days, reason, budget }, ctx) {
 		assertResearchPurpose(ctx);
+		if (!automaticEnrichmentEnabled()) {
+			return {
+				scheduled: false as const,
+				reason:
+					"Automatic enrichment is disabled. A rep can request re-enrichment manually.",
+			};
+		}
 		const dueAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
 		await scheduleTask({

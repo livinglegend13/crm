@@ -157,6 +157,12 @@ underlying bug getting worse.
 
 ### Backfills
 
+Automatic enrichment defaults to off. New records, sign-ins, field changes, and
+scheduled rechecks do not queue research. Reps use the record's enrichment action
+to request research. Set `CRM_AUTOMATIC_ENRICHMENT_ENABLED=true` to restore the
+automatic paths below. Campaign agent runs and Reoon email checks use separate
+workflows and continue when automatic enrichment is off.
+
 Sign-in sweep covers records never looked up (10 credits/company);
 `ImageMirrorService` in the same sweep re-hosts off-site pictures (free);
 `backfill:images` fixes enriched records missing only pictures (free);
@@ -242,7 +248,7 @@ extracts only roles backed by exact page quotes. Other roles remain unverified.
 - `lib/tasks.ts` — `claimDue` leases with `FOR UPDATE SKIP LOCKED`.
 - **`schedules/dispatch.ts` is the only schedule and decides nothing.** "Every N
   minutes, the oldest ten contacts" belongs in a `dueAt`.
-- `tools/schedule_recheck.ts` — its `reason` is shown to the rep.
+- `tools/schedule_recheck.ts` — creates a recheck only when automatic enrichment is on.
 
 ## Three records, no dead ends
 
