@@ -25,7 +25,7 @@ export async function proxy(request: NextRequest) {
 	if (
 		getSessionCookie(request, { cookiePrefix: AUTH_COOKIE_PREFIX }) === null
 	) {
-		return isPublic(pathname)
+		return isPublic(pathname, request)
 			? NextResponse.next()
 			: NextResponse.redirect(new URL(SIGN_IN_PATH, request.nextUrl));
 	}
@@ -61,8 +61,13 @@ function isUnder(pathname: string, prefix: string): boolean {
 	return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
-function isPublic(pathname: string): boolean {
-	return pathname === LANDING_PATH && isMarketing();
+function isPublic(pathname: string, request: NextRequest): boolean {
+	return (
+		pathname === LANDING_PATH &&
+		(isMarketing() ||
+			request.headers.get("host")?.split(":")[0]?.toLowerCase() ===
+				"crm.terraeagle.com")
+	);
 }
 
 function isUngated(pathname: string): boolean {
