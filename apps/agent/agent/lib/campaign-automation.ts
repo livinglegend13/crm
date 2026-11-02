@@ -20,6 +20,66 @@ import { DISPATCH } from "./dispatch-config";
 const COMPANY_AGENT = "terraeagle-sales-company";
 const OUTBOUND_AGENT = "terraeagle-sales-outbound-strategist";
 
+function renderCampaignCopy(
+	value: string,
+	contact: { firstName: string } | null,
+	companyName: string,
+) {
+	return value
+		.replaceAll("{{firstName}}", contact?.firstName?.trim() || "there")
+		.replaceAll("{{company}}", companyName);
+}
+
+function manualDraftForStep(
+	agentId: string,
+	steps: Array<{
+		position: number;
+		mode: string;
+		subjectLine: string | null;
+		bodyTemplate: string | null;
+	}>,
+	position: number,
+	contact: { firstName: string } | null,
+	companyName: string,
+) {
+	if (agentId !== OUTBOUND_AGENT) return null;
+	const step = steps.find((item) => item.position === position);
+	if (step?.mode !== "MANUAL" || !step.subjectLine || !step.bodyTemplate)
+		return null;
+	return {
+		"Approval-ready email subject": renderCampaignCopy(
+			step.subjectLine,
+			contact,
+			companyName,
+		),
+		"Approval-ready email body": renderCampaignCopy(
+			step.bodyTemplate,
+			contact,
+			companyName,
+		),
+	};
+}
+
+function runState(
+	manualCopy: ReturnType<typeof manualDraftForStep>,
+	companyName: string,
+	now: Date,
+) {
+	if (!manualCopy) {
+		return {
+			status: "QUEUED" as const,
+			events: { create: { sequence: 0, type: "run.queued", data: {} } },
+		};
+	}
+	return {
+		status: "SUCCEEDED" as const,
+		result: manualCopy,
+		summary: `Exact copy prepared for ${companyName}. Review the draft before sending.`,
+		finishedAt: now,
+		events: { create: { sequence: 0, type: "run.completed", data: {} } },
+	};
+}
+
 function validEmail(value: string | null | undefined) {
 	const parsed = z.email().safeParse(value);
 	return parsed.success ? parsed.data : null;
@@ -435,6 +495,13 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 					if (!canAutoRunInCampaign(parseAgentManifest(version.manifest)))
 						return false;
 				}
+				const manualCopy = manualDraftForStep(
+					agentId,
+					target.campaign.steps,
+					stepPosition,
+					target.contact,
+					target.company.name,
+				);
 				const active = await tx.agentRun.findFirst({
 					where: {
 						agentId,
@@ -442,7 +509,7 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 					},
 					select: { id: true },
 				});
-				if (active) return false;
+				if (active && !manualCopy) return false;
 				const recipientEmail = validEmail(target.contact?.email);
 				if (agentId === OUTBOUND_AGENT && !recipientEmail) return false;
 				const input =
@@ -491,6 +558,9 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 									delayDays: step.delayDays,
 									subjectPrompt: step.subjectPrompt,
 									bodyPrompt: step.bodyPrompt,
+									mode: step.mode === "MANUAL" ? "MANUAL" : "AI",
+									subjectLine: step.subjectLine,
+									bodyTemplate: step.bodyTemplate,
 								})),
 							});
 				await tx.agentRun.create({
@@ -505,7 +575,7 @@ export async function queueCampaignAgentRuns(now = new Date()) {
 								: `campaign:${target.id}:${agentId}:${stepPosition}`,
 						correlationId: crypto.randomUUID(),
 						input,
-						events: { create: { sequence: 0, type: "run.queued", data: {} } },
+						...runState(manualCopy, target.company.name, now),
 					},
 				});
 				return true;

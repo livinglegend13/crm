@@ -143,6 +143,9 @@ export const campaignStep = z.object({
 	delayDays: z.number().int(),
 	subjectPrompt: z.string(),
 	bodyPrompt: z.string(),
+	mode: z.enum(["AI", "MANUAL"]),
+	subjectLine: z.string().nullable(),
+	bodyTemplate: z.string().nullable(),
 });
 
 export const linkedinSequence = z
@@ -207,6 +210,7 @@ export const campaignTarget = z.object({
 			result: z.record(z.string(), z.json()).nullable(),
 			errorMessage: z.string().nullable(),
 			hasDraft: z.boolean(),
+			draft: z.object({ subject: z.string(), body: z.string() }).nullable(),
 			draftStatus: z
 				.enum(["DRAFT", "APPROVED", "SENDING", "SENT", "SEND_UNKNOWN"])
 				.nullable(),
@@ -262,6 +266,9 @@ export const campaignAgentRunInput = z.object({
 			delayDays: z.number(),
 			subjectPrompt: z.string(),
 			bodyPrompt: z.string(),
+			mode: z.enum(["AI", "MANUAL"]).optional(),
+			subjectLine: z.string().nullable().optional(),
+			bodyTemplate: z.string().nullable().optional(),
 		}),
 	),
 });
@@ -417,6 +424,22 @@ export type UpdateProposalKnowledgeStatusInput = z.infer<
 >;
 export const campaignsOutput = z.array(campaignSummary);
 
+const campaignStepWrite = z
+	.object({
+		delayDays: z.number().int().min(0).max(90),
+		subjectPrompt: z.string().trim().min(3).max(500),
+		bodyPrompt: z.string().trim().min(3).max(3000),
+		mode: z.enum(["AI", "MANUAL"]).default("AI"),
+		subjectLine: z.string().trim().min(1).max(300).nullable().default(null),
+		bodyTemplate: z.string().trim().min(1).max(20000).nullable().default(null),
+	})
+	.refine(
+		(step) =>
+			step.mode !== "MANUAL" ||
+			(Boolean(step.subjectLine) && Boolean(step.bodyTemplate)),
+		{ message: "Exact-copy steps need a subject and email body." },
+	);
+
 export const createCampaignInput = z.object({
 	name: z.string().trim().min(3).max(120),
 	serviceLine: campaignServiceLine.default("FILO_STORAGE"),
@@ -425,16 +448,7 @@ export const createCampaignInput = z.object({
 	description: z.string().trim().max(3000).nullable(),
 	sourceFileName: z.string().trim().max(255).nullable().default(null),
 	sourceMaterial: z.string().trim().max(100000).nullable().default(null),
-	steps: z
-		.array(
-			z.object({
-				delayDays: z.number().int().min(0).max(90),
-				subjectPrompt: z.string().trim().min(3).max(500),
-				bodyPrompt: z.string().trim().min(3).max(3000),
-			}),
-		)
-		.max(5)
-		.default([]),
+	steps: z.array(campaignStepWrite).max(5).default([]),
 });
 
 export const updateCampaignInput = campaignIdInput.extend({
@@ -453,15 +467,7 @@ export const updateCampaignInput = campaignIdInput.extend({
 });
 
 export const saveCampaignStepsInput = campaignIdInput.extend({
-	steps: z
-		.array(
-			z.object({
-				delayDays: z.number().int().min(0).max(90),
-				subjectPrompt: z.string().trim().min(3).max(500),
-				bodyPrompt: z.string().trim().min(3).max(3000),
-			}),
-		)
-		.max(5),
+	steps: z.array(campaignStepWrite).max(5),
 });
 
 export const addCampaignTargetInput = campaignIdInput.extend({

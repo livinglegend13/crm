@@ -500,7 +500,7 @@ export class GtmService {
 				input: true,
 				outreachDrafts: {
 					where: { userId },
-					select: { id: true, status: true },
+					select: { id: true, status: true, subject: true, body: true },
 				},
 			},
 		});
@@ -590,6 +590,9 @@ export class GtmService {
 				delayDays: step.delayDays,
 				subjectPrompt: step.subjectPrompt,
 				bodyPrompt: step.bodyPrompt,
+				mode: step.mode,
+				subjectLine: step.subjectLine,
+				bodyTemplate: step.bodyTemplate,
 			})),
 			businessCardCaptures: row.businessCardCaptures
 				.filter(
@@ -638,6 +641,9 @@ export class GtmService {
 					hasDraft:
 						run.result !== null &&
 						draftFieldsFromRunResult(run.result) !== null,
+					draft:
+						run.outreachDrafts[0] ??
+						(run.result === null ? null : draftFieldsFromRunResult(run.result)),
 					draftStatus: run.outreachDrafts[0]?.status ?? null,
 					replyCount: run.outreachDrafts.reduce(
 						(count, draft) => count + (replyCounts.get(draft.id) ?? 0),
@@ -818,6 +824,9 @@ export class GtmService {
 								delayDays: true,
 								subjectPrompt: true,
 								bodyPrompt: true,
+								mode: true,
+								subjectLine: true,
+								bodyTemplate: true,
 							},
 						},
 					},
@@ -837,6 +846,14 @@ export class GtmService {
 		) {
 			throw new BadRequestException(
 				"Choose a buyer contact and save a sequence step before drafting.",
+			);
+		}
+		if (
+			input.agentId === "terraeagle-sales-outbound-strategist" &&
+			target.campaign.steps[0]?.mode === "MANUAL"
+		) {
+			throw new BadRequestException(
+				"Set the campaign to Ready. Its work window prepares exact-copy drafts without an AI run.",
 			);
 		}
 		const runInput = campaignAgentRunInput.parse({
@@ -946,6 +963,9 @@ export class GtmService {
 						delayDays: step.delayDays,
 						subjectPrompt: step.subjectPrompt,
 						bodyPrompt: step.bodyPrompt,
+						mode: step.mode,
+						subjectLine: step.subjectLine,
+						bodyTemplate: step.bodyTemplate,
 					})),
 				},
 			},
@@ -1063,6 +1083,9 @@ export class GtmService {
 						delayDays: step.delayDays,
 						subjectPrompt: step.subjectPrompt,
 						bodyPrompt: step.bodyPrompt,
+						mode: step.mode,
+						subjectLine: step.subjectLine,
+						bodyTemplate: step.bodyTemplate,
 					})),
 				});
 			}

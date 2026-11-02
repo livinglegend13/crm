@@ -31,6 +31,9 @@ type Step = {
 	delayDays: number;
 	subjectPrompt: string;
 	bodyPrompt: string;
+	mode: "AI" | "MANUAL";
+	subjectLine: string;
+	bodyTemplate: string;
 };
 type LinkedinStep = Campaign["linkedinSequence"][number];
 
@@ -117,6 +120,9 @@ export function CampaignEditor({
 			delayDays: step.delayDays,
 			subjectPrompt: step.subjectPrompt,
 			bodyPrompt: step.bodyPrompt,
+			mode: step.mode === "MANUAL" ? "MANUAL" : "AI",
+			subjectLine: step.subjectLine ?? "",
+			bodyTemplate: step.bodyTemplate ?? "",
 		})),
 	);
 	const [closelyCampaignName, setCloselyCampaignName] = useState(
@@ -549,10 +555,11 @@ export function CampaignEditor({
 				</form>
 			</section>
 			<section className="rounded-lg border bg-card p-5">
-				<h2 className="font-medium">Email sequence instructions</h2>
+				<h2 className="font-medium">Email sequence</h2>
 				<p className="mt-2 text-muted-foreground text-sm">
-					Define up to five steps. Ready plans create first-step drafts during
-					the selected India work window. Every draft needs approval.
+					Write exact copy or guide AI for each step. Ready campaigns prepare
+					drafts during the work window. Every email needs approval. Changes to
+					steps affect future drafts only.
 				</p>
 				<div className="mt-4 space-y-4">
 					{steps.map((step, index) => (
@@ -594,42 +601,125 @@ export function CampaignEditor({
 								/>
 							</div>
 							<div className="space-y-2">
-								<Label htmlFor={`step-subject-${index}`}>
-									Subject guidance
-								</Label>
-								<Input
-									id={`step-subject-${index}`}
-									value={step.subjectPrompt}
-									onChange={(event) =>
+								<Label htmlFor={`step-mode-${index}`}>Draft method</Label>
+								<Select
+									value={step.mode}
+									onValueChange={(value: "AI" | "MANUAL") =>
 										setSteps(
 											steps.map((current, position) =>
 												position === index
-													? { ...current, subjectPrompt: event.target.value }
+													? { ...current, mode: value }
 													: current,
 											),
 										)
 									}
-									maxLength={500}
-								/>
+								>
+									<SelectTrigger id={`step-mode-${index}`}>
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="AI">AI draft from guidance</SelectItem>
+										<SelectItem value="MANUAL">Use my exact copy</SelectItem>
+									</SelectContent>
+								</Select>
 							</div>
-							<div className="space-y-2">
-								<Label htmlFor={`step-body-${index}`}>Message guidance</Label>
-								<Textarea
-									id={`step-body-${index}`}
-									value={step.bodyPrompt}
-									onChange={(event) =>
-										setSteps(
-											steps.map((current, position) =>
-												position === index
-													? { ...current, bodyPrompt: event.target.value }
-													: current,
-											),
-										)
-									}
-									rows={3}
-									maxLength={3000}
-								/>
-							</div>
+							{step.mode === "MANUAL" ? (
+								<>
+									<div className="space-y-2">
+										<Label htmlFor={`step-exact-subject-${index}`}>
+											Subject line
+										</Label>
+										<Input
+											id={`step-exact-subject-${index}`}
+											value={step.subjectLine}
+											maxLength={300}
+											onChange={(event) =>
+												setSteps(
+													steps.map((current, position) =>
+														position === index
+															? { ...current, subjectLine: event.target.value }
+															: current,
+													),
+												)
+											}
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor={`step-exact-body-${index}`}>
+											Email body
+										</Label>
+										<Textarea
+											id={`step-exact-body-${index}`}
+											value={step.bodyTemplate}
+											rows={10}
+											maxLength={20000}
+											onChange={(event) =>
+												setSteps(
+													steps.map((current, position) =>
+														position === index
+															? { ...current, bodyTemplate: event.target.value }
+															: current,
+													),
+												)
+											}
+										/>
+										<p className="text-muted-foreground text-xs">
+											Use {"{{firstName}}"} and {"{{company}}"} for contact
+											details. The sender signature appears when you save the
+											draft.
+										</p>
+									</div>
+								</>
+							) : (
+								<>
+									<div className="space-y-2">
+										<Label htmlFor={`step-subject-${index}`}>
+											Subject guidance for AI
+										</Label>
+										<Input
+											id={`step-subject-${index}`}
+											value={step.subjectPrompt}
+											maxLength={500}
+											onChange={(event) =>
+												setSteps(
+													steps.map((current, position) =>
+														position === index
+															? {
+																	...current,
+																	subjectPrompt: event.target.value,
+																}
+															: current,
+													),
+												)
+											}
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor={`step-body-${index}`}>
+											Email guidance for AI
+										</Label>
+										<Textarea
+											id={`step-body-${index}`}
+											value={step.bodyPrompt}
+											rows={3}
+											maxLength={3000}
+											onChange={(event) =>
+												setSteps(
+													steps.map((current, position) =>
+														position === index
+															? { ...current, bodyPrompt: event.target.value }
+															: current,
+													),
+												)
+											}
+										/>
+										<p className="text-muted-foreground text-xs">
+											The generated subject and body appear under each target
+											after the agent runs.
+										</p>
+									</div>
+								</>
+							)}
 						</div>
 					))}
 					<div className="flex flex-wrap gap-3">
@@ -644,6 +734,9 @@ export function CampaignEditor({
 										delayDays: steps.length ? 3 : 0,
 										subjectPrompt: "",
 										bodyPrompt: "",
+										mode: "AI",
+										subjectLine: "",
+										bodyTemplate: "",
 									},
 								])
 							}
@@ -653,13 +746,30 @@ export function CampaignEditor({
 						<Button
 							disabled={
 								saveSteps.isPending ||
-								steps.some(
-									(step) =>
-										step.subjectPrompt.trim().length < 3 ||
-										step.bodyPrompt.trim().length < 3,
+								steps.some((step) =>
+									step.mode === "MANUAL"
+										? !step.subjectLine.trim() || !step.bodyTemplate.trim()
+										: step.subjectPrompt.trim().length < 3 ||
+											step.bodyPrompt.trim().length < 3,
 								)
 							}
-							onClick={() => saveSteps.mutate({ id: row.id, steps })}
+							onClick={() =>
+								saveSteps.mutate({
+									id: row.id,
+									steps: steps.map((step) => ({
+										...step,
+										subjectPrompt:
+											step.subjectPrompt.trim() ||
+											"Use the exact subject line.",
+										bodyPrompt:
+											step.bodyPrompt.trim() || "Use the exact email body.",
+										subjectLine:
+											step.mode === "MANUAL" ? step.subjectLine : null,
+										bodyTemplate:
+											step.mode === "MANUAL" ? step.bodyTemplate : null,
+									})),
+								})
+							}
 						>
 							{saveSteps.isPending ? "Saving…" : "Save sequence"}
 						</Button>
@@ -915,26 +1025,33 @@ export function CampaignEditor({
 											? "Queueing…"
 											: "Research company"}
 									</Button>
-									<Button
-										variant="outline"
-										size="sm"
-										disabled={
-											runTargetAgent.isPending ||
-											!target.contactEmail ||
-											row.steps.length === 0
-										}
-										onClick={() => {
-											setQueuedTargetId(target.id);
-											runTargetAgent.mutate({
-												id: row.id,
-												targetId: target.id,
-												agentId: "terraeagle-sales-outbound-strategist",
-												clientRequestId: crypto.randomUUID(),
-											});
-										}}
-									>
-										Draft outreach
-									</Button>
+									{row.steps[0]?.mode !== "MANUAL" ? (
+										<Button
+											variant="outline"
+											size="sm"
+											disabled={
+												runTargetAgent.isPending ||
+												!target.contactEmail ||
+												row.steps.length === 0
+											}
+											onClick={() => {
+												setQueuedTargetId(target.id);
+												runTargetAgent.mutate({
+													id: row.id,
+													targetId: target.id,
+													agentId: "terraeagle-sales-outbound-strategist",
+													clientRequestId: crypto.randomUUID(),
+												});
+											}}
+										>
+											Draft outreach
+										</Button>
+									) : (
+										<p className="text-muted-foreground text-xs">
+											The Ready campaign prepares your exact copy during its
+											work window.
+										</p>
+									)}
 								</div>
 								{!target.contactEmail || row.steps.length === 0 ? (
 									<p className="mt-2 text-muted-foreground text-xs">
@@ -963,6 +1080,7 @@ export function CampaignEditor({
 								{target.agentRuns.map((run) => (
 									<details
 										key={run.id}
+										open={run.hasDraft}
 										className="mt-3 rounded-md border p-3 text-sm"
 									>
 										<summary className="cursor-pointer font-medium">
@@ -985,14 +1103,45 @@ export function CampaignEditor({
 										) : null}
 										{run.result ? (
 											<div className="mt-3 space-y-3">
-												{Object.entries(run.result).map(([key, value]) => (
-													<div key={key}>
-														<h4 className="font-medium">{key}</h4>
-														<pre className="mt-1 whitespace-pre-wrap break-words font-sans text-muted-foreground">
-															{JSON.stringify(value, null, 2)}
-														</pre>
-													</div>
-												))}
+												{Object.entries(run.result)
+													.filter(
+														([key]) =>
+															![
+																"Approval-ready email subject",
+																"Approval-ready email body",
+																"emailSubject",
+																"emailBody",
+															].includes(key),
+													)
+													.map(([key, value]) => (
+														<div key={key}>
+															<h4 className="font-medium">{key}</h4>
+															<pre className="mt-1 whitespace-pre-wrap break-words font-sans text-muted-foreground">
+																{JSON.stringify(value, null, 2)}
+															</pre>
+														</div>
+													))}
+											</div>
+										) : null}
+										{run.draft ? (
+											<div className="mt-3 space-y-3 rounded-md border bg-card p-4">
+												<p className="font-medium">
+													Email draft · Step {(run.stepPosition ?? 0) + 1}
+												</p>
+												<div>
+													<p className="text-muted-foreground text-xs">
+														Subject
+													</p>
+													<p>{run.draft.subject}</p>
+												</div>
+												<div>
+													<p className="text-muted-foreground text-xs">
+														Email body
+													</p>
+													<p className="whitespace-pre-wrap">
+														{run.draft.body}
+													</p>
+												</div>
 											</div>
 										) : null}
 										{run.hasDraft ? (

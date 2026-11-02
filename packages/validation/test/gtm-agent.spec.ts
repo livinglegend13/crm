@@ -3,6 +3,7 @@ import {
 	campaignAgentRunInput,
 	campaignPlanValue,
 	runCampaignAgentInput,
+	saveCampaignStepsInput,
 } from "../src/gtm";
 import {
 	draftResearchFromRunResult,
@@ -30,6 +31,31 @@ const campaignInput = {
 } as const;
 
 describe("campaign agent runs", () => {
+	it("requires subject and body for exact-copy steps", () => {
+		const step = {
+			delayDays: 0,
+			subjectPrompt: "Use exact subject",
+			bodyPrompt: "Use exact body",
+			mode: "MANUAL",
+		};
+		expect(
+			saveCampaignStepsInput.safeParse({ id: "campaign-1", steps: [step] })
+				.success,
+		).toBe(false);
+		expect(
+			saveCampaignStepsInput.safeParse({
+				id: "campaign-1",
+				steps: [
+					{
+						...step,
+						subjectLine: "Hello {{firstName}}",
+						bodyTemplate: "Hello {{firstName}}, welcome to {{company}}.",
+					},
+				],
+			}).success,
+		).toBe(true);
+	});
+
 	it("keeps the verified recipient with the draft", () => {
 		const parsed = campaignAgentRunInput.parse(campaignInput);
 		expect(recipientFromRunInput(parsed)).toBe("uttam.kumar@tatadigital.com");

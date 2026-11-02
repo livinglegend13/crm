@@ -1082,6 +1082,9 @@ model GtmCampaignStep {
   delayDays      Int
   subjectPrompt  String
   bodyPrompt     String
+  mode           String @default("AI")
+  subjectLine    String?
+  bodyTemplate   String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
