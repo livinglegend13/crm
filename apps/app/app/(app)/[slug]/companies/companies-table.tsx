@@ -1,6 +1,7 @@
 "use client";
 
 import Archive from "@carbon/icons-react/es/Archive";
+import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
 import {
 	DataTable,
@@ -13,6 +14,7 @@ import {
 	type EntityLogoTone,
 } from "@crm/ui/components/entity-logo";
 import { useTableSelection } from "@crm/ui/hooks/use-table-selection";
+import { companyRecordIssues } from "@crm/validation/company-health";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { EnrichmentIndicator } from "@/components/crm/enrichment-status";
@@ -45,18 +47,31 @@ const COLUMNS: DataTableColumn<CompanyRow>[] = [
 		sortable: true,
 		hideable: false,
 		width: "w-[26%]",
-		cell: (row) => (
-			<span className="flex min-w-0 items-center gap-2.5">
-				<EntityLogo
-					src={row.iconUrl ?? row.logoUrl}
-					darkSrc={row.iconDarkUrl}
-					tone={row.iconTone as EntityLogoTone | null | undefined}
-					name={row.name}
-					size="sm"
-				/>
-				<span className="truncate font-medium">{row.name}</span>
-			</span>
-		),
+		cell: (row) => {
+			const issues = companyRecordIssues(row);
+			const issueText = issues.map((issue) => issue.message).join(" ");
+			return (
+				<span className="flex min-w-0 items-center gap-2.5">
+					<EntityLogo
+						src={row.iconUrl ?? row.logoUrl}
+						darkSrc={row.iconDarkUrl}
+						tone={row.iconTone as EntityLogoTone | null | undefined}
+						name={row.name}
+						size="sm"
+					/>
+					<span className="truncate font-medium">{row.name}</span>
+					{issues.length ? (
+						<Badge
+							variant="destructive"
+							title={issueText}
+							aria-label={issueText}
+						>
+							* Fix {issues.length} {issues.length === 1 ? "field" : "fields"}
+						</Badge>
+					) : null}
+				</span>
+			);
+		},
 	},
 	{
 		id: "domain",

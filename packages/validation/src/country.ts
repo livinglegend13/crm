@@ -49,3 +49,24 @@ export function normalizeCountry(value: string | null | undefined) {
 	if (!key) return null;
 	return names.get(aliases[key]?.toLowerCase() ?? key) ?? null;
 }
+
+export function companyCountryIssue(company: {
+	country: string | null;
+	countryCode: string | null;
+}) {
+	if (!company.country?.trim() && !company.countryCode?.trim()) {
+		return "Country missing. Add it before campaign enrollment.";
+	}
+	const country = normalizeCountry(company.country);
+	const code = normalizeCountry(company.countryCode);
+	if (company.country?.trim() && !country) {
+		return "Country is invalid. Enter a name or two-letter code.";
+	}
+	if (company.countryCode?.trim() && !code) {
+		return "Country code is invalid. Correct the country.";
+	}
+	if (country && code && country.code !== code.code) {
+		return "Country and country code disagree. Save the correct country.";
+	}
+	return null;
+}

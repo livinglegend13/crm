@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { normalizeCountry } from "../src/country";
+import { companyCountryIssue, normalizeCountry } from "../src/country";
 import { companyInMarket } from "../src/gtm-market";
 
 describe("country normalization", () => {
@@ -21,5 +21,20 @@ describe("country normalization", () => {
 		expect(companyInMarket({ countryCode: null, country: "USA" }, "US")).toBe(
 			true,
 		);
+	});
+
+	it("identifies missing, invalid, and conflicting company countries", () => {
+		expect(companyCountryIssue({ country: null, countryCode: null })).toContain(
+			"missing",
+		);
+		expect(
+			companyCountryIssue({ country: "Atlantis", countryCode: null }),
+		).toContain("invalid");
+		expect(
+			companyCountryIssue({ country: "India", countryCode: "US" }),
+		).toContain("disagree");
+		expect(
+			companyCountryIssue({ country: "IN", countryCode: null }),
+		).toBeNull();
 	});
 });

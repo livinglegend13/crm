@@ -22,6 +22,12 @@ import {
 	TooltipTrigger,
 } from "@crm/ui/components/tooltip";
 import { formatMoney } from "@crm/ui/lib/format";
+import {
+	companyRecordIssues,
+	validCompanyEmail,
+	validCompanyWebsite,
+} from "@crm/validation/company-health";
+import { normalizeCountry } from "@crm/validation/country";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -321,6 +327,16 @@ function CompanyOverview({ company }: { company: Company }) {
 
 	const isSaving = savingField(update);
 	const isSavingField = savingValue(update);
+	const issues = companyRecordIssues(company);
+	const issueFor = (field: "country" | "email" | "website") =>
+		issues.find((issue) => issue.field === field)?.message ?? null;
+	const updateErrorFor = (field: string) =>
+		update.isError && Object.keys(update.variables?.data ?? {}).includes(field)
+			? update.error.message
+			: null;
+	const countryIssue = issueFor("country");
+	const emailIssue = issueFor("email");
+	const websiteIssue = issueFor("website");
 	const hasFiloCampaign = company.serviceCampaigns.some(
 		({ campaign }) => campaign.serviceLine === "FILO_STORAGE",
 	);
@@ -399,12 +415,14 @@ function CompanyOverview({ company }: { company: Company }) {
 							<InlineField
 								label="Name"
 								value={company.name}
+								error={updateErrorFor("name")}
 								saving={isSaving("name")}
 								onSave={(name) => name && save({ name })}
 							/>
 							<InlineField
 								label="Domain"
 								value={company.domain}
+								error={updateErrorFor("domain")}
 								type="url"
 								placeholder="stripe.com"
 								saving={isSaving("domain")}
@@ -413,6 +431,20 @@ function CompanyOverview({ company }: { company: Company }) {
 							<InlineField
 								label="Website"
 								value={company.website}
+								error={updateErrorFor("website")}
+								invalid={Boolean(websiteIssue)}
+								validate={(website) =>
+									website && !validCompanyWebsite(website)
+										? "Enter a full website URL, starting with https://."
+										: null
+								}
+								suggestion={
+									websiteIssue ? (
+										<p role="alert" className="text-destructive text-xs">
+											{websiteIssue}
+										</p>
+									) : undefined
+								}
 								type="url"
 								placeholder="https://stripe.com"
 								saving={isSaving("website")}
@@ -421,6 +453,7 @@ function CompanyOverview({ company }: { company: Company }) {
 							<InlineField
 								label="Phone"
 								value={company.phone}
+								error={updateErrorFor("phone")}
 								type="tel"
 								saving={isSaving("phone")}
 								onSave={(phone) => save({ phone })}
@@ -428,6 +461,20 @@ function CompanyOverview({ company }: { company: Company }) {
 							<InlineField
 								label="Email"
 								value={company.email}
+								error={updateErrorFor("email")}
+								invalid={Boolean(emailIssue)}
+								validate={(email) =>
+									email && !validCompanyEmail(email)
+										? "Enter a valid email address."
+										: null
+								}
+								suggestion={
+									emailIssue ? (
+										<p role="alert" className="text-destructive text-xs">
+											{emailIssue}
+										</p>
+									) : undefined
+								}
 								type="email"
 								saving={isSaving("email")}
 								onSave={(email) => save({ email })}
@@ -435,18 +482,37 @@ function CompanyOverview({ company }: { company: Company }) {
 							<InlineField
 								label="City"
 								value={company.city}
+								error={updateErrorFor("city")}
 								saving={isSaving("city")}
 								onSave={(city) => save({ city })}
 							/>
 							<InlineField
-								label="Country"
-								value={company.country}
+								label="Country *"
+								value={
+									company.country ??
+									normalizeCountry(company.countryCode)?.name ??
+									null
+								}
+								error={updateErrorFor("country")}
 								saving={isSaving("country")}
+								invalid={Boolean(countryIssue)}
+								validate={(country) =>
+									country && !normalizeCountry(country)
+										? "Enter a valid country name or two-letter code."
+										: null
+								}
 								onSave={(country) => save({ country })}
 								suggestion={
-									<p className="text-muted-foreground text-xs">
-										Enter a country name or code. IN becomes India; US becomes
-										United States.
+									<p
+										role={countryIssue ? "alert" : undefined}
+										className={
+											countryIssue
+												? "text-destructive text-xs"
+												: "text-muted-foreground text-xs"
+										}
+									>
+										{countryIssue ??
+											"IN becomes India; US becomes United States."}
 									</p>
 								}
 							/>

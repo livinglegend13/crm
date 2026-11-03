@@ -1,5 +1,9 @@
 import { DealStage, EnrichmentStatus, RecordSource } from "@crm/db";
 import { FIELD_TYPES } from "@crm/db/fields";
+import {
+	validCompanyEmail,
+	validCompanyWebsite,
+} from "@crm/validation/company-health";
 import { z } from "zod";
 import { bulkIdsInput } from "../crm/bulk";
 import { fieldEntity, recordFieldValues } from "../fields/fields.contracts";
@@ -30,14 +34,26 @@ export type CompanyCreateInput = z.infer<typeof companyCreateInput>;
 const companyUpdateInput = z.object({
 	name: z.string().trim().min(1).optional(),
 	domain: z.string().optional(),
-	website: z.string().optional(),
+	website: z
+		.string()
+		.refine(
+			(value) => !value || validCompanyWebsite(value),
+			"Enter a valid website URL.",
+		)
+		.optional(),
 	description: z.string().optional(),
 	industry: z.string().optional(),
 	city: z.string().optional(),
 	stateCode: z.string().optional(),
 	country: z.string().trim().optional(),
 	phone: z.string().optional(),
-	email: z.string().optional(),
+	email: z
+		.string()
+		.refine(
+			(value) => !value || validCompanyEmail(value),
+			"Enter a valid email address.",
+		)
+		.optional(),
 	linkedinUrl: z.string().optional(),
 	ownerId: z.string().nullable().optional(),
 	fields: recordFieldValues.optional(),
@@ -125,6 +141,10 @@ export const companyRowOutput = z.object({
 	logoUrl: z.string().nullable(),
 	brandColor: z.string().nullable(),
 	industry: z.string().nullable(),
+	country: z.string().nullable(),
+	countryCode: z.string().nullable(),
+	email: z.string().nullable(),
+	website: z.string().nullable(),
 	enrichmentStatus: companyEnrichmentStatus,
 	queued: z.boolean(),
 	source: companyRecordSource,

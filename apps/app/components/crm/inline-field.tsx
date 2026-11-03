@@ -55,6 +55,9 @@ export function InlineField({
 	render,
 	provenance,
 	suggestion,
+	invalid = false,
+	validate,
+	error = null,
 }: {
 	label: string;
 	value: string | null;
@@ -65,14 +68,25 @@ export function InlineField({
 	render?: (value: string) => React.ReactNode;
 	provenance?: React.ReactNode;
 	suggestion?: React.ReactNode;
+	invalid?: boolean;
+	validate?: (value: string) => string | null;
+	error?: string | null;
 }) {
 	const id = useId();
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState(value ?? "");
+	const [validationError, setValidationError] = useState<string | null>(null);
+	const fieldInvalid = invalid || Boolean(validationError) || Boolean(error);
 
 	const commit = () => {
+		const error = validate?.(draft.trim()) ?? null;
+		if (error) {
+			setValidationError(error);
+			return;
+		}
+		setValidationError(null);
 		setEditing(false);
-		if (draft.trim() !== (value ?? "")) onSave(draft.trim());
+		if (draft.trim() !== (value ?? "") || invalid) onSave(draft.trim());
 	};
 
 	const shown = saving ? draft.trim() : (value ?? "");
@@ -85,8 +99,13 @@ export function InlineField({
 			type={type}
 			autoFocus
 			value={draft}
+			aria-invalid={fieldInvalid}
+			aria-describedby={validationError || error ? `${id}-error` : undefined}
 			placeholder={placeholder}
-			onChange={(event) => setDraft(event.target.value)}
+			onChange={(event) => {
+				setDraft(event.target.value);
+				setValidationError(null);
+			}}
 			onBlur={commit}
 			onKeyDown={(event) => {
 				if (event.key === "Enter") {
@@ -95,6 +114,7 @@ export function InlineField({
 				}
 				if (event.key === "Escape") {
 					setDraft(value ?? "");
+					setValidationError(null);
 					setEditing(false);
 				}
 			}}
@@ -104,6 +124,7 @@ export function InlineField({
 			variant="ghost"
 			size="sm"
 			className={CONTROL}
+			aria-invalid={fieldInvalid}
 			disabled={saving}
 			onClick={() => {
 				setDraft(value ?? "");
@@ -130,10 +151,13 @@ export function InlineField({
 			control
 		);
 
-	if (!suggestion) {
+	if (!suggestion && !validationError && !error) {
 		return (
 			<div className={ROW}>
-				<label htmlFor={id} className={LABEL}>
+				<label
+					htmlFor={id}
+					className={cn(LABEL, fieldInvalid && "text-destructive")}
+				>
 					{label}
 				</label>
 				{body}
@@ -143,11 +167,23 @@ export function InlineField({
 
 	return (
 		<div className={cn(ROW, "items-start")}>
-			<label htmlFor={id} className={cn(LABEL, "pt-2")}>
+			<label
+				htmlFor={id}
+				className={cn(LABEL, "pt-2", fieldInvalid && "text-destructive")}
+			>
 				{label}
 			</label>
 			<div className="min-w-0">
 				{body}
+				{validationError || error ? (
+					<p
+						id={`${id}-error`}
+						role="alert"
+						className="text-destructive text-xs"
+					>
+						{validationError ?? error}
+					</p>
+				) : null}
 				{suggestion}
 			</div>
 		</div>

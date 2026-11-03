@@ -5,6 +5,7 @@ import { Button } from "@crm/ui/components/button";
 import {
 	Field,
 	FieldDescription,
+	FieldError,
 	FieldGroup,
 	FieldLabel,
 } from "@crm/ui/components/field";
@@ -28,6 +29,7 @@ import {
 	SheetTrigger,
 } from "@crm/ui/components/sheet";
 import { Spinner } from "@crm/ui/components/spinner";
+import { normalizeCountry } from "@crm/validation/country";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { type ComponentProps, Suspense, useId, useState } from "react";
@@ -68,6 +70,7 @@ function CreateCompanyForm() {
 	const [name, setName] = useState("");
 	const [domain, setDomain] = useState("");
 	const [country, setCountry] = useState("");
+	const countryValid = normalizeCountry(country) !== null;
 	const [ownerId, setOwnerId] = useState(UNASSIGNED);
 
 	const nameId = useId();
@@ -132,17 +135,30 @@ function CreateCompanyForm() {
 							/>
 						</Field>
 
-						<Field>
-							<FieldLabel htmlFor={countryId}>Country</FieldLabel>
+						<Field data-invalid={!countryValid}>
+							<FieldLabel htmlFor={countryId}>Country *</FieldLabel>
 							<Input
 								id={countryId}
 								value={country}
+								aria-invalid={!countryValid}
+								aria-describedby={
+									!countryValid ? `${countryId}-error` : undefined
+								}
 								placeholder="India or IN"
 								onChange={(event) => setCountry(event.target.value)}
+								required
 							/>
-							<FieldDescription>
-								Country names and codes are standardized when saved.
-							</FieldDescription>
+							{countryValid ? (
+								<FieldDescription>
+									Saved as {normalizeCountry(country)?.name}.
+								</FieldDescription>
+							) : (
+								<FieldError id={`${countryId}-error`}>
+									{country
+										? "Enter a valid country name or code."
+										: "Country is required for campaigns."}
+								</FieldError>
+							)}
 						</Field>
 
 						<Field>
@@ -184,7 +200,7 @@ function CreateCompanyForm() {
 					<Button
 						type="submit"
 						form="create-company"
-						disabled={create.isPending || name.trim() === ""}
+						disabled={create.isPending || name.trim() === "" || !countryValid}
 					>
 						{create.isPending ? <Spinner /> : null}
 						Add company
