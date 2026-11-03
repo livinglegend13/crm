@@ -8,6 +8,7 @@ import {
 	businessCardThankYou,
 	confirmBusinessCardInput,
 } from "@crm/validation/business-card";
+import { normalizeCountry } from "@crm/validation/country";
 import {
 	ConflictException,
 	Injectable,
@@ -128,7 +129,11 @@ export class BusinessCardsService {
 			where: { id: userId },
 			select: { email: true },
 		});
-		const countryCode = extraction.countryCode?.toUpperCase() ?? "IN";
+		const country = normalizeCountry(extraction.countryCode ?? "IN");
+		if (!country) {
+			throw new ConflictException("Choose a valid country code on the card.");
+		}
+		const countryCode = country.code;
 		const websiteDomain = extraction.website
 			? new URL(extraction.website).hostname.replace(/^www\./, "").toLowerCase()
 			: null;
@@ -143,7 +148,7 @@ export class BusinessCardsService {
 			let company = websiteDomain
 				? await tx.company.findFirst({
 						where: { domain: websiteDomain, archivedAt: null },
-						select: { id: true },
+						select: { id: true, country: true, countryCode: true },
 					})
 				: null;
 			company ??= await tx.company.findFirst({
@@ -151,7 +156,7 @@ export class BusinessCardsService {
 					name: { equals: extraction.companyName, mode: "insensitive" },
 					archivedAt: null,
 				},
-				select: { id: true },
+				select: { id: true, country: true, countryCode: true },
 			});
 			company ??= await tx.company.create({
 				data: {
@@ -159,10 +164,18 @@ export class BusinessCardsService {
 					domain: websiteDomain,
 					website: extraction.website,
 					countryCode,
+					country: country.name,
 					ownerId: userId,
 				},
-				select: { id: true },
+				select: { id: true, country: true, countryCode: true },
 			});
+			if (!company.countryCode && !company.country && extraction.countryCode) {
+				company = await tx.company.update({
+					where: { id: company.id },
+					data: { countryCode, country: country.name },
+					select: { id: true, country: true, countryCode: true },
+				});
+			}
 			let contact = input.existingContactId
 				? await tx.contact.findFirst({
 						where: { id: input.existingContactId, archivedAt: null },

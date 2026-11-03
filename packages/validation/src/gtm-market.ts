@@ -28,6 +28,8 @@ export function companyInMarket(
 ) {
 	return (
 		company.countryCode?.toUpperCase() === countryCode ||
+		company.country?.trim().toUpperCase() === countryCode ||
+		(countryCode === "US" && company.country?.trim().toUpperCase() === "USA") ||
 		company.country?.trim().toLowerCase() ===
 			marketName(countryCode).toLowerCase()
 	);

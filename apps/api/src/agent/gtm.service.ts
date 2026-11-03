@@ -92,6 +92,10 @@ function marketCompanies(countryCode: string): Prisma.CompanyWhereInput {
 	return {
 		OR: [
 			{ countryCode: { equals: countryCode, mode: "insensitive" } },
+			{ country: { equals: countryCode, mode: "insensitive" } },
+			...(countryCode === "US"
+				? [{ country: { equals: "USA", mode: "insensitive" as const } }]
+				: []),
 			{ country: { equals: marketName(countryCode), mode: "insensitive" } },
 		],
 	};

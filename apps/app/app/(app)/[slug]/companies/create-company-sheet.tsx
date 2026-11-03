@@ -67,10 +67,12 @@ function CreateCompanyForm() {
 	);
 	const [name, setName] = useState("");
 	const [domain, setDomain] = useState("");
+	const [country, setCountry] = useState("");
 	const [ownerId, setOwnerId] = useState(UNASSIGNED);
 
 	const nameId = useId();
 	const domainId = useId();
+	const countryId = useId();
 
 	const users = useQuery(trpc.users.list.queryOptions());
 
@@ -82,6 +84,7 @@ function CreateCompanyForm() {
 				await setOpen(null);
 				setName("");
 				setDomain("");
+				setCountry("");
 				setOwnerId(UNASSIGNED);
 				openRecord({ kind: "company", id: company.id });
 			},
@@ -111,6 +114,7 @@ function CreateCompanyForm() {
 						create.mutate({
 							name,
 							domain: domain || undefined,
+							country: country || undefined,
 							ownerId: ownerId === UNASSIGNED ? null : ownerId,
 						});
 					}}
@@ -126,6 +130,19 @@ function CreateCompanyForm() {
 								autoComplete="off"
 								required
 							/>
+						</Field>
+
+						<Field>
+							<FieldLabel htmlFor={countryId}>Country</FieldLabel>
+							<Input
+								id={countryId}
+								value={country}
+								placeholder="India or IN"
+								onChange={(event) => setCountry(event.target.value)}
+							/>
+							<FieldDescription>
+								Country names and codes are standardized when saved.
+							</FieldDescription>
 						</Field>
 
 						<Field>

@@ -13,6 +13,7 @@
 		"./business-card": "./src/business-card.ts",
 		"./chat-agent-run": "./src/chat-agent-run.ts",
 		"./closely": "./src/closely.ts",
+		"./country": "./src/country.ts",
 		"./enrichment-queue": "./src/enrichment-queue.ts",
 		"./email-message": "./src/email-message.ts",
 		"./eve-stream": "./src/eve-stream.ts",

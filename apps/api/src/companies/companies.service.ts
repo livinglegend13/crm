@@ -7,6 +7,7 @@ import {
 } from "@crm/db";
 import { OPEN_DEAL_STAGES } from "@crm/db/deal-stage";
 import type { FieldDefinitionWithOptions } from "@crm/db/fields";
+import { normalizeCountry } from "@crm/validation/country";
 import {
 	BadRequestException,
 	ConflictException,
@@ -308,6 +309,10 @@ export class CompaniesService {
 
 	async create(input: CompanyCreateInput) {
 		const domain = normalizeDomain(input.domain);
+		const country = normalizeCountry(input.country);
+		if (input.country && !country) {
+			throw new BadRequestException("Enter a valid country name or code.");
+		}
 
 		if (domain) {
 			const existing = await this.db.company.findFirst({
@@ -327,6 +332,8 @@ export class CompaniesService {
 					name: input.name.trim(),
 					domain,
 					website: domain ? `https://${domain}` : null,
+					country: country?.name ?? null,
+					countryCode: country?.code ?? null,
 					ownerId: input.ownerId ?? null,
 				},
 				select: { id: true, name: true, domain: true, createdAt: true },
@@ -368,7 +375,14 @@ export class CompaniesService {
 		if (input.stateCode !== undefined) {
 			data.stateCode = blankToNull(input.stateCode);
 		}
-		if (input.country !== undefined) data.country = blankToNull(input.country);
+		if (input.country !== undefined) {
+			const country = normalizeCountry(input.country);
+			if (input.country && !country) {
+				throw new BadRequestException("Enter a valid country name or code.");
+			}
+			data.country = country?.name ?? null;
+			data.countryCode = country?.code ?? null;
+		}
 		if (input.phone !== undefined) data.phone = blankToNull(input.phone);
 		if (input.email !== undefined) data.email = blankToNull(input.email);
 		if (input.linkedinUrl !== undefined) {

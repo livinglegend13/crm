@@ -443,6 +443,12 @@ function CompanyOverview({ company }: { company: Company }) {
 								value={company.country}
 								saving={isSaving("country")}
 								onSave={(country) => save({ country })}
+								suggestion={
+									<p className="text-muted-foreground text-xs">
+										Enter a country name or code. IN becomes India; US becomes
+										United States.
+									</p>
+								}
 							/>
 							<InlineSelectField
 								label="Owner"
