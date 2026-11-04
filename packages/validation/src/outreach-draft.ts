@@ -4,6 +4,8 @@ import { campaignAgentRunInput } from "./gtm";
 
 export const outreachDraft = z.object({
 	runId: z.string(),
+	ownerName: z.string(),
+	canRegenerate: z.boolean(),
 	agentId: z.string(),
 	agentName: z.string(),
 	recipientEmail: z.string().nullable(),

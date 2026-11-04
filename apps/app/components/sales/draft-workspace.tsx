@@ -337,7 +337,7 @@ function DraftEditor({
 					</Badge>
 				</div>
 				<p className="mt-1 text-muted-foreground text-xs">
-					{draft.agentName} · Created{" "}
+					{draft.agentName} · {draft.ownerName} · Created{" "}
 					{new Date(draft.createdAt).toLocaleString("en-IN")}
 				</p>
 			</div>
@@ -540,7 +540,10 @@ function DraftEditor({
 					type="button"
 					variant="outline"
 					disabled={
-						contentChanged || pointers.trim().length < 3 || regenerate.isPending
+						!draft.canRegenerate ||
+						contentChanged ||
+						pointers.trim().length < 3 ||
+						regenerate.isPending
 					}
 					onClick={() =>
 						regenerate.mutate({

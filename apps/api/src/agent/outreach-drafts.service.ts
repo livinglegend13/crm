@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+	isWorkspaceAdmin,
 	MICROSOFT_PROVIDER_ID,
 	OUTLOOK_MAIL_SCOPE,
 	OUTLOOK_READ_SHARED_SCOPE,
@@ -92,6 +93,26 @@ export class OutreachDraftsService {
 		private readonly microsoft: MicrosoftConnectionService,
 		private readonly trigger: AgentTriggerService,
 	) {}
+
+	private async draftOwner(userId: string, runId: string) {
+		const role = await this.access.assertMember(userId);
+		const run = await this.db.agentRun.findFirst({
+			where: {
+				id: runId,
+				agentId: GTM.outboundAgentId,
+				status: "SUCCEEDED",
+				agent: { status: { not: "DELETED" } },
+			},
+			select: { initiatedById: true },
+		});
+		if (
+			!run?.initiatedById ||
+			(run.initiatedById !== userId && !isWorkspaceAdmin(role))
+		) {
+			throw new NotFoundException("This outreach draft is unavailable.");
+		}
+		return run.initiatedById;
+	}
 
 	async regenerate(userId: string, input: RegenerateOutreachDraftInput) {
 		await this.access.assertMember(userId);
@@ -277,10 +298,10 @@ export class OutreachDraftsService {
 	}
 
 	async list(userId: string) {
-		await this.access.assertMember(userId);
+		const role = await this.access.assertMember(userId);
 		const runs = await this.db.agentRun.findMany({
 			where: {
-				initiatedById: userId,
+				...(isWorkspaceAdmin(role) ? {} : { initiatedById: userId }),
 				agentId: GTM.outboundAgentId,
 				status: "SUCCEEDED",
 				agent: { status: { not: "DELETED" } },
@@ -293,6 +314,8 @@ export class OutreachDraftsService {
 				input: true,
 				summary: true,
 				createdAt: true,
+				initiatedById: true,
+				initiatedBy: { select: { name: true } },
 				agent: { select: { id: true, name: true } },
 			},
 		});
@@ -303,13 +326,15 @@ export class OutreachDraftsService {
 			return fields ? [{ run, result, fields }] : [];
 		});
 		const edits = await this.db.outreachDraft.findMany({
-			where: { userId, runId: { in: originals.map(({ run }) => run.id) } },
+			where: { runId: { in: originals.map(({ run }) => run.id) } },
 		});
 		const editsByRunId = new Map(edits.map((edit) => [edit.runId, edit]));
 		return originals.map(({ run, result, fields }) => {
 			const edit = editsByRunId.get(run.id);
 			return {
 				runId: run.id,
+				ownerName: run.initiatedBy?.name ?? "Former user",
+				canRegenerate: run.initiatedById === userId,
 				agentId: run.agent.id,
 				agentName: run.agent.name,
 				recipientEmail:
@@ -351,12 +376,12 @@ export class OutreachDraftsService {
 	}
 
 	async save(userId: string, input: SaveOutreachDraftInput) {
-		await this.access.assertMember(userId);
+		const ownerId = await this.draftOwner(userId, input.runId);
 		const run = await this.db.agentRun.findFirst({
 			where: {
 				id: input.runId,
 				agentId: GTM.outboundAgentId,
-				initiatedById: userId,
+				initiatedById: ownerId,
 				status: "SUCCEEDED",
 				agent: { status: { not: "DELETED" } },
 			},
@@ -394,7 +419,7 @@ export class OutreachDraftsService {
 					)
 				: withOutreachSignature(input.body, input.senderEmail);
 		const existing = await this.db.outreachDraft.findUnique({
-			where: { runId_userId: { runId: run.id, userId } },
+			where: { runId_userId: { runId: run.id, userId: ownerId } },
 		});
 		if (existing && !["DRAFT", "APPROVED"].includes(existing.status)) {
 			throw new ConflictException(
@@ -431,7 +456,7 @@ export class OutreachDraftsService {
 			: await this.db.outreachDraft.create({
 					data: {
 						runId: run.id,
-						userId,
+						userId: ownerId,
 						recipientEmail: input.recipientEmail || null,
 						subject: input.subject,
 						body,
@@ -440,6 +465,13 @@ export class OutreachDraftsService {
 				});
 		return {
 			runId: run.id,
+			ownerName: (
+				await this.db.user.findUniqueOrThrow({
+					where: { id: ownerId },
+					select: { name: true },
+				})
+			).name,
+			canRegenerate: ownerId === userId,
 			agentId: run.agent.id,
 			agentName: run.agent.name,
 			recipientEmail: edit.recipientEmail,
@@ -459,14 +491,14 @@ export class OutreachDraftsService {
 	}
 
 	async approve(userId: string, input: ApproveOutreachDraftInput) {
-		await this.access.assertMember(userId);
+		const ownerId = await this.draftOwner(userId, input.runId);
 		const edit = await this.db.outreachDraft.findFirst({
 			where: {
 				runId: input.runId,
-				userId,
+				userId: ownerId,
 				run: {
 					agentId: GTM.outboundAgentId,
-					initiatedById: userId,
+					initiatedById: ownerId,
 					status: "SUCCEEDED",
 					agent: { status: { not: "DELETED" } },
 				},
@@ -542,6 +574,13 @@ export class OutreachDraftsService {
 		});
 		return {
 			runId: approved.runId,
+			ownerName: (
+				await this.db.user.findUniqueOrThrow({
+					where: { id: ownerId },
+					select: { name: true },
+				})
+			).name,
+			canRegenerate: ownerId === userId,
 			agentId: edit.run.agent.id,
 			agentName: edit.run.agent.name,
 			recipientEmail: approved.recipientEmail,
@@ -561,7 +600,7 @@ export class OutreachDraftsService {
 	}
 
 	async send(userId: string, input: SendOutreachDraftInput) {
-		await this.access.assertMember(userId);
+		const ownerId = await this.draftOwner(userId, input.runId);
 		if (process.env.OUTREACH_SENDING_ENABLED !== "true") {
 			throw new ConflictException(
 				"Sending is paused until sender-domain DKIM is ready.",
@@ -570,7 +609,7 @@ export class OutreachDraftsService {
 		const draft = await this.db.outreachDraft.findFirst({
 			where: {
 				runId: input.runId,
-				userId,
+				userId: ownerId,
 				status: "APPROVED",
 				run: { agentId: GTM.outboundAgentId },
 			},
@@ -589,7 +628,7 @@ export class OutreachDraftsService {
 			throw new ConflictException("Approve this draft before sending.");
 		if (
 			draft.updatedAt.toISOString() !== input.expectedUpdatedAt ||
-			draft.run.initiatedById !== userId ||
+			draft.run.initiatedById !== ownerId ||
 			draft.run.status !== "SUCCEEDED" ||
 			draft.run.agent.status === "DELETED"
 		) {
